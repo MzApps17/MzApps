@@ -12,19 +12,15 @@ export default function LoginPage() {
   const [checking, setChecking] = useState(true)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // LOGIN TAWN CHUAN HOME AH AUTO LUT
   useEffect(()=>{
     const savedUser = localStorage.getItem('mz_user')
     if(savedUser){
-      // Online leh ang
       localStorage.setItem('mz_online', 'true')
       localStorage.setItem('mz_lastSeen', new Date().toISOString())
       router.replace('/home')
     } else {
       setChecking(false)
     }
-
-    // APP CLOSE CHUAN OFFLINE ANGIIN AWM - WHATSAPP ANG
     const goOffline = () => {
       localStorage.setItem('mz_online', 'false')
       localStorage.setItem('mz_lastSeen', new Date().toISOString())
@@ -34,16 +30,12 @@ export default function LoginPage() {
         localStorage.setItem('mz_online', 'true')
       }
     }
-
     window.addEventListener('beforeunload', goOffline)
     document.addEventListener('visibilitychange', ()=>{
       if(document.hidden) goOffline()
       else goOnline()
     })
-
-    return ()=>{
-      window.removeEventListener('beforeunload', goOffline)
-    }
+    return ()=>{ window.removeEventListener('beforeunload', goOffline) }
   },[])
 
   const handlePic = (e:any) => {
@@ -65,15 +57,12 @@ export default function LoginPage() {
         <h1 style={{fontWeight:'900', fontSize:'32px', margin:'5px 0', letterSpacing:'-1px'}}>MzApps</h1>
         <p style={{fontWeight:'700', color:'#999', fontSize:'14px', letterSpacing:'1px'}}>MIZO SOCIAL APP</p>
       </div>
-
       <div style={{width:'100%', maxWidth:'360px', background:'#fff', borderRadius:'28px', padding:'28px', boxShadow:'0 10px 40px rgba(0,0,0,0.08)', border:'1px solid #f0f0f0'}}>
-
         <div style={{display:'flex', gap:'8px', marginBottom:'24px'}}>
           <div style={{flex:1, height:'4px', borderRadius:'10px', background: step>=1? '#111' : '#eee'}}></div>
           <div style={{flex:1, height:'4px', borderRadius:'10px', background: step>=2? '#111' : '#eee'}}></div>
           <div style={{flex:1, height:'4px', borderRadius:'10px', background: step>=3? '#111' : '#eee'}}></div>
         </div>
-
         {step === 1 && (
           <>
             <div style={{fontWeight:'900', fontSize:'20px'}}>Phone Number</div>
@@ -85,7 +74,6 @@ export default function LoginPage() {
             <button onClick={()=> phone.length===10 && setStep(2)} disabled={phone.length!==10} style={{width:'100%', marginTop:'18px', padding:'16px', borderRadius:'16px', background: phone.length===10? '#111' : '#ccc', color:'#fff', fontWeight:'900', fontSize:'15px', border:'none'}}>GET OTP ➔</button>
           </>
         )}
-
         {step === 2 && (
           <>
             <div style={{fontWeight:'900', fontSize:'20px'}}>OTP Code</div>
@@ -95,7 +83,6 @@ export default function LoginPage() {
             <button onClick={()=>setStep(1)} style={{width:'100%', marginTop:'10px', background:'none', border:'none', fontWeight:'800', color:'#999', fontSize:'13px'}}>← Phone thlak</button>
           </>
         )}
-
         {step === 3 && (
           <>
             <div style={{fontWeight:'900', fontSize:'20px', textAlign:'center'}}>Profile Siam rawh</div>
@@ -130,4 +117,4 @@ export default function LoginPage() {
       </div>
     </div>
   )
-}
+            }
