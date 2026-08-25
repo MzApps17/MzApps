@@ -6,41 +6,11 @@ export default function Footer() {
   const pathname = usePathname()
 
   const tabs = [
-    { 
-      name: 'Home', 
-      path: '/home', 
-      icon: '🏠',
-      activeColor: '#000',
-      bg: '#FFF3E0'
-    },
-    { 
-      name: 'Chat', 
-      path: '/chat', 
-      icon: '💬',
-      activeColor: '#000',
-      bg: '#E8F5E9'
-    },
-    { 
-      name: 'Status', 
-      path: '/status', 
-      icon: '⭕',
-      activeColor: '#000',
-      bg: '#FCE4EC'
-    },
-    { 
-      name: 'Online', 
-      path: '/online', 
-      icon: '🟢',
-      activeColor: '#000',
-      bg: '#E8F5E9'
-    },
-    { 
-      name: 'Profile', 
-      path: '/profile', 
-      icon: '👤',
-      activeColor: '#000',
-      bg: '#E3F2FD'
-    },
+    { name: 'Home', path: '/home', icon: '🏠', bg: '#FFF3E0' },
+    { name: 'Chat', path: '/chat', icon: '💬', bg: '#E8F5E9' },
+    { name: 'Status', path: '/status', icon: '⭕', bg: '#FCE4EC' },
+    { name: 'Online', path: '/online', icon: '🟢', bg: '#E8F5E9' },
+    { name: 'Profile', path: '/profile', icon: '👤', bg: '#E3F2FD' },
   ]
 
   return (
@@ -54,7 +24,7 @@ export default function Footer() {
       display: 'flex',
       justifyContent: 'space-around',
       alignItems: 'center',
-      padding: '10px 0 12px 0',
+      padding: '6px 0 8px 0',
       zIndex: 999,
     }}>
       {tabs.map((tab) => {
@@ -68,21 +38,20 @@ export default function Footer() {
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: '4px',
+              gap: '3px',
             }}
           >
             <div
               style={{
-                width: '52px',
-                height: '52px',
-                borderRadius: '16px',
+                width: '38px',
+                height: '38px',
+                borderRadius: '12px',
                 background: tab.bg,
-                border: isActive ? '3px solid #111111' : '3px solid transparent',
+                border: isActive ? '2.5px solid #111111' : '2px solid transparent',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '26px',
-                fontWeight: 'bold',
+                fontSize: '20px',
               }}
             >
               {tab.icon}
@@ -90,11 +59,11 @@ export default function Footer() {
             <span
               style={{
                 fontWeight: '900',
-                fontSize: '11px',
+                fontSize: '13px',
                 letterSpacing: '0.5px',
                 textTransform: 'uppercase',
                 color: isActive ? '#111111' : '#9E9E9E',
-                fontFamily: 'Arial, sans-serif',
+                fontFamily: 'Arial Black, Arial, sans-serif',
               }}
             >
               {tab.name}
