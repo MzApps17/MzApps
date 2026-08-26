@@ -9,7 +9,7 @@ import { useTheme } from "./components/ThemeProvider";
 
 const EMAILJS_SERVICE_ID = "service_mizochatapps"
 const EMAILJS_TEMPLATE_ID = "template_u8any4c"
-const EMAILJS_PUBLIC_KEY = "nwa9O5wrEUf8fKcUf" // Heihi i Public Key dik takin thlak rawh! Account > General ah en rawh
+const EMAILJS_PUBLIC_KEY = "nwa9O5wrEUf8fKcUf"
 
 function CustomAlert({ msg, onClose }: { msg: string, onClose: () => void }) {
   if (!msg) return null
@@ -37,16 +37,6 @@ export default function LoginPage() {
   const [showLang, setShowLang] = useState(false);
   const [langSearch, setLangSearch] = useState("");
   const { fontSize } = useTheme();
-
-  // FIX: "/" ah chauh redirect - Profile ah chuan redirect lo!
-  useEffect(()=>{
-    const unsub = onAuthStateChanged(auth, (u)=>{
-      if(u && typeof window!== "undefined" && window.location.pathname === "/"){
-        router.replace("/home");
-      }
-    });
-    return ()=>unsub();
-  },[router]);
 
   const handleSend = async()=>{
     if(!email.includes("@")){ setAlertMsg("Email dik lo"); return; }
@@ -111,4 +101,4 @@ export default function LoginPage() {
       {step==="profile"&&(<div style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",alignItems:"center"}}><label style={{width:110,height:110,borderRadius:55,background:"#f3f4f6",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",border:"2px dashed #7c3aed"}}>{picBase64? <img src={picBase64} style={{width:"100%",height:"100%",objectFit:"cover"}}/> : <span style={{fontSize:40}}>📷</span>}<input type="file" accept="image/*" hidden onChange={onFileChange}/></label><input value={name} onChange={(e)=>setName(e.target.value)} placeholder={t.enterName} style={{width:"100%",border:"none",borderBottom:"2px solid #ccc",textAlign:"center",padding:"10px",margin:"20px 0", outline:"none"}}/><button onClick={handleProfileSave} style={{width:"100%",background:"#7c3aed",color:"white",border:"none",borderRadius:18,padding:"16px",fontWeight:700}}>{t.continue}</button></div>)}
     </div>
   );
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         }
+}
