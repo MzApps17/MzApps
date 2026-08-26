@@ -1,145 +1,189 @@
-'use client'
-export const dynamic = 'force-dynamic'
-
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth'
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { auth, db } from '@firebase/config'
+"use client";
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { auth } from "@/lib/firebase";
+import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
 
 const countries = [
-  { code: '+91', name: 'India', flag: '🇮🇳' },
-  { code: '+880', name: 'Bangladesh', flag: '🇧🇩' },
-  { code: '+95', name: 'Myanmar', flag: '🇲🇲' },
-  { code: '+977', name: 'Nepal', flag: '🇳🇵' },
-  { code: '+1', name: 'USA', flag: '🇺🇸' },
-  { code: '+44', name: 'UK', flag: '🇬🇧' },
-]
+  { code: "+91", flag: "🇮🇳", name: "India" },
+  { code: "+880", flag: "🇧🇩", name: "Bangladesh" },
+  { code: "+95", flag: "🇲🇲", name: "Myanmar" },
+  { code: "+977", flag: "🇳🇵", name: "Nepal" },
+  { code: "+1", flag: "🇺🇸", name: "USA" },
+  { code: "+44", flag: "🇬🇧", name: "UK" },
+  { code: "+971", flag: "🇦🇪", name: "UAE" },
+];
 
 export default function LoginPage() {
-  const router = useRouter()
-  const [countryCode, setCountryCode] = useState('+91')
-  const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState('')
-  const [step, setStep] = useState<'phone' | 'otp'>('phone')
-  const [loading, setLoading] = useState(false)
-  const [confirmResult, setConfirmResult] = useState<any>(null)
-  const [showCountry, setShowCountry] = useState(false)
-  const [error, setError] = useState('')
-  const [focused, setFocused] = useState(false)
-  const recaptchaRef = useRef<any>(null)
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [country, setCountry] = useState(countries[0]);
+  const [showCountry, setShowCountry] = useState(false);
+  const [step, setStep] = useState<"phone" | "otp">("phone");
+  const [loading, setLoading] = useState(false);
+  const [confirmation, setConfirmation] = useState<any>(null);
+  const router = useRouter();
+  const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    const uid = localStorage.getItem('mz_uid')
-    if (uid) router.replace('/users')
-    if (typeof window !== 'undefined' && !recaptchaRef.current) {
-      recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' })
+    if (!(window as any).recaptchaVerifier) {
+      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+        size: "invisible",
+      });
     }
-  }, [])
+  }, []);
 
-  const sendOtp = async () => {
-    if (phone.length < 7) { setError('Please enter a valid phone number'); return }
-    setError(''); setLoading(true)
-    try {
-      const fullPhone = `${countryCode}${phone.replace(/\s/g, '')}`
-      const result = await signInWithPhoneNumber(auth, fullPhone, recaptchaRef.current)
-      setConfirmResult(result)
-      setStep('otp')
-    } catch (err: any) {
-      let msg = err.message
-      if (msg.includes('operation-not-allowed')) msg = 'SMS region not enabled. Go to Firebase > Auth > Settings > SMS Region Policy and enable India.'
-      if (msg.includes('invalid-phone')) msg = 'Invalid phone number format.'
-      setError(msg)
-      try { recaptchaRef.current?.clear(); recaptchaRef.current = null } catch {}
-      recaptchaRef.current = new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' })
+  // Auto focus first OTP box
+  useEffect(() => {
+    if (step === "otp") {
+      inputsRef.current[0]?.focus();
     }
-    setLoading(false)
-  }
+  }, [step]);
 
-  const verifyOtp = async () => {
-    if (otp.length !== 6) { setError('Enter 6-digit OTP'); return }
-    setError(''); setLoading(true)
+  const handleSend = async () => {
+    if (!phone) return;
+    setLoading(true);
     try {
-      const res = await confirmResult.confirm(otp)
-      const user = res.user
-      const fullPhone = `${countryCode}${phone}`
-      localStorage.setItem('mz_uid', user.uid)
-      localStorage.setItem('mz_phone', fullPhone)
-      await setDoc(doc(db, 'users', user.uid), { uid: user.uid, phone: fullPhone, country: countryCode, name: fullPhone, createdAt: serverTimestamp(), lastSeen: serverTimestamp() }, { merge: true })
-      router.replace('/users')
-    } catch { setError('Invalid OTP. Please try again.') }
-    setLoading(false)
-  }
+      const fullPhone = country.code + phone;
+      const appVerifier = (window as any).recaptchaVerifier;
+      const conf = await signInWithPhoneNumber(auth, fullPhone, appVerifier);
+      setConfirmation(conf);
+      setStep("otp");
+    } catch (e: any) {
+      alert(e.message);
+    }
+    setLoading(false);
+  };
 
-  const selected = countries.find(c => c.code === countryCode)
+  const handleOtpChange = (value: string, index: number) => {
+    if (!/^\d*$/.test(value)) return;
+    const newOtp = [...otp];
+    newOtp[index] = value.slice(-1);
+    setOtp(newOtp);
+    if (value && index < 5) {
+      inputsRef.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
+    if (e.key === "Backspace" &&!otp[index] && index > 0) {
+      inputsRef.current[index - 1]?.focus();
+    }
+  };
+
+  const handleVerify = async () => {
+    const code = otp.join("");
+    if (code.length!== 6) return;
+    setLoading(true);
+    try {
+      await confirmation.confirm(code);
+      router.push("/home"); // 5. Users list ah nilo, Home ah a lut
+    } catch (e: any) {
+      alert("Invalid OTP");
+    }
+    setLoading(false);
+  };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '70px' }}>
+    <div className="min-h-screen bg-white flex flex-col items-center px-6 pt-20">
       <div id="recaptcha-container"></div>
 
-      <h1 style={{ fontSize: '32px', fontWeight: '900', letterSpacing: '-1px' }}>Mz<span style={{ color: '#7C3AED' }}>Chat</span></h1>
-      <p style={{ color: '#888', marginTop: '6px', fontSize: '14px' }}>Worldwide login</p>
+      {/* 1. MzChat nilo in MzApps + Chat icon lian */}
+      <div className="flex flex-col items-center mb-12">
+        <div className="w-20 h-20 bg-gradient-to-br from-violet-500 to-purple-600 rounded-3xl flex items-center justify-center mb-4 shadow-lg shadow-purple-200">
+          <span className="text-4xl">💬</span>
+        </div>
+        <h1 className="text-4xl font-bold">
+          <span className="text-black">Mz</span>
+          <span className="text-violet-600">Apps</span>
+        </h1>
+      </div>
 
-      <div style={{ width: '90%', maxWidth: '380px', marginTop: '36px' }}>
-        {/* Error box - mawi deuh */}
-        {error && (
-          <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', padding: '12px 14px', borderRadius: '12px', fontSize: '13px', marginBottom: '16px', lineHeight: '1.4' }}>
-            {error}
-          </div>
-        )}
-
-        {step === 'phone' ? (
-          <>
-            <label style={{ fontSize: '13px', fontWeight: '600', color: '#222' }}>Phone Number</label>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-              <button onClick={() => setShowCountry(!showCountry)} style={{ height: '50px', minWidth: '102px', border: `1.5px solid ${showCountry ? '#7C3AED' : '#E5E7EB'}`, borderRadius: '12px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: '700', cursor:'pointer' }}>
-                <span>{selected?.flag}</span> {countryCode} <span style={{ fontSize: '10px' }}>▼</span>
+      {step === "phone"? (
+        <>
+          <div className="w-full max-w-sm">
+            <p className="text-sm font-semibold mb-2">Phone Number</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCountry(!showCountry)}
+                className="flex items-center gap-2 border-2 border-violet-500 rounded-2xl px-4 py-3.5 font-semibold"
+              >
+                {country.flag} {country.code} <span className="text-xs">▼</span>
               </button>
-              <div style={{ flex: 1, position: 'relative' }}>
-                <input
-                  value={phone}
-                  onChange={e => setPhone(e.target.value.replace(/[^0-9]/g, ''))}
-                  onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-                  placeholder="Enter phone number"
-                  type="tel"
-                  style={{ width: '100%', height: '50px', border: `1.5px solid ${focused ? '#7C3AED' : '#E5E7EB'}`, borderRadius: '12px', padding: '0 16px', outline: 'none', fontSize: '16px', transition:'0.2s', boxShadow: focused ? '0 0 0 3px #F5F3FF' : 'none' }}
-                />
-                {focused && phone.length > 0 && (
-                  <div style={{ position: 'absolute', right: '12px', top: '16px', width: '18px', height: '18px', border: '2px solid #E5E7EB', borderTopColor: '#7C3AED', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}></div>
-                )}
-              </div>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                placeholder="7005697815"
+                className="flex-1 border border-gray-200 rounded-2xl px-4 py-3.5 outline-none focus:border-violet-500"
+              />
             </div>
 
             {showCountry && (
-              <div style={{ marginTop: '10px', border: '1px solid #eee', borderRadius: '12px', maxHeight: '220px', overflowY: 'auto', background:'#fff', boxShadow:'0 10px 30px rgba(0,0,0,0.08)' }}>
-                {countries.map(c => (
-                  <div key={c.code} onClick={() => { setCountryCode(c.code); setShowCountry(false) }} style={{ padding: '13px 14px', display: 'flex', gap: '10px', cursor: 'pointer', background: c.code === countryCode ? '#F5F3FF' : '#fff' }}>
-                    <span>{c.flag}</span><b>{c.code}</b><span style={{ color: '#666' }}>{c.name}</span>
-                  </div>
+              <div className="mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden">
+                {countries.map((c) => (
+                  <button
+                    key={c.code}
+                    onClick={() => {
+                      setCountry(c);
+                      setShowCountry(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 hover:bg-violet-50 text-left"
+                  >
+                    <span>{c.flag}</span> <b>{c.code}</b> <span className="text-gray-500">{c.name}</span>
+                  </button>
                 ))}
               </div>
             )}
+          </div>
 
-            <button onClick={sendOtp} disabled={loading} style={{ width: '100%', height: '52px', marginTop: '20px', background: '#7C3AED', color: '#fff', border: 'none', borderRadius: '14px', fontWeight: '700', fontSize: '15px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px', opacity: loading?0.8:1 }}>
-              {loading ? <><div style={{ width:'18px', height:'18px', border:'2px solid #fff', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.7s linear infinite' }}></div> Sending OTP...</> : 'Send OTP'}
-            </button>
-          </>
-        ) : (
-          <>
-            <label style={{ fontSize: '13px', fontWeight: '600' }}>Enter OTP sent to {countryCode} {phone}</label>
-            <input value={otp} onChange={e => { setOtp(e.target.value.replace(/[^0-9]/g, '')); setError('') }} placeholder="000000" maxLength={6} style={{ width: '100%', height: '54px', marginTop: '8px', border: '1.5px solid #E5E7EB', borderRadius: '12px', padding: '0 16px', outline: 'none', fontSize: '22px', letterSpacing: '10px', textAlign: 'center', fontWeight: '800' }} />
-            <button onClick={verifyOtp} disabled={loading} style={{ width: '100%', height: '52px', marginTop: '16px', background: '#111', color: '#fff', border: 'none', borderRadius: '14px', fontWeight: '700', fontSize: '15px', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px' }}>
-              {loading ? <><div style={{ width:'18px', height:'18px', border:'2px solid #fff', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.7s linear infinite' }}></div> Verifying...</> : 'Verify & Continue'}
-            </button>
-            <button onClick={() => { setStep('phone'); setError('') }} style={{ width: '100%', marginTop: '12px', background: 'transparent', border: 'none', color: '#666', fontSize: '13px', cursor:'pointer' }}>← Change number</button>
-          </>
-        )}
-      </div>
+          <button
+            onClick={handleSend}
+            disabled={loading}
+            className="w-full max-w-sm mt-6 bg-[#7c3aed] hover:bg-[#6d28d9] text-white rounded-2xl py-4 font-semibold text-lg disabled:opacity-50"
+          >
+            {loading? "Sending..." : "Send OTP"}
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="w-full max-w-sm">
+            <p className="text-sm font-bold mb-4">Enter OTP sent to {country.code} {phone}</p>
 
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .grecaptcha-badge { visibility: hidden !important; }
-      `}</style>
+            {/* 2. OTP input | cursor a hmasa ber atanga phei zel */}
+            <div className="flex justify-between gap-2 mb-6">
+              {otp.map((digit, i) => (
+                <input
+                  key={i}
+                  ref={(el) => { inputsRef.current[i] = el; }}
+                  value={digit}
+                  onChange={(e) => handleOtpChange(e.target.value, i)}
+                  onKeyDown={(e) => handleKeyDown(e, i)}
+                  maxLength={1}
+                  className="w-12 h-14 text-center text-xl font-bold border-2 border-gray-200 rounded-xl focus:border-violet-500 outline-none"
+                  placeholder="0"
+                />
+              ))}
+            </div>
+
+            {/* 3. Verify & Continue button pawl */}
+            <button
+              onClick={handleVerify}
+              disabled={loading}
+              className="w-full bg-[#7c3aed] hover:bg-[#6d28d9] text-white rounded-2xl py-4 font-semibold text-lg disabled:opacity-50"
+            >
+              {loading? "Verifying..." : "Verify & Continue"}
+            </button>
+
+            {/* 4. Change phone number button dum */}
+            <button
+              onClick={() => setStep("phone")}
+              className="w-full mt-3 bg-black text-white rounded-2xl py-4 font-medium"
+            >
+              ← Change phone number
+            </button>
+          </div>
+        </>
+      )}
     </div>
-  )
-            }
+  );
+}
