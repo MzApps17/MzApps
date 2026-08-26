@@ -24,36 +24,41 @@ export default function Footer() {
       borderTop: theme==='dark'? '1px solid #333' : '1px solid #E5E7EB',
       display: 'grid',
       gridTemplateColumns: 'repeat(6, 1fr)',
-      padding: '3px 6px 2px 6px',
+      padding: '4px 6px 4px 6px',
       gap: '2px',
       zIndex: 999,
     }}>
       {tabs.map((tab) => {
         const isActive = pathname === tab.path || pathname.startsWith(tab.path + '/')
         return (
-          <Link key={tab.path} href={tab.path} style={{textDecoration: 'none'}}>
+          <Link key={tab.path} href={tab.path} style={{textDecoration: 'none', display:'flex', justifyContent:'center'}}>
             <div style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent:'center', gap: '3px',
+              // HIGHLIGHT ZIM - ding leh vei
               background: isActive? (theme==='dark'?'#2D1B4E':'#F3E8FF') : 'transparent',
-              borderBottom: isActive? '3px solid #7C3AED' : '3px solid transparent',
-              borderRadius: '10px',
-              padding: '5px 2px 3px 2px',
-              width:'100%',
+              borderRadius: '12px',
+              padding: isActive? '4px 10px' : '4px 2px',
+              width: isActive? 'auto' : '100%',
+              minWidth: isActive? '52px' : 'auto',
+              maxWidth: isActive? '62px' : '100%',
               boxSizing:'border-box',
+              borderBottom: 'none',
             }}>
               <div style={{
                 width:'28px', height:'28px', borderRadius:'7px',
-                background: isActive?'#7C3AED': (theme==='dark'?'#333':'#F3F4F6'),
+                // BUTTON COLOUR - zawng zawng highlight ang vek #7C3AED
+                background: '#7C3AED',
                 display:'flex', alignItems:'center', justifyContent:'center', fontSize:'15px', flexShrink:0
               }}>
-                <span style={{filter: isActive?'brightness(0) invert(1)':'none'}}>{tab.icon}</span>
+                <span style={{filter: 'brightness(0) invert(1)'}}>{tab.icon}</span>
               </div>
               <span style={{
-                fontWeight:'900', 
-                fontSize:'11.5px',
+                fontWeight: isActive? '900' : '700', 
+                fontSize:'11px',
                 lineHeight:'1',
                 letterSpacing:'0px',
-                color: isActive?'#7C3AED': (theme==='dark'?'#888':'#8B8B8B'),
+                // FONTS COLOUR - zawng zawng highlight ang vek #7C3AED
+                color: '#7C3AED',
                 whiteSpace:'nowrap'
               }}>{tab.name}</span>
             </div>
