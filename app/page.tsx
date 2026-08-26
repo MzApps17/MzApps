@@ -38,6 +38,13 @@ export default function LoginPage() {
   const [langSearch, setLangSearch] = useState("");
   const { fontSize } = useTheme();
 
+  // app/page.tsx useEffect hmasa ber ah
+useEffect(()=>{
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.getRegistrations().then(r=>r.forEach(reg=>reg.unregister()))
+  }
+},[])
+
   // RULE: Login sa tawh chuan /home ah tir nghal - App close pawn login sa
   useEffect(()=>{
     const saved = localStorage.getItem('mz_user') || localStorage.getItem('user')
