@@ -66,42 +66,42 @@ export default function LoginPage() {
   };
 
   return(
-    <div style={{height:"100dvh", width:"100vw", overflow:"hidden", position:"fixed", inset:0, background:"white", display:"flex", flexDirection:"column", alignItems:"center", padding:"60px 20px"}}>
-      <div id="recaptcha-container"></div>
-      <style>{`.grecaptcha-badge{visibility:hidden!important;display:none!important;}`}</style>
+    <div style={{height:"100dvh", width:"100%", overflow:"hidden", position:"fixed", inset:0, background:"white", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"20px", boxSizing:"border-box"}}>
+      <div id="recaptcha-container" style={{position:"absolute", left:"-9999px"}}></div>
+      <style>{`.grecaptcha-badge{visibility:hidden!important;display:none!important;opacity:0!important;}`}</style>
 
-      <div style={{display:"flex", flexDirection:"column", alignItems:"center", marginBottom:40, flexShrink:0}}>
+      <div style={{display:"flex", flexDirection:"column", alignItems:"center", marginBottom:40, flexShrink:0, width:"100%", maxWidth:360}}>
         <div style={{width:90,height:90,background:"#7c3aed",borderRadius:28,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:14,fontSize:42}}>💬</div>
         <h1 style={{fontSize:38,fontWeight:800,margin:0}}><span style={{color:"black"}}>Mz</span><span style={{color:"#7c3aed"}}>Apps</span></h1>
       </div>
 
       {step==="phone"&&(
-        <div style={{width:"100%",maxWidth:360}}>
+        <div style={{width:"100%",maxWidth:360, boxSizing:"border-box"}}>
           <p style={{fontSize:14,fontWeight:600,marginBottom:8}}>Phone Number</p>
-          <div style={{display:"flex",gap:10}}>
-            <button onClick={()=>setShowCountry(true)} style={{border:`2px solid #7c3aed`,borderRadius:16,padding:"10px 14px",fontWeight:700,background:"white",minWidth:70}}>{country.flag} {country.code}<div style={{fontSize:12}}>▼</div></button>
-            <input value={phone} onFocus={()=>setIsFocused(true)} onBlur={()=>setIsFocused(false)} onChange={(e)=>setPhone(e.target.value.replace(/\D/g,""))} placeholder="Enter your phone number" inputMode="numeric" style={{flex:1,border:`2px solid ${isFocused?"#7c3aed":"#e5e7eb"}`,borderRadius:16,padding:"14px 16px",outline:"none",fontSize:16}}/>
+          <div style={{display:"flex",gap:10, width:"100%"}}>
+            <button onClick={()=>setShowCountry(true)} style={{border:`2px solid #7c3aed`,borderRadius:16,padding:"10px 14px",fontWeight:700,background:"white",minWidth:78, flexShrink:0}}>{country.flag} {country.code}<div style={{fontSize:12}}>▼</div></button>
+            <input value={phone} onFocus={()=>setIsFocused(true)} onBlur={()=>setIsFocused(false)} onChange={(e)=>setPhone(e.target.value.replace(/\D/g,""))} placeholder="Enter your phone number" inputMode="numeric" style={{flex:1,border:`2px solid ${isFocused?"#7c3aed":"#e5e7eb"}`,borderRadius:16,padding:"14px 16px",outline:"none",fontSize:16, minWidth:0, boxSizing:"border-box"}}/>
           </div>
-          <button onClick={handleSend} style={{width:"100%",marginTop:22,background:"#7c3aed",color:"white",border:"none",borderRadius:18,padding:"16px",fontWeight:700}}>{loading?"Sending...":"Send OTP"}</button>
+          <button onClick={handleSend} style={{width:"100%",marginTop:22,background:"#7c3aed",color:"white",border:"none",borderRadius:18,padding:"16px",fontWeight:700, boxSizing:"border-box"}}>{loading?"Sending...":"Send OTP"}</button>
         </div>
       )}
 
       {step==="otp"&&(
-        <div style={{width:"100%",maxWidth:360}}>
-          <p style={{fontSize:14,fontWeight:700,marginBottom:16}}>Enter OTP sent to {country.code} {phone}</p>
+        <div style={{width:"100%",maxWidth:360, boxSizing:"border-box"}}>
+          <p style={{fontSize:14,fontWeight:700,marginBottom:16, textAlign:"center"}}>Enter OTP sent to {country.code} {phone}</p>
           <div style={{display:"flex",justifyContent:"center",gap:8,marginBottom:22}}>
             {otp.map((d,i)=><input key={i} ref={(el)=>{inputsRef.current[i]=el}} value={d} onChange={(e)=>handleOtpChange(e.target.value,i)} onKeyDown={(e)=>{if(e.key==="Backspace"&&!otp[i]&&i>0)inputsRef.current[i-1]?.focus()}} maxLength={1} inputMode="numeric" placeholder="0" style={{width:42,height:52,textAlign:"center",fontSize:18,fontWeight:700,border:"2px solid #e5e7eb",borderRadius:12,outline:"none"}}/>)}
           </div>
           <button onClick={handleVerify} style={{width:"100%",background:"#7c3aed",color:"white",border:"none",borderRadius:18,padding:"15px",fontWeight:700}}>{loading?"Verifying...":"Verify & Continue"}</button>
           <button onClick={()=>setStep("phone")} style={{width:"100%",marginTop:12,background:"black",color:"white",border:"none",borderRadius:18,padding:"15px",display:"flex",justifyContent:"center",gap:12,alignItems:"center",fontWeight:700}}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
             Change phone number
           </button>
         </div>
       )}
 
       {step==="profile"&&(
-        <div style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",alignItems:"center"}}>
+        <div style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",alignItems:"center", boxSizing:"border-box"}}>
           <p style={{fontWeight:800,fontSize:18,marginBottom:20}}>Setup your profile</p>
           <label style={{width:110,height:110,borderRadius:55,background:"#f3f4f6",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",cursor:"pointer",border:"2px dashed #7c3aed",marginBottom:16}}>
             {picBase64? <img src={picBase64} style={{width:"100%",height:"100%",objectFit:"cover"}}/> : <span style={{fontSize:40}}>📷</span>}
@@ -117,18 +117,22 @@ export default function LoginPage() {
 
       {showCountry&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"flex-start",justifyContent:"center",zIndex:50,paddingTop:20}}>
-          <div style={{background:"white",width:"95%",maxWidth:400,maxHeight:"85dvh",borderRadius:24,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-            <div style={{padding:"16px 16px 8px",background:"white",borderBottom:"1px solid #eee"}}>
-              <div style={{width:40,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 12px"}}/>
-              <input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search country or code e.g +91" autoFocus style={{width:"100%",border:"2px solid #7c3aed",borderRadius:12,padding:"12px 14px",outline:"none",fontSize:16}}/>
+          <div style={{background:"white",width:"95%",maxWidth:360,maxHeight:"85dvh",borderRadius:24,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+            <div style={{padding:"12px 12px 8px",background:"white",borderBottom:"1px solid #eee", display:"flex", flexDirection:"column", alignItems:"center"}}>
+              <div style={{width:36,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 10px"}}/>
+              {/* SEARCH TE ZAWK - LAIAH */}
+              <input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search country" autoFocus style={{width:"85%", border:"1.5px solid #7c3aed",borderRadius:10,padding:"9px 12px",outline:"none",fontSize:14, textAlign:"center"}}/>
             </div>
             <div style={{overflowY:"auto",flex:1}}>
-              {filtered.map(c=>(<button key={c.name+c.code} onClick={()=>{setCountry(c); setShowCountry(false); setSearch("");}} style={{width:"100%",display:"flex",gap:12,padding:"14px 20px",border:"none",background:"white",textAlign:"left",borderBottom:"1px solid #f5f5f5"}}><span>{c.flag}</span><b>{c.code}</b><span style={{color:"#555"}}>{c.name}</span></button>))}
+              {filtered.map(c=>(<button key={c.name+c.code} onClick={()=>{setCountry(c); setShowCountry(false); setSearch("");}} style={{width:"100%",display:"flex",gap:12,padding:"12px 16px",border:"none",background:"white",textAlign:"left",borderBottom:"1px solid #f5f5f5", fontSize:14}}><span>{c.flag}</span><b>{c.code}</b><span style={{color:"#555"}}>{c.name}</span></button>))}
             </div>
-            <button onClick={()=>setShowCountry(false)} style={{margin:12,background:"black",color:"white",border:"none",borderRadius:14,padding:"14px",fontWeight:700}}>Close</button>
+            {/* CLOSE BUTTON LAIAH */}
+            <div style={{display:"flex", justifyContent:"center", padding:"12px"}}>
+              <button onClick={()=>setShowCountry(false)} style={{minWidth:120, background:"black",color:"white",border:"none",borderRadius:12,padding:"10px 24px",fontWeight:700, fontSize:14}}>Close</button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
-                                                                                                                                                      }
+}
