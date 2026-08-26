@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/app/firebase/config";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import { useLanguage } from "./components/LanguageProvider";
 import { useTheme } from "./components/ThemeProvider";
@@ -38,13 +38,65 @@ export default function LoginPage() {
   const [langSearch, setLangSearch] = useState("");
   const { fontSize } = useTheme();
 
+  // RULE: Login sa tawh chuan /home ah tir nghal - App close pawn login sa
+  useEffect(()=>{
+    const saved = localStorage.getItem('mz_user') || localStorage.getItem('user')
+    if(saved && auth.currentUser){
+      router.replace("/home")
+    }
+    // Auth check
+    const unsub = onAuthStateChanged(auth, (u)=>{
+      if(u && localStorage.getItem('mz_user')){
+        // ONLINE tir
+        localStorage.setItem('mz_online','true')
+        setDoc(doc(db,"users",u.uid),{ isOnline:true, lastSeen: new Date() },{merge:true})
+      }
+    })
+
+    // RULE: App close chhung chu OFFLINE
+    const goOffline = () => {
+      const uid = auth.currentUser?.uid
+      localStorage.setItem('mz_online','false')
+      if(uid){
+        // sendBeacon ang deuh in - fast
+        navigator.sendBeacon && navigator.sendBeacon('/api/offline', JSON.stringify({uid}))
+        // fallback
+        setDoc(doc(db,"users",uid),{ isOnline:false, lastSeen: new Date() },{merge:true}).catch(()=>{})
+      }
+    }
+    window.addEventListener('beforeunload', goOffline)
+    window.addEventListener('pagehide', goOffline)
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.hidden) goOffline()
+      else {
+        const uid = auth.currentUser?.uid
+        if(uid){
+          localStorage.setItem('mz_online','true')
+          setDoc(doc(db,"users",uid),{ isOnline:true, lastSeen: new Date() },{merge:true}).catch(()=>{})
+        }
+      }
+    })
+    return ()=>{ unsub(); window.removeEventListener('beforeunload', goOffline); window.removeEventListener('pagehide', goOffline) }
+  },[])
+
   const handleSend = async()=>{
     if(!email.includes("@")){ setAlertMsg("Invalid email"); return; }
     setLoading(true);
     try{
       const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-      await setDoc(doc(db, "emailOtps", email), { otp: otpCode, createdAt: new Date().getTime() });
-      const res = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+      // CHAK: Local ah save hmasa
+      localStorage.setItem('mz_otp', otpCode)
+      localStorage.setItem('mz_otp_email', email)
+      localStorage.setItem('mz_otp_time', Date.now().toString())
+
+      // UI ah rang taka kal
+      setStep("otp");
+      setAlertMsg(`OTP sent to ${email}`);
+      setLoading(false);
+
+      // Firebase & Email chu hnung lamah - nghak lo
+      setDoc(doc(db, "emailOtps", email), { otp: otpCode, createdAt: new Date().getTime() }).catch(()=>{})
+      fetch("https://api.emailjs.com/api/v1.0/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -53,39 +105,77 @@ export default function LoginPage() {
           user_id: EMAILJS_PUBLIC_KEY,
           template_params: { to_email: email, otp_code: otpCode, to_name: "MzApps User" }
         })
-      });
-      if(res.ok){
-        setStep("otp");
-        setAlertMsg(`OTP sent to ${email} - Valid for 30 mins!`);
-      } else {
-        const txt = await res.text();
-        setAlertMsg("Failed to send email: " + txt);
-      }
-    }catch(e:any){ setAlertMsg(e.message); }
-    setLoading(false);
+      }).catch(()=>{})
+
+    }catch(e:any){ setAlertMsg(e.message); setLoading(false); }
   };
 
   const handleOtpChange = (v:string,i:number)=>{ const n=[...otp]; n[i]=v.slice(-1); setOtp(n); if(v&&i<5) inputsRef.current[i+1]?.focus(); };
 
+  // VERIFY CHAK BER
   const handleVerify = async()=>{
-    const code=otp.join(""); if(code.length!==6) return; setLoading(true);
-    const snap = await getDoc(doc(db, "emailOtps", email));
-    if(!snap.exists()){ setAlertMsg("OTP expired - Please resend"); setLoading(false); return; }
-    const data = snap.data();
-    const diff = new Date().getTime() - data.createdAt;
-    if(diff > 30*60*1000){ setAlertMsg("OTP expired (30 min)"); setLoading(false); return; }
-    if(data.otp!==code){ setAlertMsg("Invalid OTP"); setLoading(false); return; }
-    try{ await signInWithEmailAndPassword(auth, email, code+"MzApps2024!"); }
-    catch{ await createUserWithEmailAndPassword(auth, email, code+"MzApps2024!"); }
-    setStep("profile"); setLoading(false);
+    const code=otp.join(""); if(code.length!==6) return;
+    setLoading(true);
+
+    // 1. LOCAL OTP CHECK - CHAK (0.1 sec)
+    const localOtp = localStorage.getItem('mz_otp')
+    const localEmail = localStorage.getItem('mz_otp_email')
+
+    let isValid = false
+    if(localOtp && localEmail === email && localOtp === code){
+      isValid = true
+    } else {
+      // Fallback - Firestore check (muang deuh)
+      try{
+        const snap = await getDoc(doc(db, "emailOtps", email));
+        if(snap.exists()){
+          const data = snap.data();
+          const diff = new Date().getTime() - data.createdAt;
+          if(diff <= 30*60*1000 && data.otp === code) isValid = true
+        }
+      }catch{}
+    }
+
+    if(!isValid){ setAlertMsg("Invalid OTP"); setLoading(false); return; }
+
+    // 2. RANG TAKA LOGIN SA TIH - Firebase nghak lo!
+    localStorage.setItem('mz_user', email)
+    localStorage.setItem('user', email)
+    localStorage.setItem('mz_user_email', email)
+    localStorage.setItem('mz_online','true')
+    localStorage.setItem('isLoggedIn','true')
+    localStorage.removeItem('mz_logged_out')
+
+    // 3. PROFILE STEP AH TIR NGHAL - Verifying rei lo
+    setStep("profile");
+    setLoading(false);
+
+    // 4. Firebase Auth chu hnung lamah ti - a muang pawhin pawi lo
+    setTimeout(async()=>{
+      try{ await signInWithEmailAndPassword(auth, email, code+"MzApps2024!"); }
+      catch{ try{ await createUserWithEmailAndPassword(auth, email, code+"MzApps2024!"); }catch{} }
+    }, 100)
   };
 
   const onFileChange = (e:any)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=>setPicBase64(r.result as string); r.readAsDataURL(f); };
+
   const handleProfileSave = async()=>{
-    if(!name.trim()){ setAlertMsg("Please enter name"); return; } setLoading(true);
-    const user=auth.currentUser;
-    await setDoc(doc(db,"users",user!.uid),{ name:name.trim(), email, photoURL:picBase64||"", uid:user!.uid, isOnline:true, lastSeen:new Date() },{merge:true});
+    if(!name.trim()){ setAlertMsg("Please enter name"); return; }
+    setLoading(true);
+    // Local save hmasa
+    localStorage.setItem('mz_user_name', name.trim())
+    if(picBase64) localStorage.setItem('mz_pic', picBase64)
+
+    // Home ah tir nghal
     router.replace("/home");
+
+    // Firebase hnung lamah
+    setTimeout(async()=>{
+      const user=auth.currentUser;
+      if(user){
+        await setDoc(doc(db,"users",user.uid),{ name:name.trim(), email, photoURL:picBase64||"", uid:user.uid, isOnline:true, lastSeen:new Date() },{merge:true});
+      }
+    },100)
   };
 
   return(
@@ -114,4 +204,4 @@ export default function LoginPage() {
       )}
     </div>
   );
-}
+          }
