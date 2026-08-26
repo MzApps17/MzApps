@@ -1,4 +1,6 @@
 'use client'
+export const dynamic = 'force-dynamic'
+
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth'
@@ -34,8 +36,9 @@ export default function LoginPage() {
   }, [])
 
   const setupRecaptcha = () => {
+    if (typeof window === 'undefined') return null
     if ((window as any).recaptchaVerifier) {
-      (window as any).recaptchaVerifier.clear()
+      try { (window as any).recaptchaVerifier.clear() } catch {}
     }
     const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
       size: 'invisible',
@@ -49,14 +52,18 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const verifier = setupRecaptcha()
+      if(!verifier) throw new Error('Recaptcha error')
       const fullPhone = `${countryCode}${phone.replace(/\s/g, '')}`
       const result = await signInWithPhoneNumber(auth, fullPhone, verifier)
       setConfirmResult(result)
       setStep('otp')
-      alert(`OTP thawn a ni e - ${fullPhone} ah`)
     } catch (err: any) {
       console.error(err)
-      alert(err.message)
+      alert('Error: ' + err.message + '\nVercel Env a awm em check rawh!')
+      if ((window as any).recaptchaVerifier) {
+        (window as any).recaptchaVerifier.clear()
+        ;(window as any).recaptchaVerifier = null
+      }
     }
     setLoading(false)
   }
@@ -109,7 +116,7 @@ export default function LoginPage() {
             </div>
 
             {showCountry && (
-              <div style={{ marginTop: '8px', border: '1px solid #eee', borderRadius: '12px', maxHeight: '200px', overflowY: 'auto' }}>
+              <div style={{ marginTop: '8px', border: '1px solid #eee', borderRadius: '12px', maxHeight: '200px', overflowY: 'auto', background:'#fff' }}>
                 {countries.map(c => (
                   <div key={c.code} onClick={() => { setCountryCode(c.code); setShowCountry(false) }} style={{ padding: '12px 14px', display: 'flex', gap: '10px', cursor: 'pointer', background: c.code === countryCode ? '#F5F3FF' : '#fff', borderBottom: '1px solid #f5f5f5' }}>
                     <span>{c.flag}</span><b>{c.code}</b><span style={{ color: '#666' }}>{c.name}</span>
@@ -118,7 +125,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            <button onClick={sendOtp} disabled={loading} style={{ width: '100%', height: '50px', marginTop: '18px', background: '#7C3AED', color: '#fff', border: 'none', borderRadius: '14px', fontWeight: '800', fontSize: '16px', opacity: loading ? 0.6 : 1 }}>
+            <button onClick={sendOtp} disabled={loading} style={{ width: '100%', height: '50px', marginTop: '18px', background: '#7C3AED', color: '#fff', border: 'none', borderRadius: '14px', fontWeight: '800', fontSize: '16px', opacity: loading ? 0.6 : 1, cursor:'pointer' }}>
               {loading ? 'Thawn mek...' : 'OTP Thawn'}
             </button>
             <p style={{ fontSize: '11px', color: '#999', marginTop: '12px', textAlign: 'center' }}>Test phone i hman chuan OTP i set kha hmang rawh<br/>Eg: 123456</p>
@@ -127,7 +134,7 @@ export default function LoginPage() {
           <>
             <label style={{ fontSize: '13px', fontWeight: '600' }}>OTP Code - {countryCode}{phone}</label>
             <input value={otp} onChange={e => setOtp(e.target.value.replace(/[^0-9]/g, ''))} placeholder="6-digit OTP" maxLength={6} style={{ width: '100%', height: '50px', marginTop: '8px', border: '1px solid #ddd', borderRadius: '12px', padding: '0 16px', outline: 'none', fontSize: '20px', letterSpacing: '8px', textAlign: 'center', fontWeight: '800' }} />
-            <button onClick={verifyOtp} disabled={loading} style={{ width: '100%', height: '50px', marginTop: '16px', background: '#111', color: '#fff', border: 'none', borderRadius: '14px', fontWeight: '800', fontSize: '16px' }}>
+            <button onClick={verifyOtp} disabled={loading} style={{ width: '100%', height: '50px', marginTop: '16px', background: '#111', color: '#fff', border: 'none', borderRadius: '14px', fontWeight: '800', fontSize: '16px', cursor:'pointer' }}>
               {loading ? 'Check mek...' : 'Verify & Login'}
             </button>
             <button onClick={() => setStep('phone')} style={{ width: '100%', marginTop: '12px', background: 'transparent', border: 'none', color: '#666', fontSize: '13px' }}>← Number thlak</button>
