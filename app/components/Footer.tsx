@@ -45,16 +45,16 @@ export default function Footer() {
               borderBottom: 'none',
             }}>
               <div style={{
-                width:'28px', height:'28px', borderRadius:'7px',
+                width:'36px', height:'36px', borderRadius:'9px',
                 // BUTTON COLOUR - zawng zawng highlight ang vek #7C3AED
                 background: '#7C3AED',
-                display:'flex', alignItems:'center', justifyContent:'center', fontSize:'15px', flexShrink:0
+                display:'flex', alignItems:'center', justifyContent:'center', fontSize:'20px', flexShrink:0
               }}>
                 <span style={{filter: 'brightness(0) invert(1)'}}>{tab.icon}</span>
               </div>
               <span style={{
                 fontWeight: isActive? '900' : '700', 
-                fontSize:'11px',
+                fontSize:'13px',
                 lineHeight:'1',
                 letterSpacing:'0px',
                 // FONTS COLOUR - zawng zawng highlight ang vek #7C3AED
