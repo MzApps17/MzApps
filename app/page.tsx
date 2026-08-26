@@ -8,7 +8,7 @@ import { useLanguage } from "./components/LanguageProvider";
 import { useTheme } from "./components/ThemeProvider";
 
 const EMAILJS_SERVICE_ID = "service_mizochatapps"
-const EMAILJS_TEMPLATE_ID = "template_u8any4c"
+const EMAILJS_TEMPLATE_ID = "template_ol0fbpm"
 const EMAILJS_PUBLIC_KEY = "nwa9O5wrEUf8fKcUf"
 
 function CustomAlert({ msg, onClose }: { msg: string, onClose: () => void }) {
