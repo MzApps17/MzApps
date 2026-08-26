@@ -11,9 +11,9 @@ export default function Footer() {
   const tabs = [
     { name: 'HOME', path: '/home', icon: '🏠' },
     { name: 'CHAT', path: '/chat', icon: '💬' },
-    { name: 'GROUPS', path: '/groups', icon: '👥' },
     { name: 'STATUS', path: '/status', icon: '⭕' },
     { name: 'ONLINE', path: '/online', icon: '🟢' },
+    { name: 'GROUPS', path: '/groups', icon: '👥' },
     { name: 'PROFILE', path: '/profile', icon: '👤' },
   ]
 
@@ -23,30 +23,34 @@ export default function Footer() {
       background: theme==='dark'? '#1A1A1A' : '#FFFFFF',
       borderTop: theme==='dark'? '1px solid #333' : '1px solid #E5E7EB',
       display: 'flex', justifyContent: 'space-around', alignItems: 'center',
-      padding: '2px 0 2px 0',
+      padding: '2px 0 1px 0',
       zIndex: 999,
     }}>
       {tabs.map((tab) => {
         const isActive = pathname === tab.path || pathname.startsWith(tab.path + '/')
         return (
-          <Link key={tab.path} href={tab.path} style={{textDecoration: 'none', flex:1}}>
+          <Link key={tab.path} href={tab.path} style={{textDecoration: 'none', flex:1, display:'flex', justifyContent:'center'}}>
             <div style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
               background: isActive? (theme==='dark'?'#2D1B4E':'#F3E8FF') : 'transparent',
-              borderBottom: isActive? '4px solid #7C3AED' : '4px solid transparent',
-              borderLeft: 'none',
-              borderRadius: '12px',
-              margin: '0 2px',
-              padding: '6px 0 4px 0',
+              borderBottom: isActive? '3px solid #7C3AED' : '3px solid transparent',
+              borderRadius: '10px',
+              padding: '4px 10px 3px 10px',
+              minWidth:'48px',
             }}>
               <div style={{
-                width:'32px', height:'32px', borderRadius:'8px',
+                width:'28px', height:'28px', borderRadius:'7px',
                 background: isActive?'#7C3AED': (theme==='dark'?'#333':'#F3F4F6'),
-                display:'flex', alignItems:'center', justifyContent:'center', fontSize:'16px'
+                display:'flex', alignItems:'center', justifyContent:'center', fontSize:'15px'
               }}>
                 <span style={{filter: isActive?'brightness(0) invert(1)':'none'}}>{tab.icon}</span>
               </div>
-              <span style={{fontWeight:'900', fontSize:'9px', color: isActive?'#7C3AED': (theme==='dark'?'#666':'#9CA3AF')}}>{tab.name}</span>
+              <span style={{
+                fontWeight:'900', 
+                fontSize:'11px',
+                letterSpacing:'0.2px',
+                color: isActive?'#7C3AED': (theme==='dark'?'#666':'#9CA3AF')
+              }}>{tab.name}</span>
             </div>
           </Link>
         )
