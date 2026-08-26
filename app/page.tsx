@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/app/firebase/config";
-import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import { RecaptchaVerifier, signInWithPhoneNumber, onAuthStateChanged } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 
 const allCountries = [
@@ -44,14 +44,72 @@ export default function LoginPage() {
   const router = useRouter();
   const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
-  useEffect(()=>{ if(!(window as any).recaptchaVerifier){ (window as any).recaptchaVerifier = new RecaptchaVerifier(auth,"recaptcha-container",{size:"invisible"}); } },[]);
+  // AUTH CHECK - LOGIN TAWH CHUAN HOME AH DIRECT - BACK THEIH LO
+  useEffect(()=>{
+    const unsub = onAuthStateChanged(auth, (user)=>{
+      if(user && user.phoneNumber){
+        // Profile a nei tawh em check lo in Home ah replace - back theih lo
+        router.replace("/home");
+      }
+    });
+    return ()=>unsub();
+  },[router]);
+
+  // RECAPTCHA INIT
+  useEffect(()=>{
+    if(!(window as any).recaptchaVerifier){
+      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth,"recaptcha-container",{
+        size:"invisible",
+        callback: ()=>{},
+        'expired-callback': ()=>{
+          try{ (window as any).recaptchaVerifier.clear(); }catch{}
+          (window as any).recaptchaVerifier = null;
+        }
+      });
+    }
+  },[]);
+
   useEffect(()=>{ if(step==="otp") inputsRef.current[0]?.focus(); },[step]);
 
   const filtered = allCountries.filter(c=> c.name.toLowerCase().includes(search.toLowerCase()) || c.code.includes(search));
 
-  const handleSend = async()=>{ if(!phone) return; setLoading(true); try{ const conf=await signInWithPhoneNumber(auth,country.code+phone,(window as any).recaptchaVerifier); setConfirmation(conf); setStep("otp"); }catch(e:any){ alert(e.message);} setLoading(false); };
+  const handleSend = async()=>{
+    if(!phone) return;
+    setLoading(true);
+    try{
+      // Reset recaptcha thianghlim
+      if((window as any).recaptchaVerifier){
+        try{ (window as any).recaptchaVerifier.clear(); }catch{}
+        (window as any).recaptchaVerifier = null;
+      }
+      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth,"recaptcha-container",{size:"invisible"});
+
+      const conf=await signInWithPhoneNumber(auth,country.code+phone,(window as any).recaptchaVerifier);
+      setConfirmation(conf);
+      setStep("otp");
+    }catch(e:any){
+      alert(e.message);
+      if((window as any).recaptchaVerifier){
+        try{ (window as any).recaptchaVerifier.clear(); }catch{}
+        (window as any).recaptchaVerifier = null;
+      }
+    }
+    setLoading(false);
+  };
+
   const handleOtpChange = (v:string,i:number)=>{ if(v&&!/^\d$/.test(v)) return; const n=[...otp]; n[i]=v.slice(-1); setOtp(n); if(v&&i<5) inputsRef.current[i+1]?.focus(); };
-  const handleVerify = async()=>{ const code=otp.join(""); if(code.length!==6) return; setLoading(true); try{ await confirmation.confirm(code); setStep("profile"); }catch{ alert("Invalid OTP"); } setLoading(false); };
+
+  const handleVerify = async()=>{
+    const code=otp.join(""); if(code.length!==6) return;
+    setLoading(true);
+    try{
+      await confirmation.confirm(code);
+      setStep("profile");
+    }catch{
+      alert("Invalid OTP");
+    }
+    setLoading(false);
+  };
 
   const onFileChange = (e:any)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=>setPicBase64(r.result as string); r.readAsDataURL(f); };
 
@@ -60,14 +118,22 @@ export default function LoginPage() {
     setLoading(true);
     try{
       const user=auth.currentUser;
-      await setDoc(doc(db,"users",user!.uid),{ name:name.trim(), phone:country.code+phone, photoURL:picBase64||"", uid:user!.uid, createdAt:new Date() },{merge:true});
-      router.push("/home");
+      await setDoc(doc(db,"users",user!.uid),{
+        name:name.trim(),
+        phone:country.code+phone,
+        photoURL:picBase64||"",
+        uid:user!.uid,
+        isOnline:true,
+        lastSeen:new Date(),
+        createdAt:new Date()
+      },{merge:true});
+      router.replace("/home");
     }catch(e:any){ alert(e.message); setLoading(false); }
   };
 
   return(
     <div style={{height:"100dvh", width:"100%", overflow:"hidden", position:"fixed", inset:0, background:"white", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"20px", boxSizing:"border-box"}}>
-      <div id="recaptcha-container" style={{position:"absolute", left:"-9999px"}}></div>
+      <div id="recaptcha-container" style={{position:"absolute", left:"-9999px", top:"-9999px"}}></div>
       <style>{`.grecaptcha-badge{visibility:hidden!important;display:none!important;opacity:0!important;}`}</style>
 
       <div style={{display:"flex", flexDirection:"column", alignItems:"center", marginBottom:40, flexShrink:0, width:"100%", maxWidth:360}}>
@@ -120,13 +186,11 @@ export default function LoginPage() {
           <div style={{background:"white",width:"95%",maxWidth:360,maxHeight:"85dvh",borderRadius:24,display:"flex",flexDirection:"column",overflow:"hidden"}}>
             <div style={{padding:"12px 12px 8px",background:"white",borderBottom:"1px solid #eee", display:"flex", flexDirection:"column", alignItems:"center"}}>
               <div style={{width:36,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 10px"}}/>
-              {/* SEARCH TE ZAWK - LAIAH */}
               <input value={search} onChange={(e)=>setSearch(e.target.value)} placeholder="Search country" autoFocus style={{width:"85%", border:"1.5px solid #7c3aed",borderRadius:10,padding:"9px 12px",outline:"none",fontSize:14, textAlign:"center"}}/>
             </div>
             <div style={{overflowY:"auto",flex:1}}>
               {filtered.map(c=>(<button key={c.name+c.code} onClick={()=>{setCountry(c); setShowCountry(false); setSearch("");}} style={{width:"100%",display:"flex",gap:12,padding:"12px 16px",border:"none",background:"white",textAlign:"left",borderBottom:"1px solid #f5f5f5", fontSize:14}}><span>{c.flag}</span><b>{c.code}</b><span style={{color:"#555"}}>{c.name}</span></button>))}
             </div>
-            {/* CLOSE BUTTON LAIAH */}
             <div style={{display:"flex", justifyContent:"center", padding:"12px"}}>
               <button onClick={()=>setShowCountry(false)} style={{minWidth:120, background:"black",color:"white",border:"none",borderRadius:12,padding:"10px 24px",fontWeight:700, fontSize:14}}>Close</button>
             </div>
