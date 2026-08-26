@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Footer from './components/Footer'
 import ThemeProvider from './components/ThemeProvider'
+import { LanguageProvider } from './components/LanguageProvider'
 
 export const metadata: Metadata = {
   title: 'MzApps - Mizo Social App',
@@ -12,8 +13,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body style={{margin:0, fontFamily:'Arial, sans-serif'}}>
         <ThemeProvider>
-          {children}
-          <Footer />
+          <LanguageProvider>
+            {children}
+            <Footer />
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>
