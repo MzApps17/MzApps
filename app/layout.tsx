@@ -1,17 +1,20 @@
-import './globals.css'
+import type { Metadata } from 'next'
 import Footer from './components/Footer'
+import ThemeProvider from './components/ThemeProvider'
 
-export const metadata = {
-  title: 'MzApps',
-  description: 'Mizo Social App',
+export const metadata: Metadata = {
+  title: 'MzApps - Mizo Social App',
+  description: 'Mizo tawng a social app',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body style={{background:'#000', color:'#fff', paddingBottom:'70px'}}>
-        {children}
-        <Footer />
+      <body style={{margin:0, fontFamily:'Arial, sans-serif'}}>
+        <ThemeProvider>
+          {children}
+          <Footer />
+        </ThemeProvider>
       </body>
     </html>
   )
