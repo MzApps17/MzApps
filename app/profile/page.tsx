@@ -72,14 +72,15 @@ export default function ProfilePage(){
   const Icon = ({children}:{children:any}) => <span style={{width:28, height:28, background:'#7C3AED', borderRadius:8, display:'inline-flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:14, marginRight:8}}>{children}</span>
 
   return <div style={{minHeight:'100vh', background:'#fff', paddingBottom:80}}>
-    {/* 1. HEADER - padding zin */}
+    <style>{`
+     .mz-input:focus { outline:2px solid #7C3AED!important; border-color:#7C3AED!important; }
+    `}</style>
+
     <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 12px', borderBottom:'1px solid #eee', position:'sticky', top:0, background:'#fff', zIndex:20}}>
       <span style={{fontWeight:900, fontSize:22}}>{name}</span>
-      {/* Hamburger colour awm lo */}
       <button onClick={()=>setShowMenu(!showMenu)} style={{background:'none', border:'none', fontSize:28, lineHeight:1}}>☰</button>
     </div>
 
-    {/* MENU - nalh reng */}
     {showMenu && <><div onClick={()=>setShowMenu(false)} style={{position:'fixed', inset:0, zIndex:40}}/>
     <div style={{position:'fixed', top:44, right:10, width:180, background:'#fff', borderRadius:16, boxShadow:'0 8px 30px rgba(0,0,0,0.15)', zIndex:50, overflow:'hidden'}}>
       <button onClick={()=>{setShowMenu(false); router.push('/settings')}} style={{width:'100%', display:'flex', alignItems:'center', gap:10, padding:'14px 16px', border:'none', background:'#fff', fontSize:16, fontWeight:500, cursor:'pointer'}}>
@@ -99,19 +100,21 @@ export default function ProfilePage(){
         </div>
         <div style={{flex:1}}>
           <div style={{fontWeight:800, fontSize:15, marginBottom:6}}>{name}</div>
-          {/* 2. 0 POST FRIENDS PICS - rin bial chhung ah sawn */}
-          <div style={{display:'flex', justifyContent:'space-around', textAlign:'center', marginTop:10, paddingLeft:8}}>
-            <div onClick={()=>postsRef.current?.scrollIntoView({behavior:'smooth'})} style={{cursor:'pointer'}}><div style={{fontWeight:900, fontSize:18}}>{postCount}</div><div style={{fontSize:13}}>Posts</div></div>
-            <div onClick={()=>router.push('/friends')} style={{cursor:'pointer'}}><div style={{fontWeight:900, fontSize:18}}>{friendCount}</div><div style={{fontSize:13}}>Friends</div></div>
-            <div onClick={()=>picUploadRef.current?.click()} style={{cursor:'pointer'}}><div style={{fontWeight:900, fontSize:18}}>{picUploadCount}</div><div style={{fontSize:13}}>Pics</div></div>
+          {/* 1. INKAR TI ZIM HRET */}
+          <div style={{display:'flex', textAlign:'center', marginTop:10, paddingLeft:4, gap:8}}>
+            <div onClick={()=>postsRef.current?.scrollIntoView({behavior:'smooth'})} style={{flex:1, cursor:'pointer'}}><div style={{fontWeight:900, fontSize:18}}>{postCount}</div><div style={{fontSize:13}}>Posts</div></div>
+            <div onClick={()=>router.push('/friends')} style={{flex:1, cursor:'pointer'}}><div style={{fontWeight:900, fontSize:18}}>{friendCount}</div><div style={{fontSize:13}}>Friends</div></div>
+            <div onClick={()=>picUploadRef.current?.click()} style={{flex:1, cursor:'pointer'}}><div style={{fontWeight:900, fontSize:18}}>{picUploadCount}</div><div style={{fontSize:13}}>Pics</div></div>
             <input ref={picUploadRef} type="file" accept="image/*" hidden onChange={handlePicUpload}/>
           </div>
         </div>
       </div>
 
-      {/* 3. ABOUT leh PIC inkar zau */}
-      <div style={{marginTop:24, display:'flex', flexDirection:'column', gap:12}}>
+      {/* 2. ABOUT leh PIC inkar la ti zau */}
+      <div style={{marginTop:32, display:'flex', flexDirection:'column', gap:12}}>
         <div style={{fontWeight:900, fontSize:18, display:'flex', alignItems:'center'}}><Icon>📝</Icon> About</div>
+        {/* 3. ABOUT leh BIO inkar line */}
+        <div style={{borderBottom:'1px solid #eee', margin:'2px 0 4px 36px'}}></div>
         <div style={{fontSize:16, display:'flex', alignItems:'center'}}><Icon>📖</Icon> <span>Bio: <b>{bio || 'Not set'}</b></span></div>
         <div style={{fontSize:16, display:'flex', alignItems:'center'}}><Icon>🎂</Icon> <span>DOB: <b>{dob || 'Not set'}</b></span></div>
         <div style={{fontSize:16, display:'flex', alignItems:'center'}}><Icon>🎨</Icon> <span>Hobby: <b>{hobby || 'Not set'}</b></span></div>
@@ -120,17 +123,17 @@ export default function ProfilePage(){
         <div style={{fontSize:16, display:'flex', alignItems:'center'}}><Icon>✉️</Icon> <span>Email: <b>{emailPublic? email : '•••••• (Private)'}</b></span></div>
       </div>
 
-      {/* 3. ABOUT hnuaiah line chhete */}
-      <div style={{marginTop:16, borderBottom:'1px solid #eee'}}></div>
+      {/* 4. EMAIL leh EDIT PROFILE inkar line paih - a awm tawh lo */}
+      {/* 5. EDIT PROFILE leh POST inkar line paih - borderTop paih */}
 
-      {/* 4. EMAIL leh POST inkar zau */}
       <div style={{display:'flex', gap:8, marginTop:22}}>
         <button onClick={()=>setShowEdit(true)} style={{flex:1, padding:'11px', borderRadius:10, background:'#efefef', border:'none', fontWeight:800, fontSize:15}}>Edit profile</button>
         <button onClick={async()=>{const link=`https://mz-apps-mauve.vercel.app/user/${auth.currentUser?.uid}`; if(navigator.share) await navigator.share({title:name, url:link}); else {await navigator.clipboard.writeText(link); alert('Copied!')}}} style={{flex:1, padding:'11px', borderRadius:10, background:'#efefef', border:'none', fontWeight:800, fontSize:15}}>Share profile</button>
       </div>
     </div>
 
-    <div ref={postsRef} style={{borderTop:'1px solid #eee', marginTop:26}}>
+    {/* POSTS - line ngai lo */}
+    <div ref={postsRef} style={{marginTop:26}}>
       <div style={{display:'flex', justifyContent:'center', padding:'14px 0'}}><span style={{fontWeight:900, borderBottom:'2px solid #000', paddingBottom:4, fontSize:18}}>⊞ POSTS</span></div>
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:2}}>
         {posts.length===0? [1,2,3].map(i=><div key={i} style={{aspectRatio:'1', background:'#fafafa', display:'flex', alignItems:'center', justifyContent:'center', color:'#ccc', fontSize:14}}>No posts</div>) : posts.map((p,i)=><div key={i} style={{aspectRatio:'1', background:`url(${p.image}) center/cover #eee`}}/>)}
@@ -143,16 +146,20 @@ export default function ProfilePage(){
       <div style={{background:'#fff', borderRadius:20, padding:18, width:'100%', maxWidth:380, maxHeight:'90vh', overflowY:'auto'}}>
         <h3 style={{fontWeight:900, textAlign:'center'}}>Edit Profile</h3>
         <div style={{display:'flex', flexDirection:'column', gap:10, marginTop:12}}>
-          <input value={editData.name} onChange={e=>setEditData({...editData,name:e.target.value})} placeholder="Name" style={{border:'1.5px solid #ddd', borderRadius:10, padding:10}}/>
-          <textarea value={editData.bio} onChange={e=>setEditData({...editData,bio:e.target.value})} placeholder="Bio" style={{border:'1.5px solid #ddd', borderRadius:10, padding:10}}/>
-          <input type="date" value={editData.dob} onChange={e=>setEditData({...editData,dob:e.target.value})} style={{border:'1.5px solid #ddd', borderRadius:10, padding:10}}/>
-          <input value={editData.hobby} onChange={e=>setEditData({...editData,hobby:e.target.value})} placeholder="Hobby" style={{border:'1.5px solid #ddd', borderRadius:10, padding:10}}/>
-          <input value={editData.games} onChange={e=>setEditData({...editData,games:e.target.value})} placeholder="Games" style={{border:'1.5px solid #ddd', borderRadius:10, padding:10}}/>
-          <div style={{display:'flex', gap:8}}><input value={editData.phone} onChange={e=>setEditData({...editData,phone:e.target.value})} placeholder="Phone" style={{flex:1, border:'1.5px solid #ddd', borderRadius:10, padding:10}}/><label style={{display:'flex', alignItems:'center', gap:4, fontSize:12}}><input type="checkbox" checked={editData.phonePublic} onChange={e=>setEditData({...editData,phonePublic:e.target.checked})}/>Public</label></div>
+          <input className="mz-input" value={editData.name} onChange={e=>setEditData({...editData,name:e.target.value})} placeholder="Name" style={{border:'1.5px solid #ddd', borderRadius:10, padding:10}}/>
+          <textarea className="mz-input" value={editData.bio} onChange={e=>setEditData({...editData,bio:e.target.value})} placeholder="Bio" style={{border:'1.5px solid #ddd', borderRadius:10, padding:10}}/>
+          {/* 6. DOB dah tel */}
+          <div>
+            <div style={{fontSize:12, fontWeight:700, marginBottom:4, color:'#555'}}>DOB</div>
+            <input className="mz-input" type="date" value={editData.dob} onChange={e=>setEditData({...editData,dob:e.target.value})} style={{width:'100%', border:'1.5px solid #ddd', borderRadius:10, padding:10}}/>
+          </div>
+          <input className="mz-input" value={editData.hobby} onChange={e=>setEditData({...editData,hobby:e.target.value})} placeholder="Hobby" style={{border:'1.5px solid #ddd', borderRadius:10, padding:10}}/>
+          <input className="mz-input" value={editData.games} onChange={e=>setEditData({...editData,games:e.target.value})} placeholder="Games" style={{border:'1.5px solid #ddd', borderRadius:10, padding:10}}/>
+          <div style={{display:'flex', gap:8}}><input className="mz-input" value={editData.phone} onChange={e=>setEditData({...editData,phone:e.target.value})} placeholder="Phone" style={{flex:1, border:'1.5px solid #ddd', borderRadius:10, padding:10}}/><label style={{display:'flex', alignItems:'center', gap:4, fontSize:12}}><input type="checkbox" checked={editData.phonePublic} onChange={e=>setEditData({...editData,phonePublic:e.target.checked})}/>Public</label></div>
           <div style={{display:'flex', gap:8, alignItems:'center', background:'#f5f5f5', padding:10, borderRadius:10}}><span style={{flex:1, fontSize:13, color:'#666'}}>Email: {email} (Can't edit)</span><label style={{display:'flex', alignItems:'center', gap:4, fontSize:12}}><input type="checkbox" checked={editData.emailPublic} onChange={e=>setEditData({...editData,emailPublic:e.target.checked})}/>Public</label></div>
           <div style={{display:'flex', gap:8, marginTop:6}}><button onClick={()=>setShowEdit(false)} style={{flex:1, padding:12, borderRadius:12, border:'none', background:'#eee', fontWeight:700}}>Cancel</button><button onClick={saveEdit} style={{flex:1, padding:12, borderRadius:12, border:'none', background:'#7C3AED', color:'#fff', fontWeight:800}}>Save</button></div>
         </div>
       </div>
     </div>}
   </div>
-        }
+          }
