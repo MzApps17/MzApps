@@ -1,109 +1,212 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, getDoc } from 'firebase/firestore'
-import { db, auth } from '@firebase/config'
+import { useTheme } from '../../components/ThemeProvider'
+import { auth, db } from '@/app/firebase/config'
+import { collection, addDoc, query, where, onSnapshot, orderBy, doc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore'
+import { onAuthStateChanged } from 'firebase/auth'
 
 interface Message {
   id: string
   text: string
   senderId: string
+  receiverId: string
   createdAt: any
+  status: 'sent' | 'delivered' | 'seen'
+  chatId: string
 }
 
-export default function ChatPage(){
-  const { id } = useParams()
+export default function ChatPage() {
+  const { id } = useParams() as { id: string }
   const router = useRouter()
+  const { theme, fontSize } = useTheme() as any
   const [messages, setMessages] = useState<Message[]>([])
-  const [text, setText] = useState('')
+  const [input, setInput] = useState('')
+  const [myUid, setMyUid] = useState('')
   const [otherUser, setOtherUser] = useState<any>(null)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const myUid = auth.currentUser?.uid || localStorage.getItem('mz_uid')
+  const [isOtherOnline, setIsOtherOnline] = useState(false)
+  const listRef = useRef<HTMLDivElement>(null)
 
-  const chatId = [myUid, id].sort().join('_')
+  const getSize = (base: number) => {
+    const f: any = fontSize
+    if (typeof f === 'number') return Math.round(base * (f / 16))
+    return base
+  }
 
-  // REALTIME LISTENER - CHAK TAK!
+  const formatTime = (d: Date) => {
+    let h = d.getHours()
+    let m = d.getMinutes()
+    let ampm = h >= 12 ? 'pm' : 'am'
+    h = h % 12 || 12
+    return `${h}:${m.toString().padStart(2,'0')} ${ampm}`
+  }
+
+  const scrollBottom = () => {
+    setTimeout(()=> listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' }), 50)
+  }
+
   useEffect(()=>{
-    if(!myUid) return
-    
-    const q = query(
-      collection(db, 'chats', chatId, 'messages'),
-      orderBy('createdAt', 'asc')
-    )
+    const unsubAuth = onAuthStateChanged(auth, async (u)=>{
+      if(!u) { router.replace('/'); return }
+      setMyUid(u.uid)
 
-    const unsub = onSnapshot(q, (snap)=>{
-      const msgs: Message[] = []
-      snap.forEach(d=>{
-        msgs.push({ id: d.id, ...d.data() } as Message)
+      // Get other user info
+      const otherDoc = await getDoc(doc(db, 'users', id))
+      if(otherDoc.exists()) {
+        setOtherUser(otherDoc.data())
+        setIsOtherOnline(otherDoc.data().isOnline || false)
+      } else {
+        const saved = localStorage.getItem('mz_view_user')
+        if(saved) setOtherUser(JSON.parse(saved))
+      }
+
+      // Realtime chat - no refresh needed
+      const chatId1 = `${u.uid}_${id}`
+      const chatId2 = `${id}_${u.uid}`
+      const q = query(
+        collection(db, 'messages'),
+        where('chatId', 'in', [chatId1, chatId2]),
+        orderBy('createdAt', 'asc')
+      )
+
+      const unsubMsg = onSnapshot(q, { includeMetadataChanges: true }, (snap)=>{
+        const list: Message[] = []
+        snap.forEach(d=>{
+          const data = d.data() as Message
+          data.id = d.id
+          list.push(data)
+
+          // Auto delivered
+          if(data.receiverId === u.uid && data.status === 'sent') {
+            updateDoc(doc(db, 'messages', d.id), { status: 'delivered' })
+          }
+          // Auto seen if this chat open
+          if(data.receiverId === u.uid && data.status !== 'seen') {
+            updateDoc(doc(db, 'messages', d.id), { status: 'seen' })
+          }
+        })
+        setMessages(list)
+        scrollBottom()
+
+        // Save offline
+        localStorage.setItem(`chat_${id}`, JSON.stringify(list))
+      }, (err)=>{
+        // Offline fallback
+        const cached = localStorage.getItem(`chat_${id}`)
+        if(cached) setMessages(JSON.parse(cached))
       })
-      setMessages(msgs)
-      setTimeout(()=> bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+
+      return ()=> unsubMsg()
     })
+    return ()=> unsubAuth()
+  },[id])
 
-    // Other user info
-    getDoc(doc(db, 'users', id as string)).then(s=>{
-      if(s.exists()) setOtherUser(s.data())
-    })
+  const handleSend = async () => {
+    if(!input.trim() || !myUid) return
+    const text = input.trim()
+    setInput('')
 
-    return () => unsub()
-  },[chatId, myUid, id])
+    const chatId = `${myUid}_${id}`
+    const tempId = Date.now().toString()
+    const optimistic: Message = {
+      id: tempId,
+      text,
+      senderId: myUid,
+      receiverId: id,
+      chatId,
+      status: 'sent',
+      createdAt: new Date()
+    }
 
-  const sendMessage = async () => {
-    if(!text.trim()) return
-    const msgText = text
-    setText('') // A rang thei ang ber a clear
+    // Optimistic UI - no refresh, instant
+    setMessages(prev=>[...prev, optimistic])
+    scrollBottom()
 
     try{
-      await addDoc(collection(db, 'chats', chatId, 'messages'), {
-        text: msgText,
+      await addDoc(collection(db, 'messages'), {
+        text,
         senderId: myUid,
-        createdAt: serverTimestamp(),
+        receiverId: id,
+        chatId,
+        status: 'sent',
+        createdAt: serverTimestamp()
       })
-      // last message update
-      await addDoc(collection(db, 'chats', chatId, 'messages'), {}) // dummy to trigger
     }catch(e){
-      console.error(e)
-      setText(msgText) // fail chuan kir leh
+      // Offline queue
+      const queue = JSON.parse(localStorage.getItem('msg_queue') || '[]')
+      queue.push({ text, senderId: myUid, receiverId: id, chatId, createdAt: new Date().toISOString() })
+      localStorage.setItem('msg_queue', JSON.stringify(queue))
     }
   }
 
+  const Tick = ({ status }: { status: string }) => {
+    if(status === 'sent') return <span style={{fontSize:10, color:'#8a8a8a', marginLeft:4, letterSpacing:'-1px'}}>✓</span>
+    if(status === 'delivered') return <span style={{fontSize:10, color:'#8a8a8a', marginLeft:4, letterSpacing:'-4px'}}>✓✓</span>
+    if(status === 'seen') return <span style={{fontSize:10, color:'#53BDEB', marginLeft:4, letterSpacing:'-4px', fontWeight:900}}>✓✓</span>
+    return null
+  }
+
   return (
-    <div style={{display:'flex', flexDirection:'column', height:'100vh', background:'#fff'}}>
-      {/* HEADER */}
-      <div style={{height:'52px', display:'flex', alignItems:'center', gap:'10px', padding:'0 12px', borderBottom:'1px solid #eee', position:'sticky', top:0, background:'#fff', zIndex:10}}>
-        <button onClick={()=>router.back()} style={{border:'none', background:'transparent'}}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-        </button>
-        {otherUser?.pic && <img src={otherUser.pic} style={{width:'32px', height:'32px', borderRadius:'50%'}} />}
-        <div style={{fontWeight:'800'}}>{otherUser?.name || 'Chat'}</div>
-        <div style={{marginLeft:'auto', width:'8px', height:'8px', borderRadius:'50%', background:'#22c55e'}}></div>
+    <div style={{height:'100dvh', display:'flex', flexDirection:'column', background: theme==='dark'?'#0b141a':'#efeae2'}}>
+      {/* Header */}
+      <div style={{
+        height:58, 
+        background: theme==='dark'?'#202c33':'#f0f0f0', 
+        display:'flex', 
+        alignItems:'center', 
+        gap:10, 
+        padding:'0 10px',
+        position:'sticky', top:0, zIndex:10
+      }}>
+        <button onClick={()=>router.back()} style={{border:'none', background:'none', fontSize:22, cursor:'pointer', color: theme==='dark'?'#fff':'#111'}}>←</button>
+        <div style={{width:38, height:38, borderRadius:19, background:'#ddd', overflow:'hidden'}}>
+          {otherUser?.photoURL ? <img src={otherUser.photoURL} style={{width:'100%', height:'100%', objectFit:'cover'}}/> : <div style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100%'}}>👤</div>}
+        </div>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:800, fontSize: getSize(15), color: theme==='dark'?'#fff':'#111'}}>{otherUser?.name || 'User'}</div>
+          <div style={{fontSize: getSize(11), color: theme==='dark'?'#aaa':'#666'}}>{isOtherOnline ? 'Online' : 'Offline'}</div>
+        </div>
       </div>
 
-      {/* MESSAGES */}
-      <div style={{flex:1, overflowY:'auto', padding:'10px 12px', display:'flex', flexDirection:'column', gap:'6px'}}>
+      {/* Messages - WhatsApp BG */}
+      <div ref={listRef} style={{flex:1, overflowY:'auto', padding:'12px 8px', backgroundImage: theme==='dark' ? 'none' : 'url(https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png)', backgroundRepeat:'repeat'}}>
         {messages.map(m=>{
           const isMe = m.senderId === myUid
+          const time = m.createdAt?.toDate ? m.createdAt.toDate() : new Date(m.createdAt)
           return (
-            <div key={m.id} style={{alignSelf: isMe ? 'flex-end' : 'flex-start', maxWidth:'75%', background: isMe ? '#7C3AED' : '#F2F2F2', color: isMe ? '#fff' : '#111', padding:'8px 12px', borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize:'14px'}}>
-              {m.text}
+            <div key={m.id} style={{display:'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', marginBottom:6}}>
+              <div style={{
+                maxWidth:'78%',
+                background: isMe ? (theme==='dark'?'#005c4b':'#d9fdd3') : (theme==='dark'?'#202c33':'#fff'),
+                color: theme==='dark' ? '#fff' : '#111',
+                borderRadius: isMe ? '12px 0 12px 12px' : '0 12px 12px 12px',
+                padding:'6px 8px 4px 10px',
+                boxShadow:'0 1px 1px rgba(0,0,0,0.1)',
+                display:'flex', flexDirection:'column'
+              }}>
+                <span style={{fontSize: getSize(14.5), lineHeight:'19px', wordBreak:'break-word'}}>{m.text}</span>
+                <div style={{display:'flex', justifyContent:'flex-end', alignItems:'center', gap:3, marginTop:2}}>
+                  <span style={{fontSize: getSize(10), color: theme==='dark'?'#aaa':'#667781'}}>{formatTime(time)}</span>
+                  {isMe && <Tick status={m.status} />}
+                </div>
+              </div>
             </div>
           )
         })}
-        <div ref={bottomRef} />
       </div>
 
-      {/* INPUT - CHAK TAK */}
-      <div style={{padding:'8px 10px', borderTop:'1px solid #eee', display:'flex', gap:'8px', alignItems:'center', background:'#fff'}}>
-        <input 
-          value={text}
-          onChange={e=>setText(e.target.value)}
-          onKeyDown={e=>{ if(e.key==='Enter') sendMessage() }}
-          placeholder="Message..." 
-          style={{flex:1, height:'40px', borderRadius:'20px', border:'none', background:'#F2F2F2', padding:'0 16px', outline:'none', fontSize:'14px'}}
-        />
-        <button onClick={sendMessage} disabled={!text.trim()} style={{width:'40px', height:'40px', borderRadius:'50%', background: text.trim() ? '#7C3AED' : '#ddd', border:'none', color:'#fff', fontWeight:'800', display:'flex', alignItems:'center', justifyContent:'center'}}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
+      {/* Input */}
+      <div style={{background: theme==='dark'?'#202c33':'#f0f0f0', padding:'6px 8px', display:'flex', gap:8, alignItems:'center'}}>
+        <div style={{flex:1, background: theme==='dark'?'#2a3942':'#fff', borderRadius:20, display:'flex', alignItems:'center', padding:'0 12px', minHeight:42}}>
+          <input
+            value={input}
+            onChange={e=>setInput(e.target.value)}
+            onKeyDown={e=>{ if(e.key==='Enter') handleSend() }}
+            placeholder="Type a message"
+            style={{flex:1, border:'none', outline:'none', background:'transparent', fontSize: getSize(15), color: theme==='dark'?'#fff':'#111', padding:'10px 0'}}
+          />
+        </div>
+        <button onClick={handleSend} disabled={!input.trim()} style={{width:46, height:46, borderRadius:23, background:'#7C3AED', border:'none', color:'white', fontSize:20, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', opacity: input.trim() ? 1 : 0.6}}>➤</button>
       </div>
     </div>
   )
