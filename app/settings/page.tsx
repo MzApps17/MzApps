@@ -30,10 +30,16 @@ export default function SettingsPage(){
   const text = darkMode? '#ffffff' : '#111111'
   const subText = darkMode? '#999' : '#666'
 
-  // Arrow lian SVG - WhatsApp/Instagram style
-  const Arrow = () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C7C7CC" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+  // Arrow LIAN - Meta AI / Instagram / WhatsApp style - BOLD
+  const ArrowRight = () => (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#B0B0B0" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 6l6 6-6 6" />
+    </svg>
+  )
+
+  const ArrowLeft = () => (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={text} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H5M12 5l-7 7 7 7" />
     </svg>
   )
 
@@ -53,14 +59,16 @@ export default function SettingsPage(){
       </div>
       <div style={{display:'flex', alignItems:'center', gap:8}}>
         {right}
-        <Arrow />
+        <ArrowRight />
       </div>
     </div>
   )
 
   return <div style={{minHeight:'100vh', background:bg, color:text, paddingBottom:20}}>
     <div style={{display:'flex', alignItems:'center', gap:12, padding:'10px 12px', borderBottom:`1px solid ${border}`, background:bg2, position:'sticky', top:0, zIndex:10}}>
-      <button onClick={()=>router.back()} style={{background:'none', border:'none', fontSize:26, fontWeight:700, color:text, cursor:'pointer', padding:'4px 6px'}}>←</button>
+      <button onClick={()=>router.back()} style={{background:'none', border:'none', color:text, cursor:'pointer', padding:'2px 4px', display:'flex', alignItems:'center'}}>
+        <ArrowLeft />
+      </button>
       <span style={{fontWeight:800, fontSize:18}}>Settings</span>
     </div>
 
@@ -89,7 +97,7 @@ export default function SettingsPage(){
             <option value={18}>Large</option>
             <option value={20}>Extra Large</option>
           </select>
-          <Arrow />
+          <ArrowRight />
         </div>
       </div>
 
@@ -109,10 +117,7 @@ export default function SettingsPage(){
         icon={<span style={{width:28, height:28, borderRadius:8, background:'#FF3B30', display:'flex', alignItems:'center', justifyContent:'center'}}>🗑️</span>}
         label="Delete account"
         danger
-        onClick={async()=>{
-          if(confirm('Delete account?')){
-          }
-        }}
+        onClick={async()=>{ if(confirm('Delete account?')){} }}
       />
     </div>
 
@@ -137,4 +142,4 @@ export default function SettingsPage(){
       </div>
     )}
   </div>
-}
+                  }
