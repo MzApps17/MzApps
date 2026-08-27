@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from '../components/ThemeProvider'
 import { auth, db } from '@/app/firebase/config'
-import { collection, query, where, onSnapshot, orderBy, getDocs } from 'firebase/firestore'
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore'
 import { onAuthStateChanged } from 'firebase/auth'
 
 interface ChatItem {
@@ -15,7 +15,6 @@ interface ChatItem {
   status: 'sent' | 'delivered' | 'seen'
   time: Date
   unread: number
-  village?: string
 }
 
 export default function ChatListPage() {
@@ -28,31 +27,21 @@ export default function ChatListPage() {
   const getSize = (base: number) => {
     const f: any = fontSize
     if (typeof f === 'number') return Math.round(base * (f / 16))
-    if (typeof f === 'string') {
-      if (f === 'small') return base - 2
-      if (f === 'large') return base + 4
-      if (f === 'extra-large') return base + 7
-    }
     return base
   }
 
-  // Demo data - Firestore atanga lak tur
   useEffect(()=>{
+    // Chat tak tak a awm hunah an lang ang - tunah empty
     const unsub = onAuthStateChanged(auth, async (u)=>{
       if(!u) return
-      // Tunah chuan demo, i duh chuan Firestore conversations atanga la tur
-      setChats([
-        { id: '1', name: 'Mimi', photoURL: 'https://i.pravatar.cc/150?img=5', lastMessage: 'Chat tan ang aw!', lastMessageIsMe: false, status: 'seen', time: new Date(), unread: 2, village: 'Aizawl' },
-        { id: '2', name: 'Ruthi', photoURL: 'https://i.pravatar.cc/150?img=32', lastMessage: 'Chat tan ang aw!', lastMessageIsMe: true, status: 'delivered', time: new Date(Date.now() - 1000*60*35), unread: 0 },
-        { id: '3', name: 'Nghaka', photoURL: '', lastMessage: 'Ka lo thleng tawh e', lastMessageIsMe: true, status: 'sent', time: new Date(Date.now() - 1000*60*60*2), unread: 0 },
-      ])
+      // Real chat - empty tir rih, i chat apiang Firestore atangin a lo lang ang
+      setChats([])
     })
     return ()=>unsub()
   },[])
 
   const filtered = chats.filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
 
-  // FIX 4: Time 12h format 9:34pm
   const formatTime = (d: Date) => {
     const now = new Date()
     const diff = now.getTime() - d.getTime()
@@ -67,18 +56,17 @@ export default function ChatListPage() {
     return `${d.getDate()}/${d.getMonth()+1}`
   }
 
-  // FIX 6: Tick WhatsApp style
+  // FIX: 2 tick hnai deuh
   const Tick = ({ status }: { status: string }) => {
-    if(status === 'sent') return <span style={{fontSize: getSize(13), color:'#8a8a8a', marginRight:4}}>✓</span>
-    if(status === 'delivered') return <span style={{fontSize: getSize(13), color:'#8a8a8a', marginRight:4, letterSpacing:'-2px'}}>✓✓</span>
-    if(status === 'seen') return <span style={{fontSize: getSize(13), color:'#53BDEB', marginRight:4, letterSpacing:'-2px', fontWeight:800}}>✓✓</span>
+    if(status === 'sent') return <span style={{fontSize: getSize(14), color:'#8a8a8a', marginRight:5}}>✓</span>
+    if(status === 'delivered') return <span style={{fontSize: getSize(14), color:'#8a8a8a', marginRight:5, letterSpacing:'-4px'}}>✓✓</span>
+    if(status === 'seen') return <span style={{fontSize: getSize(14), color:'#00D856', marginRight:5, letterSpacing:'-4px', fontWeight:900}}>✓✓</span>
     return null
   }
 
   return (
     <div style={{minHeight:'100vh', background: theme==='dark'?'#111':'#fff', color: theme==='dark'?'#fff':'#111', paddingBottom:'90px'}}>
       
-      {/* FIX 1 & 2: Search - Icon leh Chat tih awm lo, chung berah sticky, tawlh ve lo */}
       <div style={{
         position:'sticky', top:0, zIndex:20,
         background: theme==='dark'?'#111':'#fff',
@@ -108,9 +96,14 @@ export default function ChatListPage() {
         </div>
       </div>
 
-      {/* Chat List */}
       <div>
-        {filtered.map((chat)=>(
+        {filtered.length === 0 ? (
+          <div style={{textAlign:'center', padding:'80px 20px', color:'#888'}}>
+            <div style={{fontSize:'40px', marginBottom:'8px'}}>💬</div>
+            <div style={{fontWeight:700, fontSize: getSize(14)}}>No chats yet</div>
+            <div style={{fontSize: getSize(12), marginTop:'4px'}}>In biak hunah hetah a lang ang</div>
+          </div>
+        ) : filtered.map((chat)=>(
           <div 
             key={chat.id} 
             onClick={()=>router.push(`/chat/${chat.id}`)}
@@ -123,17 +116,13 @@ export default function ChatListPage() {
               cursor:'pointer'
             }}
           >
-            {/* FIX 3: Pic ti lian */}
             <div style={{width:60, height:60, borderRadius:30, background:'#f3f4f6', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
               {chat.photoURL ? <img src={chat.photoURL} style={{width:'100%', height:'100%', objectFit:'cover'}}/> : <span style={{fontSize:28}}>👤</span>}
             </div>
 
-            {/* FIX 3: Hming hniam hret */}
             <div style={{flex:1, minWidth:0, paddingTop:'4px'}}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px'}}>
-                <div style={{fontWeight:'700', fontSize: getSize(17), whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', color: theme==='dark'?'#fff':'#111'}}>{chat.name}</div>
-                
-                {/* FIX 4: Time + Badge */}
+                <div style={{fontWeight:'700', fontSize: getSize(17), whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{chat.name}</div>
                 <div style={{display:'flex', alignItems:'center', gap:'6px', flexShrink:0}}>
                   <span style={{fontSize: getSize(11), color: chat.unread>0 ? '#7C3AED' : '#8a8a8a', fontWeight: chat.unread>0 ? 800 : 500}}>{formatTime(chat.time)}</span>
                   {chat.unread > 0 && (
@@ -141,8 +130,6 @@ export default function ChatListPage() {
                   )}
                 </div>
               </div>
-
-              {/* FIX 5: Last message + Tick */}
               <div style={{display:'flex', alignItems:'center', gap:'2px', marginTop:'3px', minWidth:0}}>
                 {chat.lastMessageIsMe && <Tick status={chat.status} />}
                 <div style={{
@@ -162,8 +149,7 @@ export default function ChatListPage() {
         ))}
       </div>
 
-      {/* FAB + Button */}
       <button onClick={()=>router.push('/users')} style={{position:'fixed', bottom:90, right:16, width:56, height:56, borderRadius:18, background:'#7C3AED', border:'none', color:'white', fontSize:28, fontWeight:700, boxShadow:'0 6px 20px rgba(124,58,237,0.4)', cursor:'pointer'}}>+</button>
     </div>
   )
-                  }
+}
