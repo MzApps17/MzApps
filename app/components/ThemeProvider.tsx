@@ -6,7 +6,7 @@ type ThemeContextType = {
   setDarkMode: (v: boolean) => void;
   fontSize: number;
   setFontSize: (v: number) => void;
-  theme?: string; // footer hlui tan compatibility
+  theme: string;
 };
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -31,15 +31,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { localStorage.setItem("mz-dark", String(darkMode)); }, [darkMode]);
   useEffect(() => { localStorage.setItem("mz-font", String(fontSize)); }, [fontSize]);
 
-  const theme = darkMode? "dark" : "light";
-
   return (
-    <ThemeContext.Provider value={{ darkMode, setDarkMode, fontSize, setFontSize, theme }}>
+    <ThemeContext.Provider value={{ darkMode, setDarkMode, fontSize, setFontSize, theme: darkMode? "dark" : "light" }}>
       <div style={{
         background: darkMode? "#0a0a0a" : "#ffffff",
         color: darkMode? "#ffffff" : "#000000",
         fontSize: fontSize + "px",
         minHeight: "100vh",
+        width: "100%",
         transition: "all 0.2s ease"
       }}>
         {children}
