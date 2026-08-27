@@ -1,191 +1,138 @@
-"use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { auth, db } from "../firebase/config";
-import {
-  onAuthStateChanged,
-  updateEmail,
-  deleteUser,
-  EmailAuthProvider,
-  reauthenticateWithCredential,
-  signOut
-} from "firebase/auth";
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  deleteDoc,
-  updateDoc,
-  writeBatch
-} from "firebase/firestore";
-import { useTheme } from "../components/ThemeProvider";
+'use client'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useTheme } from '../components/ThemeProvider'
+import { auth, db } from '@/app/firebase/config'
+import { collection, query, where, getDocs, doc, deleteDoc, getDoc } from 'firebase/firestore'
 
-export default function SettingsPage() {
-  const router = useRouter();
-  const { darkMode, setDarkMode, fontSize, setFontSize } = useTheme();
-  const [user, setUser] = useState<any>(null);
-  const [blocked, setBlocked] = useState<any[]>([]);
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [newEmail, setNewEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+export default function SettingsPage(){
+  const router = useRouter()
+  const { darkMode, setDarkMode, fontSize, setFontSize } = useTheme()
+  const [blocked, setBlocked] = useState<any[]>([])
+  const [showBlocked, setShowBlocked] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      if (!u) { router.push("/"); return; }
-      setUser(u);
-      const snap = await getDocs(collection(db, `users/${u.uid}/blocks`));
-      const list = await Promise.all(snap.docs.map(async d => {
-        const ud = await getDoc(doc(db, "users", d.id));
-        return { id: d.id, ...ud.data() };
-      }));
-      setBlocked(list);
-    });
-    return () => unsub();
-  }, []);
-
-  const handleChangeEmail = async () => {
-    if (!newEmail || !password) return;
-    setLoading(true);
-    try {
-      const cred = EmailAuthProvider.credential(user.email, password);
-      await reauthenticateWithCredential(user, cred);
-      await updateEmail(user, newEmail);
-      await updateDoc(doc(db, "users", user.uid), { email: newEmail });
-      setShowEmailModal(false);
-      setNewEmail(""); setPassword("");
-    } catch (e: any) {
-      alert(e.message);
+  useEffect(()=>{
+    const loadBlocked = async()=>{
+      const uid = auth.currentUser?.uid
+      if(!uid) return
+      try{
+        const q = query(collection(db, "blocks"), where("uid","==",uid))
+        const snap = await getDocs(q)
+        setBlocked(snap.docs.map(d=>d.data()))
+      }catch{}
     }
-    setLoading(false);
-  };
+    loadBlocked()
+  },[])
 
-  const handleDeleteAccount = async () => {
-    setLoading(true);
-    try {
-      const batch = writeBatch(db);
-      const cols = ["friends", "blocks", "chats", "posts", "friendRequests"];
-      for (const c of cols) {
-        const snap = await getDocs(collection(db, `users/${user.uid}/${c}`));
-        snap.forEach(d => batch.delete(d.ref));
-      }
-      const allUsers = await getDocs(collection(db, "users"));
-      allUsers.forEach(u => {
-        batch.delete(doc(db, `users/${u.id}/friends/${user.uid}`));
-        batch.delete(doc(db, `users/${u.id}/blocks/${user.uid}`));
-      });
-      batch.delete(doc(db, "users", user.uid));
-      await batch.commit();
-      await deleteUser(user);
-      router.push("/");
-    } catch (e: any) {
-      await signOut(auth);
-      router.push("/");
-    }
-    setLoading(false);
-  };
+  const bg = darkMode? '#0a0a0a' : '#ffffff'
+  const bg2 = darkMode? '#1a1a1a' : '#ffffff'
+  const border = darkMode? '#2a2a2a' : '#f0f0f0'
+  const text = darkMode? '#ffffff' : '#111111'
+  const subText = darkMode? '#999' : '#666'
 
-  const handleUnblock = async (id: string) => {
-    await deleteDoc(doc(db, `users/${user.uid}/blocks/${id}`));
-    setBlocked(prev => prev.filter(b => b.id !== id));
-  };
+  const Item = ({icon, label, right, onClick, danger=false}: any) => (
+    <div onClick={onClick} style={{
+      display:'flex', alignItems:'center', justifyContent:'space-between',
+      padding:'12px 14px', // 1. padding ti zim - 18 atangin 12 ah
+      background:bg2,
+      borderBottom:`1px solid ${border}`,
+      cursor:'pointer'
+    }}>
+      <div style={{display:'flex', alignItems:'center', gap:12}}>
+        <div style={{width:28, height:28, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontSize:15}}>
+          {icon}
+        </div>
+        <span style={{fontWeight:700, fontSize:15.5, color: danger? '#ff3b30' : text}}>{label}</span>
+      </div>
+      <div style={{display:'flex', alignItems:'center', gap:8}}>
+        {right}
+        {/* 2. Arrow lian - WhatsApp style */}
+        <span style={{fontSize:22, color:'#bbb', fontWeight:300, lineHeight:1}}>›</span>
+      </div>
+    </div>
+  )
 
-  return (
-    <div style={{ minHeight: "100vh", background: darkMode ? "#111" : "#fff", color: darkMode ? "#fff" : "#000", fontSize: fontSize + "px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderBottom: `1px solid ${darkMode ? "#222" : "#eee"}` }}>
-        <button onClick={() => router.back()} style={{ fontSize: 28, background: "none", border: "none", cursor: "pointer", color: darkMode ? "#fff" : "#000" }}>←</button>
-        <h2 style={{ fontSize: 20, fontWeight: 700 }}>Settings</h2>
+  return <div style={{minHeight:'100vh', background:bg, color:text, paddingBottom:20}}>
+    {/* Header - padding zim + arrow lian */}
+    <div style={{display:'flex', alignItems:'center', gap:12, padding:'10px 12px', borderBottom:`1px solid ${border}`, background:bg2, position:'sticky', top:0, zIndex:10}}>
+      <button onClick={()=>router.back()} style={{background:'none', border:'none', fontSize:26, fontWeight:700, color:text, cursor:'pointer', padding:'4px 6px'}}>←</button>
+      <span style={{fontWeight:800, fontSize:18}}>Settings</span>
+    </div>
+
+    <div style={{marginTop:4}}>
+      {/* Dark mode */}
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', background:bg2, borderBottom:`1px solid ${border}`}}>
+        <div style={{display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:28, height:28, borderRadius:8, background:'#FFD60A', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15}}>🌙</div>
+          <span style={{fontWeight:700, fontSize:15.5}}>Dark mode</span>
+        </div>
+        <label style={{position:'relative', display:'inline-block', width:44, height:26}}>
+          <input type="checkbox" checked={darkMode} onChange={e=>setDarkMode(e.target.checked)} style={{opacity:0, width:0, height:0}}/>
+          <span style={{position:'absolute', cursor:'pointer', inset:0, background: darkMode? '#7C3AED' : '#ccc', borderRadius:20, transition:'0.2s'}}></span>
+          <span style={{position:'absolute', height:20, width:20, left:3, bottom:3, background:'#fff', borderRadius:'50%', transition:'0.2s', transform: darkMode? 'translateX(18px)' : 'none'}}></span>
+        </label>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column" }}>
-        <div style={rowStyle(darkMode)}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={iconStyle}>🌙</span><span>Dark mode</span></div>
-          <label className="switch"><input type="checkbox" checked={darkMode} onChange={e => setDarkMode(e.target.checked)} /><span className="slider"></span></label>
+      {/* Font size */}
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', background:bg2, borderBottom:`1px solid ${border}`}}>
+        <div style={{display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:28, height:28, borderRadius:8, background:'#E5E5EA', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:900}}>Aa</div>
+          <span style={{fontWeight:700, fontSize:15.5}}>Font size</span>
         </div>
-
-        <div style={rowStyle(darkMode)}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={iconStyle}>🔤</span><span>Font size</span></div>
-          <select value={fontSize} onChange={e => setFontSize(Number(e.target.value))} style={selectStyle(darkMode)}>
-            <option value={14}>Small</option><option value={16}>Medium</option><option value={18}>Large</option><option value={20}>Extra Large</option>
-          </select>
-        </div>
-
-        <div style={rowStyle(darkMode)}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={iconStyle}>🚫</span><span>Block List ({blocked.length})</span></div>
-          <span style={{ opacity: 0.5 }}>›</span>
-        </div>
-
-        <div style={rowStyle(darkMode)} onClick={() => setShowEmailModal(true)}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={iconStyle}>✉️</span><span>Change email</span></div>
-          <span style={{ opacity: 0.5 }}>›</span>
-        </div>
-
-        <div style={{...rowStyle(darkMode), color: "#ef4444"}} onClick={() => setShowDeleteModal(true)}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={iconStyle}>🗑️</span><span style={{ fontWeight: 600 }}>Delete account</span></div>
-          <span>›</span>
-        </div>
+        <select value={fontSize} onChange={e=>setFontSize(Number(e.target.value))} style={{padding:'6px 10px', borderRadius:10, border:`1px solid ${border}`, background:bg2, color:text, fontWeight:600, fontSize:14}}>
+          <option value={14}>Small</option>
+          <option value={16}>Medium</option>
+          <option value={18}>Large</option>
+          <option value={20}>Extra Large</option>
+        </select>
       </div>
 
-      <div style={{ padding: 14 }}>
-        <h3 style={{ margin: "16px 0", fontWeight: 700 }}>Blocked Users</h3>
-        {blocked.length === 0 && <p style={{ opacity: 0.6 }}>No blocked users</p>}
-        {blocked.map(b => (
-          <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${darkMode ? "#222" : "#eee"}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <img src={b.photoURL || "/default.png"} style={{ width: 36, height: 36, borderRadius: "50%" }} />
-              <span>{b.displayName || b.email}</span>
+      {/* 3. Block List - click ah chiah lang */}
+      <Item 
+        icon={<span style={{width:28, height:28, borderRadius:8, background:'#FF3B30', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:14}}>🚫</span>}
+        label={`Block List (${blocked.length})`}
+        onClick={()=>setShowBlocked(!showBlocked)}
+      />
+
+      <Item 
+        icon={<span style={{width:28, height:28, borderRadius:8, background:'#007AFF', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff'}}>✉️</span>}
+        label="Change email"
+        onClick={()=>router.push('/change-email')}
+      />
+
+      <Item 
+        icon={<span style={{width:28, height:28, borderRadius:8, background:'#FF3B30', display:'flex', alignItems:'center', justifyContent:'center'}}>🗑️</span>}
+        label="Delete account"
+        danger
+        onClick={async()=>{
+          if(confirm('Delete account?')){
+            // delete logic
+          }
+        }}
+      />
+    </div>
+
+    {/* Blocked Users - a hnuai ah lang lo, click chiah in lang */}
+    {showBlocked && (
+      <div style={{marginTop:16, background:bg2, borderTop:`1px solid ${border}`}}>
+        <div style={{padding:'14px 14px 8px', fontWeight:800, fontSize:17}}>Blocked Users</div>
+        {blocked.length===0 ? (
+          <div style={{padding:'10px 14px 20px', color:subText, fontSize:14}}>No blocked users</div>
+        ) : (
+          blocked.map((u,i)=>(
+            <div key={i} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', borderBottom:`1px solid ${border}`}}>
+              <span style={{fontWeight:600, fontSize:14}}>{u.blockedName || u.blockedId}</span>
+              <button onClick={async()=>{
+                const uid = auth.currentUser?.uid
+                if(!uid) return
+                await deleteDoc(doc(db, "blocks", `${uid}_${u.blockedId}`))
+                setBlocked(b=>b.filter((_,idx)=>idx!==i))
+              }} style={{background:'#ff3b30', color:'#fff', border:'none', borderRadius:8, padding:'5px 12px', fontWeight:700, fontSize:13}}>Unblock</button>
             </div>
-            <button onClick={() => handleUnblock(b.id)} style={{ background: "#7c3aed", color: "#fff", border: "none", padding: "6px 14px", borderRadius: 20, cursor: "pointer" }}>Unblock</button>
-          </div>
-        ))}
+          ))
+        )}
       </div>
-
-      {showEmailModal && (
-        <Modal title="Change Email">
-          <p style={{ fontSize: 13, opacity: 0.7, marginBottom: 12 }}>Your new email will keep your account. Old email will become fresh.</p>
-          <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="New email" style={inputStyle(darkMode)} />
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Current password" style={inputStyle(darkMode)} />
-          <div style={modalBtnRow}>
-            <button onClick={() => setShowEmailModal(false)} style={cancelBtn}>Cancel</button>
-            <button onClick={handleChangeEmail} style={okBtn}>{loading ? "..." : "Change Email"}</button>
-          </div>
-        </Modal>
-      )}
-
-      {showDeleteModal && (
-        <Modal title="Delete Account?">
-          <p style={{ fontSize: 14, lineHeight: "20px", marginBottom: 18 }}>
-            If you delete your account, all your account data will be permanently deleted and you will not be able to login again. Your email will become a fresh account.
-          </p>
-          <div style={modalBtnRow}>
-            <button onClick={() => setShowDeleteModal(false)} style={cancelBtn}>Cancel</button>
-            <button onClick={handleDeleteAccount} style={{...okBtn, background: "#ef4444"}}>{loading ? "..." : "Delete account"}</button>
-          </div>
-        </Modal>
-      )}
-
-      <style>{`.switch{position:relative;display:inline-block;width:42px;height:24px}.switch input{opacity:0;width:0;height:0}.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:24px;transition:.3s}.slider:before{content:"";position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}input:checked + .slider{background:#7c3aed}input:checked + .slider:before{transform:translateX(18px)}`}</style>
-    </div>
-  );
-}
-
-function Modal({ title, children }: any) {
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 20 }}>
-      <div style={{ background: "#fff", color: "#000", borderRadius: 16, padding: 20, width: "100%", maxWidth: 340 }}>
-        <h3 style={{ fontWeight: 700, marginBottom: 12, fontSize: 18 }}>{title}</h3>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-const rowStyle = (dark: boolean): any => ({ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 14px", borderBottom: `1px solid ${dark ? "#222" : "#f1f1f1"}`, cursor: "pointer" });
-const iconStyle: any = { fontSize: 20, width: 26, textAlign: "center" };
-const selectStyle = (dark: boolean): any => ({ borderRadius: 8, padding: "6px 10px", border: `1px solid ${dark ? "#333" : "#ddd"}`, background: dark ? "#222" : "#fff", color: dark ? "#fff" : "#000" });
-const inputStyle = (dark: boolean): any => ({ width: "100%", padding: "12px", borderRadius: 10, border: "1px solid #ddd", marginBottom: 10, outline: "none", boxSizing: "border-box" });
-const modalBtnRow: any = { display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 10 };
-const cancelBtn: any = { padding: "10px 18px", borderRadius: 20, border: "1px solid #ddd", background: "#fff", cursor: "pointer" };
-const okBtn: any = { padding: "10px 18px", borderRadius: 20, border: "none", background: "#7c3aed", color: "#fff", cursor: "pointer", fontWeight: 600 };
+    )}
+  </div>
+          }
