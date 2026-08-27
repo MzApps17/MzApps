@@ -144,33 +144,63 @@ useEffect(()=>{
       }catch{}
     }
     if(!isValid){ setAlertMsg("Invalid OTP"); setLoading(false); return; }
+
+    // FIX: Account ngai ah zel lut tur - Password nghet (OTP ni lo)
+    const fixedPassword = email.toLowerCase().trim() + "_MzApps2024!Fixed"
+    let userUid = auth.currentUser?.uid || ""
+    try{
+      const cred = await signInWithEmailAndPassword(auth, email, fixedPassword);
+      userUid = cred.user.uid
+    }catch(e:any){
+      // user-not-found ah chauh siam thar
+      if(e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential'){
+        try{
+          const newCred = await createUserWithEmailAndPassword(auth, email, fixedPassword);
+          userUid = newCred.user.uid
+        }catch{}
+      }
+    }
+
     localStorage.setItem('mz_user', email)
     localStorage.setItem('user', email)
     localStorage.setItem('mz_user_email', email)
     localStorage.setItem('mz_online','true')
     localStorage.setItem('isLoggedIn','true')
-    localStorage.setItem('mz_step','profile')
     localStorage.removeItem('mz_logged_out')
+
+    // FIX: Account ngai a nih chuan Home ah direct - profile siam nawn lo
+    try{
+      if(userUid){
+        const userSnap = await getDoc(doc(db,"users",userUid))
+        if(userSnap.exists() && userSnap.data().name){
+          const d = userSnap.data()
+          localStorage.setItem('mz_user_name', d.name)
+          if(d.photoURL) localStorage.setItem('mz_pic', d.photoURL)
+          localStorage.removeItem('mz_step')
+          localStorage.removeItem('mz_otp')
+          localStorage.removeItem('mz_otp_time')
+          router.replace("/home")
+          setLoading(false)
+          return
+        }
+      }
+    }catch{}
+
+    localStorage.setItem('mz_step','profile')
     setStep("profile");
     setLoading(false);
-    setTimeout(async()=>{
-      try{ await signInWithEmailAndPassword(auth, email, code+"MzApps2024!"); }
-      catch{ try{ await createUserWithEmailAndPassword(auth, email, code+"MzApps2024!"); }catch{} }
-    }, 100)
   };
 
   const onFileChange = (e:any)=>{ const f=e.target.files?.[0]; if(!f) return; const r=new FileReader(); r.onload=()=>setPicBase64(r.result as string); r.readAsDataURL(f); };
 
   const handleProfileSave = async()=>{
     if(!name.trim()){ setAlertMsg("Please enter name"); return; }
-    // FIX 3: CHAK - Firebase nghak lo, Home ah lut nghal zawt
     localStorage.setItem('mz_user_name', name.trim())
     if(picBase64) localStorage.setItem('mz_pic', picBase64)
     localStorage.removeItem('mz_step')
     localStorage.removeItem('mz_otp')
     localStorage.removeItem('mz_otp_time')
     router.replace("/home");
-    // Firebase chu hnung lamah
     const user=auth.currentUser;
     if(user){
       setDoc(doc(db,"users",user.uid),{ name:name.trim(), email, photoURL:picBase64||"", uid:user.uid, isOnline:true, lastSeen:new Date() },{merge:true}).catch(()=>{});
@@ -180,8 +210,6 @@ useEffect(()=>{
   return(
     <div style={{height:"100dvh", position:"fixed", inset:0, background:"white", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-start", padding:20, paddingTop:60}}>
       <CustomAlert msg={alertMsg} onClose={()=>setAlertMsg("")} />
-
-      {/* FIX 4: Top bar - Back to Email (veilam) leh Language (dinglam) in line */}
       <div style={{position:"absolute", top:16, left:16, right:16, display:'flex', justifyContent:'space-between', alignItems:'center', zIndex:10}}>
         <div>
           {step==="otp" && (
@@ -211,7 +239,6 @@ useEffect(()=>{
           {picBase64? <img src={picBase64} style={{width:"100%",height:"100%",objectFit:"cover"}}/> : <span style={{fontSize:40}}>📷</span>}
           <input type="file" accept="image/*" hidden onChange={onFileChange}/>
         </label>
-        {/* FIX 1 & 2: Click chuan pawl, type lian */}
         <input
           value={name}
           onChange={(e)=>setName(e.target.value)}
@@ -226,8 +253,8 @@ useEffect(()=>{
             padding:"12px",
             margin:"20px 0",
             outline:"none",
-            fontSize:22,
-            fontWeight:700,
+            fontSize:28,
+            fontWeight:800,
             color:"#111",
             transition:"all 0.2s"
           }}
@@ -248,4 +275,4 @@ useEffect(()=>{
       )}
     </div>
   );
-                       }
+}
