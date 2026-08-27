@@ -21,7 +21,7 @@ interface Message {
 export default function ChatPage() {
   const { id } = useParams() as { id: string }
   const router = useRouter()
-  const { theme } = useTheme() as any
+  const { theme, fontSize } = useTheme() as any
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [myUid, setMyUid] = useState('')
@@ -35,7 +35,7 @@ export default function ChatPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const getSize = (base: number) => {
-    const f: any = fontSize
+    const f = fontSize
     if (typeof f === 'number') return Math.round(base * (f / 16))
     return base
   }
@@ -201,8 +201,7 @@ export default function ChatPage() {
   const filteredMessages = searchQuery? messages.filter(m=> m.text.toLowerCase().includes(searchQuery.toLowerCase())) : messages
 
   return (
-    <div style={{height:'100dvh', display:'flex', flexDirection:'column', background: theme==='dark'?'#0b141a':'#efeae2', position:'relative'}}>
-      {/* 9. Header colour - thlalak 2 ami ang - Teal */}
+    <div style={{height:'100dvh', display:'flex', flexDirection:'column', background:'#0b141a', position:'relative'}}>
       <div style={{
         height:58,
         background: '#008069',
@@ -222,17 +221,14 @@ export default function ChatPage() {
           <div style={{fontWeight:800, fontSize: getSize(15), color:'#fff'}}>{otherUser?.name || 'User'}</div>
           <div style={{fontSize: getSize(11), color:'#d1e7dd'}}>{isOtherOnline? 'Online' : 'Offline'}</div>
         </div>
-
         <div style={{position:'relative'}}>
           <button onClick={()=>setShowDotMenu(!showDotMenu)} style={{border:'none', background:'none', cursor:'pointer', width:36, height:36, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:18}}>
-            {/* 2. Dot 3 vertical */}
             <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
           </button>
           {showDotMenu && (
-            <div style={{position:'absolute', right:0, top:40, background: theme==='dark'?'#233138':'#fff', borderRadius:10, boxShadow:'0 4px 20px rgba(0,0,0,0.3)', minWidth:190, zIndex:50, overflow:'hidden'}}>
-              <button onClick={()=>{ setIsSearchMode(true); setShowDotMenu(false); }} style={{width:'100%', padding:'12px 16px', border:'none', background:'transparent', textAlign:'left', fontSize: getSize(14), fontWeight:600, color: theme==='dark'?'#fff':'#111', cursor:'pointer', display:'flex', alignItems:'center', gap:10}}>
-                {/* 3. Search icon var - users search ang */}
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={theme==='dark'?'#fff':'#111'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <div style={{position:'absolute', right:0, top:40, background:'#233138', borderRadius:10, boxShadow:'0 4px 20px rgba(0,0,0,0.3)', minWidth:190, zIndex:50, overflow:'hidden'}}>
+              <button onClick={()=>{ setIsSearchMode(true); setShowDotMenu(false); }} style={{width:'100%', padding:'12px 16px', border:'none', background:'transparent', textAlign:'left', fontSize: getSize(14), fontWeight:600, color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', gap:10}}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 Search messages
               </button>
               <button onClick={handleBlock} style={{width:'100%', padding:'12px 16px', border:'none', background:'transparent', textAlign:'left', fontSize: getSize(14), fontWeight:600, color:'#f33', cursor:'pointer', borderTop:'1px solid #334', display:'flex', alignItems:'center', gap:10}}>
@@ -251,7 +247,6 @@ export default function ChatPage() {
         </div>
       )}
 
-      {/* 1. Message container - hming leh input inkar chiah a khat hunah scroll */}
       <div ref={listRef} style={{
         flex:1,
         overflowY:'auto',
@@ -292,7 +287,6 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* 6,7,8. Input - background hran, kual deuh, image button chhung ah */}
       <div style={{
         position:'fixed',
         bottom:68,
@@ -304,7 +298,6 @@ export default function ChatPage() {
         alignItems:'center',
         zIndex:25,
       }}>
-        {/* Input - kual deuh 24px, background hrang */}
         <div style={{
           flex:1,
           background:'#2a3942',
@@ -315,7 +308,6 @@ export default function ChatPage() {
           minHeight:44,
           border: 'none'
         }}>
-          {/* 8. Image button input chhung ah */}
           <button onClick={()=>fileInputRef.current?.click()} style={{border:'none', background:'none', cursor:'pointer', width:36, height:36, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:18, flexShrink:0}}>
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8696a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
           </button>
@@ -328,11 +320,10 @@ export default function ChatPage() {
             style={{flex:1, border:'none', outline:'none', background:'transparent', fontSize: getSize(15), color:'#fff', padding:'10px 6px'}}
           />
         </div>
-        {/* Send button - background hran #00a884 */}
         <button onClick={()=>handleSend()} disabled={!input.trim() || uploading} style={{width:46, height:46, borderRadius:23, background:'#00a884', border:'none', color:'white', fontSize:20, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', opacity: input.trim()? 1 : 0.6, flexShrink:0}}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
         </button>
       </div>
     </div>
   )
-}
+                                                               }
