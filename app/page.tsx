@@ -38,36 +38,45 @@ export default function LoginPage() {
   const [langSearch, setLangSearch] = useState("");
   const { fontSize } = useTheme();
 
-  // app/page.tsx useEffect hmasa ber ah
 useEffect(()=>{
   if('serviceWorker' in navigator){
     navigator.serviceWorker.getRegistrations().then(r=>r.forEach(reg=>reg.unregister()))
   }
+  // FIX 3: App minimize/open leh pawn OTP a awm reng nan
+  const savedStep = localStorage.getItem('mz_step')
+  const savedEmail = localStorage.getItem('mz_otp_email')
+  const savedTime = localStorage.getItem('mz_otp_time')
+  if(savedStep === 'otp' && savedEmail && savedTime){
+    const diff = Date.now() - Number(savedTime)
+    if(diff < 30*60*1000){
+      setEmail(savedEmail)
+      setStep('otp')
+    } else {
+      localStorage.removeItem('mz_step')
+    }
+  }
+  if(savedStep === 'profile' && savedEmail){
+    setEmail(savedEmail)
+    setStep('profile')
+  }
 },[])
 
-  // RULE: Login sa tawh chuan /home ah tir nghal - App close pawn login sa
   useEffect(()=>{
     const saved = localStorage.getItem('mz_user') || localStorage.getItem('user')
     if(saved && auth.currentUser){
       router.replace("/home")
     }
-    // Auth check
     const unsub = onAuthStateChanged(auth, (u)=>{
       if(u && localStorage.getItem('mz_user')){
-        // ONLINE tir
         localStorage.setItem('mz_online','true')
         setDoc(doc(db,"users",u.uid),{ isOnline:true, lastSeen: new Date() },{merge:true})
       }
     })
-
-    // RULE: App close chhung chu OFFLINE
     const goOffline = () => {
       const uid = auth.currentUser?.uid
       localStorage.setItem('mz_online','false')
       if(uid){
-        // sendBeacon ang deuh in - fast
         navigator.sendBeacon && navigator.sendBeacon('/api/offline', JSON.stringify({uid}))
-        // fallback
         setDoc(doc(db,"users",uid),{ isOnline:false, lastSeen: new Date() },{merge:true}).catch(()=>{})
       }
     }
@@ -87,22 +96,23 @@ useEffect(()=>{
   },[])
 
   const handleSend = async()=>{
-    if(!email.includes("@")){ setAlertMsg("Invalid email"); return; }
+    const emailTrim = email.trim()
+    // FIX 1: Email format dik tak check
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if(!emailRegex.test(emailTrim)){ setAlertMsg("Please enter a valid email address"); return; }
     setLoading(true);
     try{
       const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-      // CHAK: Local ah save hmasa
       localStorage.setItem('mz_otp', otpCode)
-      localStorage.setItem('mz_otp_email', email)
+      localStorage.setItem('mz_otp_email', emailTrim)
       localStorage.setItem('mz_otp_time', Date.now().toString())
+      localStorage.setItem('mz_step', 'otp')
 
-      // UI ah rang taka kal
       setStep("otp");
-      setAlertMsg(`OTP sent to ${email}`);
+      setAlertMsg(`OTP sent to ${emailTrim}`);
       setLoading(false);
 
-      // Firebase & Email chu hnung lamah - nghak lo
-      setDoc(doc(db, "emailOtps", email), { otp: otpCode, createdAt: new Date().getTime() }).catch(()=>{})
+      setDoc(doc(db, "emailOtps", emailTrim), { otp: otpCode, createdAt: new Date().getTime() }).catch(()=>{})
       fetch("https://api.emailjs.com/api/v1.0/email/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -110,7 +120,7 @@ useEffect(()=>{
           service_id: EMAILJS_SERVICE_ID,
           template_id: EMAILJS_TEMPLATE_ID,
           user_id: EMAILJS_PUBLIC_KEY,
-          template_params: { to_email: email, otp_code: otpCode, to_name: "MzApps User" }
+          template_params: { to_email: emailTrim, otp_code: otpCode, to_name: "MzApps User" }
         })
       }).catch(()=>{})
 
@@ -119,20 +129,15 @@ useEffect(()=>{
 
   const handleOtpChange = (v:string,i:number)=>{ const n=[...otp]; n[i]=v.slice(-1); setOtp(n); if(v&&i<5) inputsRef.current[i+1]?.focus(); };
 
-  // VERIFY CHAK BER
   const handleVerify = async()=>{
     const code=otp.join(""); if(code.length!==6) return;
     setLoading(true);
-
-    // 1. LOCAL OTP CHECK - CHAK (0.1 sec)
     const localOtp = localStorage.getItem('mz_otp')
     const localEmail = localStorage.getItem('mz_otp_email')
-
     let isValid = false
     if(localOtp && localEmail === email && localOtp === code){
       isValid = true
     } else {
-      // Fallback - Firestore check (muang deuh)
       try{
         const snap = await getDoc(doc(db, "emailOtps", email));
         if(snap.exists()){
@@ -142,22 +147,16 @@ useEffect(()=>{
         }
       }catch{}
     }
-
     if(!isValid){ setAlertMsg("Invalid OTP"); setLoading(false); return; }
-
-    // 2. RANG TAKA LOGIN SA TIH - Firebase nghak lo!
     localStorage.setItem('mz_user', email)
     localStorage.setItem('user', email)
     localStorage.setItem('mz_user_email', email)
     localStorage.setItem('mz_online','true')
     localStorage.setItem('isLoggedIn','true')
+    localStorage.setItem('mz_step','profile')
     localStorage.removeItem('mz_logged_out')
-
-    // 3. PROFILE STEP AH TIR NGHAL - Verifying rei lo
     setStep("profile");
     setLoading(false);
-
-    // 4. Firebase Auth chu hnung lamah ti - a muang pawhin pawi lo
     setTimeout(async()=>{
       try{ await signInWithEmailAndPassword(auth, email, code+"MzApps2024!"); }
       catch{ try{ await createUserWithEmailAndPassword(auth, email, code+"MzApps2024!"); }catch{} }
@@ -169,14 +168,12 @@ useEffect(()=>{
   const handleProfileSave = async()=>{
     if(!name.trim()){ setAlertMsg("Please enter name"); return; }
     setLoading(true);
-    // Local save hmasa
     localStorage.setItem('mz_user_name', name.trim())
     if(picBase64) localStorage.setItem('mz_pic', picBase64)
-
-    // Home ah tir nghal
+    localStorage.removeItem('mz_step')
+    localStorage.removeItem('mz_otp')
+    localStorage.removeItem('mz_otp_time')
     router.replace("/home");
-
-    // Firebase hnung lamah
     setTimeout(async()=>{
       const user=auth.currentUser;
       if(user){
@@ -186,16 +183,29 @@ useEffect(()=>{
   };
 
   return(
-    <div style={{height:"100dvh", position:"fixed", inset:0, background:"white", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:20}}>
+    <div style={{height:"100dvh", position:"fixed", inset:0, background:"white", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-start", padding:20, paddingTop:60}}>
       <CustomAlert msg={alertMsg} onClose={()=>setAlertMsg("")} />
       <div style={{position:"absolute", top:16, right:16}}>
         <button onClick={()=>setShowLang(true)} style={{border:"1.5px solid #7C3AED", borderRadius:20, padding:"6px 12px", background:"white", fontWeight:700}}>{currentLang.flag} {currentLang.code.toUpperCase()} ▼</button>
       </div>
-      <div style={{width:90,height:90,background:"#7c3aed",borderRadius:28,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:14,fontSize:42}}>💬</div>
-      <h1 style={{fontSize:38,fontWeight:800,margin:"0 0 40px 0"}}><span style={{color:"black"}}>Mz</span><span style={{color:"#7c3aed"}}>Apps</span></h1>
+      {/* FIX 4: Icon leh a hnuai zawng ti chho */}
+      <div style={{width:90,height:90,background:"#7c3aed",borderRadius:28,display:"flex",alignItems:"center",justifyContent:"center",marginBottom:10,marginTop:20,fontSize:42}}>💬</div>
+      <h1 style={{fontSize:38,fontWeight:800,margin:"0 0 24px 0"}}><span style={{color:"black"}}>Mz</span><span style={{color:"#7c3aed"}}>Apps</span></h1>
 
       {step==="email"&&(<div style={{width:"100%",maxWidth:360}}><input value={email} onChange={(e)=>setEmail(e.target.value)} placeholder={t.enterEmail || "Enter your email"} style={{width:"100%",border:"2px solid #000",borderRadius:16,padding:"14px 16px",fontSize:16, boxSizing:"border-box"}}/><button onClick={handleSend} disabled={loading} style={{width:"100%",marginTop:22,background:"#7c3aed",color:"white",border:"none",borderRadius:18,padding:"16px",fontWeight:700}}>{loading?"Sending...":t.send || "Send OTP"}</button></div>)}
-      {step==="otp"&&(<div style={{width:"100%",maxWidth:360}}><p style={{textAlign:"center", fontWeight:700}}>{email}</p><div style={{display:"flex",justifyContent:"center",gap:8,margin:"16px 0"}}>{otp.map((d,i)=><input key={i} ref={(el)=>{inputsRef.current[i]=el}} value={d} onChange={(e)=>handleOtpChange(e.target.value,i)} maxLength={1} inputMode="numeric" style={{width:42,height:52,textAlign:"center",fontSize:18,fontWeight:700,border:"2px solid #e5e7eb",borderRadius:12}}/> )}</div><button onClick={handleVerify} style={{width:"100%",background:"#7c3aed",color:"white",border:"none",borderRadius:18,padding:"15px",fontWeight:700}}>{loading?"Verifying...":t.verify || "Verify OTP"}</button><button onClick={()=>setStep("email")} style={{width:"100%",marginTop:10,background:"transparent",border:"none",color:"#7c3aed",fontWeight:700}}>Resend</button></div>)}
+
+      {step==="otp"&&(<div style={{width:"100%",maxWidth:360}}>
+        {/* FIX 2: Email type na kir lehna */}
+        <button onClick={()=>{ setStep("email"); localStorage.setItem('mz_step','email'); }} style={{display:'flex',alignItems:'center',gap:6, background:'none', border:'none', color:'#7c3aed', fontWeight:700, fontSize:14, marginBottom:12, cursor:'pointer'}}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          Back to Email
+        </button>
+        <p style={{textAlign:"center", fontWeight:700}}>{email}</p>
+        <div style={{display:"flex",justifyContent:"center",gap:8,margin:"16px 0"}}>{otp.map((d,i)=><input key={i} ref={(el)=>{inputsRef.current[i]=el}} value={d} onChange={(e)=>handleOtpChange(e.target.value,i)} maxLength={1} inputMode="numeric" style={{width:42,height:52,textAlign:"center",fontSize:18,fontWeight:700,border:"2px solid #e5e7eb",borderRadius:12}}/> )}</div>
+        <button onClick={handleVerify} style={{width:"100%",background:"#7c3aed",color:"white",border:"none",borderRadius:18,padding:"15px",fontWeight:700}}>{loading?"Verifying...":t.verify || "Verify OTP"}</button>
+        <button onClick={handleSend} style={{width:"100%",marginTop:10,background:"transparent",border:"none",color:"#7c3aed",fontWeight:700}}>Resend</button>
+      </div>)}
+
       {step==="profile"&&(<div style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",alignItems:"center"}}><label style={{width:110,height:110,borderRadius:55,background:"#f3f4f6",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",border:"2px dashed #7c3aed"}}>{picBase64? <img src={picBase64} style={{width:"100%",height:"100%",objectFit:"cover"}}/> : <span style={{fontSize:40}}>📷</span>}<input type="file" accept="image/*" hidden onChange={onFileChange}/></label><input value={name} onChange={(e)=>setName(e.target.value)} placeholder={t.enterName || "Enter your name"} style={{width:"100%",border:"none",borderBottom:"2px solid #ccc",textAlign:"center",padding:"10px",margin:"20px 0", outline:"none"}}/><button onClick={handleProfileSave} style={{width:"100%",background:"#7c3aed",color:"white",border:"none",borderRadius:18,padding:"16px",fontWeight:700}}>{t.continue || "Continue"}</button></div>)}
 
       {showLang && (
@@ -211,4 +221,4 @@ useEffect(()=>{
       )}
     </div>
   );
-          }
+}
