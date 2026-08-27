@@ -1,55 +1,63 @@
-'use client'
-import { createContext, useContext, useEffect, useState } from 'react'
+"use client";
+import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = 'light' | 'dark'
-type FontSize = 'small' | 'medium' | 'large'
+type ThemeContextType = {
+  darkMode: boolean;
+  setDarkMode: (v: boolean) => void;
+  fontSize: number;
+  setFontSize: (v: number) => void;
+  language: string;
+  setLanguage: (v: string) => void;
+};
 
-interface ThemeContextType {
-  theme: Theme
-  fontSize: FontSize
-  setTheme: (t: Theme) => void
-  setFontSize: (f: FontSize) => void
-}
+const ThemeContext = createContext<ThemeContextType>({
+  darkMode: false,
+  setDarkMode: () => {},
+  fontSize: 16,
+  setFontSize: () => {},
+  language: "en",
+  setLanguage: () => {},
+});
 
-const ThemeContext = createContext<ThemeContextType>({theme:'light', fontSize:'medium', setTheme:()=>{}, setFontSize:()=>{}})
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [darkMode, setDarkMode] = useState(false);
+  const [fontSize, setFontSize] = useState(16);
+  const [language, setLanguage] = useState("en");
 
-export const useTheme = () => useContext(ThemeContext)
+  useEffect(() => {
+    const d = localStorage.getItem("mz-dark");
+    const f = localStorage.getItem("mz-font");
+    const l = localStorage.getItem("mz-lang");
+    if (d) setDarkMode(d === "true");
+    if (f) setFontSize(Number(f));
+    if (l) setLanguage(l);
+  }, []);
 
-export default function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('light')
-  const [fontSize, setFontSizeState] = useState<FontSize>('medium')
+  useEffect(() => {
+    localStorage.setItem("mz-dark", String(darkMode));
+  }, [darkMode]);
 
-  useEffect(()=>{
-    const t = localStorage.getItem('mz_theme') as Theme
-    const f = localStorage.getItem('mz_fontSize') as FontSize
-    if(t) setThemeState(t)
-    if(f) setFontSizeState(f)
-  },[])
+  useEffect(() => {
+    localStorage.setItem("mz-font", String(fontSize));
+  }, [fontSize]);
 
-  useEffect(()=>{
-    document.documentElement.setAttribute('data-theme', theme)
-    document.body.style.background = theme==='dark'? '#111' : '#fff'
-    document.body.style.color = theme==='dark'? '#fff' : '#111'
-    localStorage.setItem('mz_theme', theme)
-  },[theme])
-
-  useEffect(()=>{
-    let size = '16px'
-    if(fontSize==='small') size='14px'
-    if(fontSize==='medium') size='16px'
-    if(fontSize==='large') size='19px'
-    document.documentElement.style.fontSize = size
-    localStorage.setItem('mz_fontSize', fontSize)
-  },[fontSize])
-
-  const setTheme = (t:Theme) => setThemeState(t)
-  const setFontSize = (f:FontSize) => setFontSizeState(f)
+  useEffect(() => {
+    localStorage.setItem("mz-lang", language);
+  }, [language]);
 
   return (
-    <ThemeContext.Provider value={{theme, fontSize, setTheme, setFontSize}}>
-      <div style={{background: theme==='dark'?'#111':'#fff', color: theme==='dark'?'#fff':'#111', minHeight:'100vh'}}>
+    <ThemeContext.Provider value={{ darkMode, setDarkMode, fontSize, setFontSize, language, setLanguage }}>
+      <div style={{
+        background: darkMode? "#0a0a0a" : "#ffffff",
+        color: darkMode? "#ffffff" : "#000000",
+        fontSize: fontSize + "px",
+        minHeight: "100vh",
+        transition: "all 0.2s ease"
+      }}>
         {children}
       </div>
     </ThemeContext.Provider>
-  )
+  );
 }
+
+export const useTheme = () => useContext(ThemeContext);
