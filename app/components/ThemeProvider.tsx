@@ -31,16 +31,33 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { localStorage.setItem("mz-dark", String(darkMode)); }, [darkMode]);
   useEffect(() => { localStorage.setItem("mz-font", String(fontSize)); }, [fontSize]);
 
+  // Auto scale - 16 = 100%
+  const scale = fontSize / 16;
+
   return (
     <ThemeContext.Provider value={{ darkMode, setDarkMode, fontSize, setFontSize, theme: darkMode? "dark" : "light" }}>
       <div style={{
         background: darkMode? "#0a0a0a" : "#ffffff",
         color: darkMode? "#ffffff" : "#000000",
-        fontSize: fontSize + "px",
         minHeight: "100vh",
         width: "100%",
+        // HEI HI A MAGIC - hardcore font pawh a scale vek!
+        zoom: scale as any,
       }}>
-        {children}
+        {/* Backup for Firefox - zoom work loh na tan */}
+        <style>{`
+          @supports not (zoom: 1) {
+            div[data-mz-root] {
+              transform: scale(${scale});
+              transform-origin: top left;
+              width: ${100/scale}%;
+              height: ${100/scale}%;
+            }
+          }
+        `}</style>
+        <div data-mz-root>
+          {children}
+        </div>
       </div>
     </ThemeContext.Provider>
   );
