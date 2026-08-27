@@ -2,8 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from '../components/ThemeProvider'
-import { auth, db } from '@/app/firebase/config'
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore'
+import { auth } from '@/app/firebase/config'
 import { onAuthStateChanged } from 'firebase/auth'
 
 interface ChatItem {
@@ -31,11 +30,9 @@ export default function ChatListPage() {
   }
 
   useEffect(()=>{
-    // Chat tak tak a awm hunah an lang ang - tunah empty
     const unsub = onAuthStateChanged(auth, async (u)=>{
       if(!u) return
-      // Real chat - empty tir rih, i chat apiang Firestore atangin a lo lang ang
-      setChats([])
+      setChats([]) // Empty - will show real chats when available
     })
     return ()=>unsub()
   },[])
@@ -56,7 +53,6 @@ export default function ChatListPage() {
     return `${d.getDate()}/${d.getMonth()+1}`
   }
 
-  // FIX: 2 tick hnai deuh
   const Tick = ({ status }: { status: string }) => {
     if(status === 'sent') return <span style={{fontSize: getSize(14), color:'#8a8a8a', marginRight:5}}>✓</span>
     if(status === 'delivered') return <span style={{fontSize: getSize(14), color:'#8a8a8a', marginRight:5, letterSpacing:'-4px'}}>✓✓</span>
@@ -66,7 +62,6 @@ export default function ChatListPage() {
 
   return (
     <div style={{minHeight:'100vh', background: theme==='dark'?'#111':'#fff', color: theme==='dark'?'#fff':'#111', paddingBottom:'90px'}}>
-      
       <div style={{
         position:'sticky', top:0, zIndex:20,
         background: theme==='dark'?'#111':'#fff',
@@ -101,7 +96,7 @@ export default function ChatListPage() {
           <div style={{textAlign:'center', padding:'80px 20px', color:'#888'}}>
             <div style={{fontSize:'40px', marginBottom:'8px'}}>💬</div>
             <div style={{fontWeight:700, fontSize: getSize(14)}}>No chats yet</div>
-            <div style={{fontSize: getSize(12), marginTop:'4px'}}>In biak hunah hetah a lang ang</div>
+            <div style={{fontSize: getSize(12), marginTop:'4px'}}>Your chats will appear here</div>
           </div>
         ) : filtered.map((chat)=>(
           <div 
@@ -119,7 +114,6 @@ export default function ChatListPage() {
             <div style={{width:60, height:60, borderRadius:30, background:'#f3f4f6', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
               {chat.photoURL ? <img src={chat.photoURL} style={{width:'100%', height:'100%', objectFit:'cover'}}/> : <span style={{fontSize:28}}>👤</span>}
             </div>
-
             <div style={{flex:1, minWidth:0, paddingTop:'4px'}}>
               <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px'}}>
                 <div style={{fontWeight:'700', fontSize: getSize(17), whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{chat.name}</div>
