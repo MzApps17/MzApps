@@ -50,12 +50,11 @@ export default function ChatPage() {
   }
 
   const scrollToBottom = () => {
-    bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' })
-    if(listRef.current){
-      listRef.current.scrollTop = listRef.current.scrollHeight
-    }
+    bottomRef.current?.scrollIntoView({ behavior: 'auto' })
+    if(listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight
   }
 
+  // 1 & 4 FIX - chatId pakhat chiah - Muana leh nangmah in hmuh ve theih nan
   const getChatId = (uid1: string, uid2: string) => {
     return [uid1, uid2].sort().join('_')
   }
@@ -66,9 +65,8 @@ export default function ChatPage() {
       setMyUid(u.uid)
 
       const saved = localStorage.getItem('mz_view_user')
-      if(saved) {
-        try { setOtherUser(JSON.parse(saved)) } catch {}
-      }
+      if(saved) { try { setOtherUser(JSON.parse(saved)) } catch {} }
+
       try {
         const otherDoc = await getDoc(doc(db, 'users', id))
         if(otherDoc.exists()) {
@@ -80,9 +78,13 @@ export default function ChatPage() {
       } catch {}
 
       const stableChatId = getChatId(u.uid, id as string)
+      const oldChatId1 = `${u.uid}_${id}`
+      const oldChatId2 = `${id}_${u.uid}`
+
+      // 1. FIX - hlui leh thar zawng zawng la vek - Muana account ah awm lo kha
       const q = query(
         collection(db, 'messages'),
-        where('chatId', '==', stableChatId),
+        where('chatId', 'in', [stableChatId, oldChatId1, oldChatId2]),
         orderBy('createdAt', 'asc'),
         limit(100)
       )
@@ -94,15 +96,12 @@ export default function ChatPage() {
           data.id = d.id
           list.push(data)
         })
-        // 5. FIX - abo vek kha - server + cache merge, delete loh chuan bo suh se
-        if(list.length > 0){
+        if(list.length>0){
           setMessages(list)
           localStorage.setItem(`chat_${id}`, JSON.stringify(list))
         } else {
           const cached = localStorage.getItem(`chat_${id}`)
-          if(cached) {
-            try { setMessages(JSON.parse(cached)) } catch {}
-          }
+          if(cached) { try { setMessages(JSON.parse(cached)) } catch {} }
         }
         setTimeout(scrollToBottom, 50)
 
@@ -115,8 +114,10 @@ export default function ChatPage() {
             updateDoc(doc(db, 'messages', d.id), { status: 'seen' }).catch(()=>{})
           }
         })
+      }, (err)=>{
+        const cached = localStorage.getItem(`chat_${id}`)
+        if(cached) { try { setMessages(JSON.parse(cached)) } catch {} }
       })
-
       return ()=> unsubMsg()
     })
     return ()=> unsubAuth()
@@ -142,13 +143,12 @@ export default function ChatPage() {
       imageUrl: overrideImage
     }
 
-    // 1. FIX - lang nghal tur, tuai ngai lo - setState rual in scroll nghal
     setMessages(prev=>{
       const newList = [...prev, optimistic]
       localStorage.setItem(`chat_${id}`, JSON.stringify(newList))
       return newList
     })
-    requestAnimationFrame(()=>{ setTimeout(scrollToBottom, 10) })
+    setTimeout(scrollToBottom, 10)
 
     try{
       const docRef = await addDoc(collection(db, 'messages'), {
@@ -160,15 +160,13 @@ export default function ChatPage() {
         createdAt: serverTimestamp(),
         imageUrl: overrideImage || null
       })
-      setTimeout(async ()=>{
-        try { await updateDoc(doc(db, 'messages', docRef.id), { status: 'delivered' }) } catch {}
-      }, 500)
+      setTimeout(async ()=>{ try { await updateDoc(doc(db, 'messages', docRef.id), { status: 'delivered' }) } catch {} }, 500)
 
-      // 4. FIX - chat list ah lang nghal tur - reply lo pawh lang rawh se
+      // 4. FIX - chat list ah lang ngei ngei tur
       const myInfoDoc = await getDoc(doc(db, 'users', myUid))
-      const myInfo = myInfoDoc.exists()? myInfoDoc.data() : { name: 'Me' }
+      const myInfo = myInfoDoc.exists()? myInfoDoc.data() : { name: 'Me', photoURL: '' }
       await setDoc(doc(db, 'chats', stableChatId), {
-        participants: [myUid, id],
+        participants: [myUid, id as string],
         participantsInfo: {
           [myUid]: { name: myInfo.name || 'Me', photoURL: myInfo.photoURL || '' },
           [id as string]: { name: otherUser?.name || 'User', photoURL: otherUser?.photoURL || '' }
@@ -177,10 +175,11 @@ export default function ChatPage() {
         lastMessageTime: serverTimestamp(),
         lastSenderId: myUid,
         lastStatus: 'delivered',
-        unreadCount: { [id as string]: 1 }
+        createdAt: serverTimestamp()
       }, { merge: true })
 
     }catch(e){
+      console.log(e)
       const queue = JSON.parse(localStorage.getItem('msg_queue') || '[]')
       queue.push({ text: textToSend, senderId: myUid, receiverId: id, chatId: stableChatId, imageUrl: overrideImage, createdAt: new Date().toISOString() })
       localStorage.setItem('msg_queue', JSON.stringify(queue))
@@ -196,7 +195,7 @@ export default function ChatPage() {
       await uploadBytes(storageRef, file)
       const url = await getDownloadURL(storageRef)
       await handleSend('', url)
-    } catch(err){ alert('Image upload failed') }
+    } catch(err){ alert('Image failed') }
     setUploading(false)
     if(fileInputRef.current) fileInputRef.current.value = ''
   }
@@ -215,6 +214,13 @@ export default function ChatPage() {
     }
   }
 
+  const goToProfile = () => {
+    if(!otherUser) return
+    localStorage.setItem('mz_view_user', JSON.stringify(otherUser))
+    localStorage.setItem('mz_view_user_id', id as string)
+    router.push(`/users/${id}`)
+  }
+
   const Tick = ({ status }: { status: string }) => {
     if(status === 'sent') return <span style={{fontSize:11, color:'#8696a0', marginLeft:4}}>✓</span>
     if(status === 'delivered') return <span style={{fontSize:11, color:'#8696a0', marginLeft:4, letterSpacing:'-3px'}}>✓✓</span>
@@ -228,20 +234,13 @@ export default function ChatPage() {
     <div style={{height:'100dvh', display:'flex', flexDirection:'column', background:'#0b141a', position:'relative'}}>
       <div style={{ height:58, background: '#008069', display:'flex', alignItems:'center', gap:10, padding:'0 10px', position:'fixed', top:0, left:0, right:0, zIndex:30 }}>
         <button onClick={()=>router.push('/chat')} style={{border:'none', background:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', width:36, height:36, borderRadius:18}}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
         </button>
-        <div style={{width:38, height:38, borderRadius:19, background:'#ddd', overflow:'hidden', cursor:'pointer'}}
-          onClick={()=>{
-            localStorage.setItem('mz_view_user', JSON.stringify(otherUser));
-            router.push(`/users/${id}`)
-          }}>
+        {/* 3. FIX - hming click a profile kal theih */}
+        <div style={{width:38, height:38, borderRadius:19, background:'#ddd', overflow:'hidden', cursor:'pointer'}} onClick={goToProfile}>
           {otherUser?.photoURL? <img src={otherUser.photoURL} style={{width:'100%', height:'100%', objectFit:'cover'}}/> : <div style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100%'}}>👤</div>}
         </div>
-        <div style={{flex:1, cursor:'pointer'}}
-          onClick={()=>{
-            localStorage.setItem('mz_view_user', JSON.stringify(otherUser));
-            router.push(`/users/${id}`)
-          }}>
+        <div style={{flex:1, cursor:'pointer'}} onClick={goToProfile}>
           <div style={{fontWeight:800, fontSize: getSize(15), color:'#fff'}}>{otherUser?.name || 'User'}</div>
           <div style={{fontSize: getSize(11), color:'#d1e7dd'}}>{isOtherOnline? 'Online' : 'Offline'}</div>
         </div>
@@ -250,14 +249,12 @@ export default function ChatPage() {
             <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
           </button>
           {showDotMenu && (
-            <div style={{position:'absolute', right:0, top:40, background:'#233138', borderRadius:10, boxShadow:'0 4px 20px rgba(0,0,0,0.3)', minWidth:190, zIndex:50, overflow:'hidden'}}>
+            <div style={{position:'absolute', right:0, top:40, background:'#233138', borderRadius:10, minWidth:190, zIndex:50, overflow:'hidden'}}>
               <button onClick={()=>{ setIsSearchMode(true); setShowDotMenu(false); }} style={{width:'100%', padding:'12px 16px', border:'none', background:'transparent', textAlign:'left', fontSize: getSize(14), fontWeight:600, color:'#fff', cursor:'pointer', display:'flex', alignItems:'center', gap:10}}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 Search messages
               </button>
-              <button onClick={handleBlock} style={{width:'100%', padding:'12px 16px', border:'none', background:'transparent', textAlign:'left', fontSize: getSize(14), fontWeight:600, color:'#f33', cursor:'pointer', borderTop:'1px solid #334', display:'flex', alignItems:'center', gap:10}}>
-                Block user
-              </button>
+              <button onClick={handleBlock} style={{width:'100%', padding:'12px 16px', border:'none', background:'transparent', textAlign:'left', fontSize: getSize(14), fontWeight:600, color:'#f33', cursor:'pointer', borderTop:'1px solid #334'}}>Block user</button>
             </div>
           )}
         </div>
@@ -265,38 +262,20 @@ export default function ChatPage() {
 
       {isSearchMode && (
         <div style={{background: '#202c33', padding:'10px', display:'flex', gap:8, alignItems:'center', justifyContent:'center', marginTop:58}}>
-          <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} autoFocus placeholder="Search..." style={{width:'65%', background:'#2a3942', border:'none', borderRadius:22, padding:'13px 18px', outline:'none', color:'#fff', fontSize: getSize(16), fontWeight:600}}/>
-          <button onClick={()=>{ setIsSearchMode(false); setSearchQuery('') }} style={{border:'none', background:'#00a884', color:'#fff', fontWeight:700, cursor:'pointer', padding:'11px 16px', borderRadius:20}}>Cancel</button>
+          <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} autoFocus placeholder="Search..." style={{width:'65%', background:'#2a3942', border:'none', borderRadius:22, padding:'13px 18px', outline:'none', color:'#fff', fontSize: getSize(16)}}/>
+          <button onClick={()=>{ setIsSearchMode(false); setSearchQuery('') }} style={{border:'none', background:'#00a884', color:'#fff', fontWeight:700, padding:'11px 16px', borderRadius:20}}>Cancel</button>
         </div>
       )}
 
-      {/* 1. FIX - hming hnuaiah lut chho kha - flex-end paih, paddingTop 58 */}
-      <div ref={listRef} style={{
-        flex:1,
-        overflowY:'auto',
-        paddingTop: isSearchMode? '12px' : '70px',
-        paddingBottom:'140px',
-        paddingLeft:'8px',
-        paddingRight:'8px',
-        background: '#111b21',
-        backgroundImage: `url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")`,
-        backgroundBlendMode: 'overlay',
-      }}>
+      <div ref={listRef} style={{ flex:1, overflowY:'auto', paddingTop: isSearchMode? '12px' : '70px', paddingBottom:'140px', paddingLeft:'8px', paddingRight:'8px', background: '#111b21' }}>
         {filteredMessages.map(m=>{
           const isMe = m.senderId === myUid
           const time = m.createdAt?.toDate? m.createdAt.toDate() : (m.createdAt instanceof Date? m.createdAt : new Date(m.createdAt||Date.now()))
           return (
             <div key={m.id} style={{display:'flex', justifyContent: isMe? 'flex-end' : 'flex-start', marginBottom:8}}>
-              <div style={{
-                maxWidth:'78%',
-                background: isMe? '#005c4b' : '#202c33',
-                color: '#fff',
-                borderRadius: isMe? '12px 0 12px 12px' : '0 12px 12px 12px',
-                padding: m.imageUrl? '4px' : '7px 8px 4px 10px',
-                boxShadow:'0 1px 1px rgba(0,0,0,0.2)',
-              }}>
+              <div style={{ maxWidth:'78%', background: isMe? '#005c4b' : '#202c33', color: '#fff', borderRadius: isMe? '12px 0 12px 12px' : '0 12px 12px 12px', padding: m.imageUrl? '4px' : '7px 8px 4px 10px' }}>
                 {m.imageUrl && <img src={m.imageUrl} style={{maxWidth:240, borderRadius:8, display:'block', marginBottom: m.text? 4:0}}/>}
-                {m.text && <span style={{fontSize: getSize(15), lineHeight:'20px', wordBreak:'break-word', color:'#fff'}}>{m.text}</span>}
+                {m.text && <span style={{fontSize: getSize(15), lineHeight:'20px', color:'#fff'}}>{m.text}</span>}
                 <div style={{display:'flex', justifyContent:'flex-end', alignItems:'center', gap:3, marginTop:3}}>
                   <span style={{fontSize: getSize(10), color:'#8696a0'}}>{formatTime(time)}</span>
                   {isMe && <Tick status={m.status} />}
@@ -310,10 +289,11 @@ export default function ChatPage() {
 
       <div style={{ position:'fixed', bottom:68, left:0, right:0, background: '#202c33', padding:'6px 8px', display:'flex', gap:8, alignItems:'center', zIndex:25 }}>
         <div style={{ flex:1, background:'#2a3942', borderRadius:24, display:'flex', alignItems:'center', padding:'0 8px', minHeight:44 }}>
+          {/* 2. FIX - enter hman theih */}
           <input
             value={input}
             onChange={e=>setInput(e.target.value)}
-            onKeyDown={e=>{ if(e.key==='Enter'){ e.preventDefault(); handleSend() } }}
+            onKeyDown={e=>{ if(e.key==='Enter'){ e.preventDefault(); if(input.trim()) handleSend() } }}
             placeholder={uploading? "Uploading..." : "Message..."}
             disabled={uploading}
             style={{flex:1, border:'none', outline:'none', background:'transparent', fontSize: getSize(15), color:'#fff', padding:'10px 6px'}}/>
