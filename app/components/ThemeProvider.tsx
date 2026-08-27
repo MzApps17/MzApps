@@ -39,7 +39,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         fontSize: fontSize + "px",
         minHeight: "100vh",
         width: "100%",
-        transition: "all 0.2s ease"
       }}>
         {children}
       </div>
