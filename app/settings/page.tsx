@@ -3,14 +3,13 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from '../components/ThemeProvider'
 import { auth, db } from '@/app/firebase/config'
-import { collection, query, where, getDocs, doc, deleteDoc, getDoc } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore'
 
 export default function SettingsPage(){
   const router = useRouter()
   const { darkMode, setDarkMode, fontSize, setFontSize } = useTheme()
   const [blocked, setBlocked] = useState<any[]>([])
   const [showBlocked, setShowBlocked] = useState(false)
-  const [loading, setLoading] = useState(false)
 
   useEffect(()=>{
     const loadBlocked = async()=>{
@@ -31,40 +30,44 @@ export default function SettingsPage(){
   const text = darkMode? '#ffffff' : '#111111'
   const subText = darkMode? '#999' : '#666'
 
+  // Arrow lian SVG - WhatsApp/Instagram style
+  const Arrow = () => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C7C7CC" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  )
+
   const Item = ({icon, label, right, onClick, danger=false}: any) => (
     <div onClick={onClick} style={{
       display:'flex', alignItems:'center', justifyContent:'space-between',
-      padding:'12px 14px', // 1. padding ti zim - 18 atangin 12 ah
+      padding:'12px 14px',
       background:bg2,
       borderBottom:`1px solid ${border}`,
       cursor:'pointer'
     }}>
       <div style={{display:'flex', alignItems:'center', gap:12}}>
-        <div style={{width:28, height:28, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', fontSize:15}}>
+        <div style={{width:28, height:28, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center'}}>
           {icon}
         </div>
         <span style={{fontWeight:700, fontSize:15.5, color: danger? '#ff3b30' : text}}>{label}</span>
       </div>
       <div style={{display:'flex', alignItems:'center', gap:8}}>
         {right}
-        {/* 2. Arrow lian - WhatsApp style */}
-        <span style={{fontSize:22, color:'#bbb', fontWeight:300, lineHeight:1}}>›</span>
+        <Arrow />
       </div>
     </div>
   )
 
   return <div style={{minHeight:'100vh', background:bg, color:text, paddingBottom:20}}>
-    {/* Header - padding zim + arrow lian */}
     <div style={{display:'flex', alignItems:'center', gap:12, padding:'10px 12px', borderBottom:`1px solid ${border}`, background:bg2, position:'sticky', top:0, zIndex:10}}>
       <button onClick={()=>router.back()} style={{background:'none', border:'none', fontSize:26, fontWeight:700, color:text, cursor:'pointer', padding:'4px 6px'}}>←</button>
       <span style={{fontWeight:800, fontSize:18}}>Settings</span>
     </div>
 
     <div style={{marginTop:4}}>
-      {/* Dark mode */}
       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', background:bg2, borderBottom:`1px solid ${border}`}}>
         <div style={{display:'flex', alignItems:'center', gap:12}}>
-          <div style={{width:28, height:28, borderRadius:8, background:'#FFD60A', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15}}>🌙</div>
+          <div style={{width:28, height:28, borderRadius:8, background:'#FFCC00', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15}}>🌙</div>
           <span style={{fontWeight:700, fontSize:15.5}}>Dark mode</span>
         </div>
         <label style={{position:'relative', display:'inline-block', width:44, height:26}}>
@@ -74,21 +77,22 @@ export default function SettingsPage(){
         </label>
       </div>
 
-      {/* Font size */}
       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', background:bg2, borderBottom:`1px solid ${border}`}}>
         <div style={{display:'flex', alignItems:'center', gap:12}}>
           <div style={{width:28, height:28, borderRadius:8, background:'#E5E5EA', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:900}}>Aa</div>
           <span style={{fontWeight:700, fontSize:15.5}}>Font size</span>
         </div>
-        <select value={fontSize} onChange={e=>setFontSize(Number(e.target.value))} style={{padding:'6px 10px', borderRadius:10, border:`1px solid ${border}`, background:bg2, color:text, fontWeight:600, fontSize:14}}>
-          <option value={14}>Small</option>
-          <option value={16}>Medium</option>
-          <option value={18}>Large</option>
-          <option value={20}>Extra Large</option>
-        </select>
+        <div style={{display:'flex', alignItems:'center', gap:8}}>
+          <select value={fontSize} onChange={e=>setFontSize(Number(e.target.value))} style={{padding:'6px 10px', borderRadius:10, border:`1px solid ${border}`, background:bg2, color:text, fontWeight:600, fontSize:14}}>
+            <option value={14}>Small</option>
+            <option value={16}>Medium</option>
+            <option value={18}>Large</option>
+            <option value={20}>Extra Large</option>
+          </select>
+          <Arrow />
+        </div>
       </div>
 
-      {/* 3. Block List - click ah chiah lang */}
       <Item 
         icon={<span style={{width:28, height:28, borderRadius:8, background:'#FF3B30', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:14}}>🚫</span>}
         label={`Block List (${blocked.length})`}
@@ -107,13 +111,11 @@ export default function SettingsPage(){
         danger
         onClick={async()=>{
           if(confirm('Delete account?')){
-            // delete logic
           }
         }}
       />
     </div>
 
-    {/* Blocked Users - a hnuai ah lang lo, click chiah in lang */}
     {showBlocked && (
       <div style={{marginTop:16, background:bg2, borderTop:`1px solid ${border}`}}>
         <div style={{padding:'14px 14px 8px', fontWeight:800, fontSize:17}}>Blocked Users</div>
@@ -135,4 +137,4 @@ export default function SettingsPage(){
       </div>
     )}
   </div>
-          }
+}
