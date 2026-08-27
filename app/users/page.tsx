@@ -18,18 +18,25 @@ interface User {
 
 export default function UserListPage() {
   const router = useRouter()
-  const { theme, fontSize } = useTheme()
+  const { theme, fontSize } = useTheme() as any
   const [search, setSearch] = useState('')
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set())
   const [isFocused, setIsFocused] = useState(false)
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
 
-  // FIX 1: Dark mode & Font Size effect
+  // FIX: fontSize number emaw string emaw nise a thawk
   const getSize = (base: number) => {
-    if(fontSize === 'small') return base - 2
-    if(fontSize === 'large') return base + 4
-    if(fontSize === 'extra-large') return base + 7
+    const f: any = fontSize
+    if (typeof f === 'number') {
+      // ThemeProvider ah 14,16,18,20 ang a nih chuan
+      return Math.round(base * (f / 16))
+    }
+    if (typeof f === 'string') {
+      if (f === 'small') return base - 2
+      if (f === 'large') return base + 4
+      if (f === 'extra-large') return base + 7
+    }
     return base
   }
 
@@ -77,7 +84,7 @@ export default function UserListPage() {
   }
 
   const highlightText = (text: string, query: string) => {
-    if(!query || !text) return text
+    if(!query || !text) return text as any
     const regex = new RegExp(`(${query})`, 'gi')
     const parts = text.split(regex)
     return parts.map((part, i) => 
@@ -97,10 +104,8 @@ export default function UserListPage() {
           <button onClick={()=>router.back()} style={{width:'36px', height:'36px', border:'none', background:'transparent', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color: theme==='dark'?'#fff':'#111'}}>
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5" /><path d="M12 19l-7-7 7-7" /></svg>
           </button>
-          {/* FIX 2: User List (2) ti lian */}
-          <div style={{fontSize: getSize(22), fontWeight:'900', letterSpacing:'-0.3px'}}>User List ({users.length})</div>
+          <div style={{fontSize: getSize(22), fontWeight:'900'}}>User List ({users.length})</div>
         </div>
-        {/* FIX 3: Search te deuh */}
         <div style={{
           display:'flex', 
           alignItems:'center', 
@@ -136,18 +141,15 @@ export default function UserListPage() {
           </div>
         ) : filtered.map((user)=>(
           <div key={user.id} style={{display:'flex', alignItems:'center', gap:'12px', padding:'12px 12px', borderBottom: theme==='dark'?'1px solid #222':'1px solid #f0f0f0'}}>
-            {/* FIX 4: Pic lian */}
             <div style={{width:58, height:58, borderRadius:29, background:'#f3f4f6', overflow:'hidden', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, border:'2px solid #e5e7eb'}}>
               {user.photoURL ? <img src={user.photoURL} alt={user.name} style={{width:'100%', height:'100%', objectFit:'cover'}}/> : <span style={{fontSize:28}}>👤</span>}
             </div>
             <div style={{flex:1, minWidth:0}}>
-              {/* FIX 4 & 5: Hming lian + Village */}
               <div onClick={()=>{localStorage.setItem('mz_view_user', JSON.stringify(user)); router.push(`/profile/${user.id}`)}} style={{fontWeight:'800', fontSize: getSize(17), cursor:'pointer', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', color: theme==='dark'?'#fff':'#111'}}>{highlightText(user.name, search)}</div>
               <div style={{fontSize: getSize(13), color: theme==='dark'?'#aaa':'#666', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', marginTop:'2px', fontWeight:500}}>
-                {user.village ? `📍 ${highlightText(user.village, search)}` : (user.bio ? highlightText(user.bio, search) : "No village")}
+                {user.village ? `📍 ${user.village}` : "No village"}
               </div>
             </div>
-            {/* FIX 4: Button lian */}
             <div style={{display:'flex', gap:'7px', flexShrink:0}}>
               <button onClick={()=>handleAddFriend(user.id)} style={{padding:'9px 16px', borderRadius:'20px', border: sentRequests.has(user.id) ? 'none' : '1.8px solid #7C3AED', background: sentRequests.has(user.id) ? '#111' : 'transparent', color: sentRequests.has(user.id) ? '#fff' : '#7C3AED', fontWeight:'800', fontSize: getSize(12), minWidth:'102px', cursor:'pointer'}}>{sentRequests.has(user.id) ? 'Request Sent' : 'Add Friend'}</button>
               <button onClick={()=>router.push(`/chat/${user.id}`)} style={{padding:'9px 18px', borderRadius:'20px', border:'none', background:'#7C3AED', color:'#fff', fontWeight:'800', fontSize: getSize(12), cursor:'pointer'}}>Chat</button>
@@ -157,4 +159,4 @@ export default function UserListPage() {
       </div>
     </div>
   )
-}
+        }
