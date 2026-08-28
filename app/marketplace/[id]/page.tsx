@@ -32,12 +32,23 @@ export default function ProductDetail(){
   const waLink = `https://wa.me/91${phone}?text=Ka%20duh%20e%20-%20${product.title}`;
   const callLink = `tel:+91${phone}`;
 
+  const getPostTime = () => {
+    const t = product.createdAt || product.created_at || product.timestamp || product.date || product.postTime || product.createdOn;
+    if (!t) return new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true });
+    let d: Date | null = null;
+    try {
+      if (t.toDate) d = t.toDate();
+      else if (t.seconds) d = new Date(t.seconds * 1000);
+      else d = new Date(t);
+    } catch { return ""; }
+    if (!d || isNaN(d.getTime())) return "";
+    return d.toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true });
+  };
+
   return (
     <main className="bg-white min-h-screen pb-[140px]">
-      {/* IMAGE LIAN */}
       <div className="relative bg-black w-full aspect-[4/3] overflow-hidden">
         <img src={allImages[currentImg]} className="w-full h-full object-contain bg-black"/>
-
         <button onClick={()=>router.replace("/")} className="absolute top-4 left-4 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5">
             <path d="M19 12H5"/>
@@ -47,7 +58,6 @@ export default function ProductDetail(){
         <button className="absolute top-4 right-4 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg text-[22px]">🤍</button>
       </div>
 
-      {/* THLALAK TE HO - Dot ai ah hetah ka dah - Click in a chung ah a lang ang */}
       {allImages.length > 1 && (
         <div className="flex gap-2 overflow-x-auto p-3 bg-white">
           {allImages.map((img:string,i:number)=>(
@@ -64,7 +74,7 @@ export default function ProductDetail(){
       <div className="p-4">
         <h1 className="font-black text-[26px] text-[#002f34]">₹ {Number(product.price).toLocaleString("en-IN")}</h1>
         <h2 className="font-bold text-[18px] mt-1">{product.title}</h2>
-        <p className="text-[13px] text-gray-500 mt-1">{product.village}, {product.district} • {product.category}</p>
+        <p className="text-[13px] text-gray-500 mt-1">{product.village}, {product.district} • {product.category} • {getPostTime()}</p>
 
         <div className="bg-[#f8f9fa] rounded-2xl p-4 mt-5">
           <h3 className="font-black text-[15px] mb-2">Description</h3>
