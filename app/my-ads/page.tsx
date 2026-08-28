@@ -102,10 +102,10 @@ export default function MyAdsPage(){
                 </div>
                 <p className="text-[11px] text-gray-400 mt-[2px] font-medium">{formatDate(ad.createdAt)}</p>
               </div>
-              {/* BUTTON TE DEUH - VAR UK */}
-              <div className="flex gap-2 mt-2">
+              {/* EDIT var uk, DELETE dum, dinglam sir */}
+              <div className="flex gap-2 mt-2 justify-end">
                 <button onClick={()=>handleEdit(ad)} className="px-5 py-2 bg-[#f0f0f0] text-black font-black text-[11px] rounded-full border border-gray-200 active:scale-95">EDIT</button>
-                <button onClick={()=>setDeleteItem({id:ad.id,type:ad.type})} className="px-5 py-2 bg-[#f0f0f0] text-black font-black text-[11px] rounded-full border border-gray-200 active:scale-95">DELETE</button>
+                <button onClick={()=>setDeleteItem({id:ad.id,type:ad.type})} className="px-5 py-2 bg-black text-white font-black text-[11px] rounded-full active:scale-95">DELETE</button>
               </div>
             </div>
           </div>
@@ -116,7 +116,7 @@ export default function MyAdsPage(){
       {deleteItem && (
         <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[24px] p-7 w-full max-w-[320px] text-center shadow-2xl">
-            <div className="w-16 h-16 bg-[#f0f0f0] border rounded-full flex items-center justify-center mx-auto mb-4 text-black text-2xl font-black">!</div>
+            <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-black">!</div>
             <h2 className="font-black text-[18px] mb-1 text-black">Delete duh tak tak em?</h2>
             <p className="text-[13px] text-gray-500 mb-5">He thil hi i delete chuan a bo hlen tawh ang.</p>
             <div className="flex gap-3">
