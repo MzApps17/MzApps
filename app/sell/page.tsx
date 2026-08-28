@@ -1,7 +1,5 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 
 const cats=[
   {name:"Cars", icon:"🚗"},
@@ -19,23 +17,6 @@ const cats=[
 ];
 
 export default function Sell(){
-  const router = useRouter();
-
-  useEffect(()=>{
-    // Phone back button dik lo - app atanga chhuak lo a, home a let zawk nan
-    const handlePopState = () => {
-      router.push("/");
-    };
-
-    // Direct a hawng a nih chuan history siam belh
-    if (window.history.length <= 1) {
-      window.history.pushState(null, "", window.location.href);
-    }
-
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [router]);
-
   return <main className="bg-white min-h-screen">
     <div className="flex items-center gap-4 p-4 border-b">
     <h2 className="font-bold text-lg">Categories</h2>
