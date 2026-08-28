@@ -10,9 +10,8 @@ function NewProductForm(){
   const {user}=useAuth();
   const router=useRouter();
   const searchParams=useSearchParams();
-  const defaultCat=searchParams.get("cat") || "";
+  const category=searchParams.get("cat") || "Others";
 
-  const [category,setCategory]=useState(defaultCat);
   const [itemName,setItemName]=useState("");
   const [village,setVillage]=useState("");
   const [district,setDistrict]=useState("");
@@ -21,13 +20,15 @@ function NewProductForm(){
   const [description,setDescription]=useState("");
   const [images,setImages]=useState<string[]>([]);
   const [loading,setLoading]=useState(false);
+  const [showSuccess,setShowSuccess]=useState(false);
+  const [showError,setShowError]=useState("");
 
   const districts=["Aizawl","Lunglei","Saiha","Champhai","Kolasib","Serchhip","Lawngtlai","Mamit","Saitual","Khawzawl","Hnahthial"];
 
   const handleImage=(e:any)=>{
     const files=e.target.files;
     if(!files) return;
-    if(images.length + files.length > 5) return alert("Pic 5 chiah!");
+    if(images.length + files.length > 5){ setShowError("Pic 5 chiah upload theih!"); return; }
     Array.from(files).forEach((file:any)=>{
       const reader=new FileReader();
       reader.onload=()=>{
@@ -50,11 +51,10 @@ function NewProductForm(){
 
   const submit=async(e:any)=>{
     e.preventDefault();
-    if(!user) return alert("Login rawh");
-    if(!category) return alert("Category thlang rawh");
-    if(!itemName||!village||!district||!price||!phone) return alert("Fill vek rawh");
-    if(phone.length < 9) return alert("Phone dik lo");
-    if(images.length===0) return alert("Thlalak thlang rawh");
+    if(!user){ setShowError("Login phawt rawh"); return; }
+    if(!itemName||!village||!district||!price||!phone){ setShowError("Fill vek rawh Boss"); return; }
+    if(phone.length < 9){ setShowError("Phone number dik lo"); return; }
+    if(images.length===0){ setShowError("Thlalak 1 tal thlang rawh"); return; }
     setLoading(true);
     try{
       await addDoc(collection(db,"products"),{
@@ -65,9 +65,8 @@ function NewProductForm(){
         uid:user.uid, userEmail:user.email,
         createdAt:serverTimestamp(),
       });
-      alert("Post hlawhtling!");
-      router.push("/");
-    }catch(err:any){ alert(err.message); }
+      setShowSuccess(true);
+    }catch(err:any){ setShowError(err.message); }
     setLoading(false);
   };
 
@@ -81,13 +80,10 @@ function NewProductForm(){
       </div>
 
       <form onSubmit={submit} className="p-4 flex flex-col gap-4">
-        <div>
-          <label className="text-[13px] font-black mb-1.5 block">Category</label>
-          <input value={category} onChange={e=>setCategory(e.target.value)} placeholder="Category" className="w-full border border-gray-300 rounded-xl p-4 font-bold"/>
-        </div>
+        {/* 1 - Item Name - Ahmasa ber */}
         <div>
           <label className="text-[13px] font-black mb-1.5 block">Item Name</label>
-          <input value={itemName} onChange={e=>setItemName(e.target.value)} placeholder="Item name" className="w-full border border-gray-300 rounded-xl p-4 outline-none focus:border-black"/>
+          <input value={itemName} onChange={e=>setItemName(e.target.value)} placeholder="Item name" className="w-full border border-gray-300 rounded-xl p-4 text-[15px] outline-none focus:border-black"/>
         </div>
         <div>
           <label className="text-[13px] font-black mb-1.5 block">Village</label>
@@ -95,7 +91,7 @@ function NewProductForm(){
         </div>
         <div>
           <label className="text-[13px] font-black mb-1.5 block">District</label>
-          <select value={district} onChange={e=>setDistrict(e.target.value)} className="w-full border border-gray-300 rounded-xl p-4 bg-white">
+          <select value={district} onChange={e=>setDistrict(e.target.value)} className="w-full border border-gray-300 rounded-xl p-4 bg-white outline-none focus:border-black">
             <option value="">District</option>
             {districts.map(d=><option key={d} value={d}>{d}</option>)}
           </select>
@@ -106,15 +102,12 @@ function NewProductForm(){
         </div>
         <div>
           <label className="text-[13px] font-black mb-1.5 block">Phone Number</label>
-          <input value={phone} onChange={e=>setPhone(e.target.value)} type="tel" placeholder="WhatsApp Number" className="w-full border-2 border-black rounded-xl p-4 bg-[#f7f7f7]"/>
+          <input value={phone} onChange={e=>setPhone(e.target.value)} type="tel" placeholder="WhatsApp Number" className="w-full border-2 border-black rounded-xl p-4 bg-[#f7f7f7] outline-none focus:bg-white"/>
         </div>
-
-        {/* NEW - DESCRIPTION - Phone hnuai ah chiah */}
         <div>
           <label className="text-[13px] font-black mb-1.5 block">Description</label>
           <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Thil chanchin chipchiar deuhin ziak rawh..." rows={4} className="w-full border border-gray-300 rounded-xl p-4 text-[15px] outline-none focus:border-black resize-none"></textarea>
         </div>
-
         <div>
           <label className="text-[13px] font-black mb-1.5 block">Photos ({images.length}/5)</label>
           <div className="grid grid-cols-3 gap-2">
@@ -125,17 +118,40 @@ function NewProductForm(){
               </div>
             ))}
             {images.length < 5 && (
-              <label className="h-28 border-2 border-dashed border-gray-400 rounded-xl flex flex-col items-center justify-center cursor-pointer bg-gray-50">
+              <label className="h-28 border-2 border-dashed border-gray-400 rounded-xl flex flex-col items-center justify-center cursor-pointer bg-gray-50 active:bg-gray-100">
                 <span className="text-3xl font-black">+</span><span className="text-[11px] font-bold">Add Photo</span>
                 <input type="file" accept="image/*" multiple hidden onChange={handleImage}/>
               </label>
             )}
           </div>
         </div>
-        <button type="submit" disabled={loading} className="w-full bg-black text-white font-black text-[16px] py-4 rounded-2xl mt-2 disabled:opacity-50">
+        <button type="submit" disabled={loading} className="w-full bg-black text-white font-black text-[16px] py-4 rounded-2xl mt-2 active:scale-[0.98] disabled:opacity-50">
           {loading?"Posting...":"Create Post"}
         </button>
       </form>
+
+      {/* SUCCESS MODAL - Mawi deuh - mz-apps says awm lo */}
+      {showSuccess && (
+        <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-6 backdrop-blur-sm">
+          <div className="bg-white rounded-[24px] p-7 w-full max-w-[320px] text-center shadow-2xl">
+            <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl">✓</div>
+            <h2 className="font-black text-[18px] mb-1">Post Create Successful!</h2>
+            <p className="text-[13px] text-gray-500 mb-6">I thil zawrh chu hlawhtling taka post a ni e.</p>
+            <button onClick={()=>{ setShowSuccess(false); router.push("/"); }} className="w-full bg-black text-white font-black py-3.5 rounded-xl">OK</button>
+          </div>
+        </div>
+      )}
+
+      {/* ERROR MODAL - Mawi deuh */}
+      {showError && (
+        <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-6 backdrop-blur-sm">
+          <div className="bg-white rounded-[24px] p-7 w-full max-w-[320px] text-center shadow-2xl">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600 text-2xl">!</div>
+            <h2 className="font-black text-[16px] mb-2">{showError}</h2>
+            <button onClick={()=>setShowError("")} className="w-full bg-black text-white font-black py-3.5 rounded-xl mt-3">OK</button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
