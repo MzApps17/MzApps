@@ -65,16 +65,17 @@ export default function MyAdsPage(){
       const colName = deleteItem.type==="job"? "jobs" : "products";
       const adToDelete = ads.find(a => a.id === deleteItem.id);
 
-      if (adToDelete && adToDelete.type === "product" && adToDelete.deleteUrls) {
-        for (let delUrl of adToDelete.deleteUrls) {
-          try {
-            await fetch("/api/delete-imgbb", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ deleteUrl: delUrl })
-            });
-          } catch(e) {}
-        }
+      if (adToDelete && adToDelete.type === "product") {
+        try {
+          await fetch("/api/delete-imgbb", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageIds: adToDelete.imageIds || [],
+              deleteUrls: adToDelete.deleteUrls || []
+            })
+          });
+        } catch(e) {}
       }
 
       await deleteDoc(doc(db,colName,deleteItem.id));
