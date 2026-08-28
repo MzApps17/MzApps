@@ -2,41 +2,46 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const { deleteUrl, deleteUrls, imageIds } = await req.json();
-    const apiKey = process.env.IMGBB_API_KEY;
+    const body = await req.json();
+    const imageIds = body.imageIds || [];
+    const deleteUrls = body.deleteUrls || [];
+    const allIds = [...imageIds];
 
-    if (!apiKey) {
-      return NextResponse.json({ error: "API Key missing in env" }, { status: 500 });
-    }
-
-    let ids: string[] = [];
-    if (imageIds && Array.isArray(imageIds)) ids = imageIds;
-
-    // deleteUrls atangin ID la chhuak tum (a tawp ber kha ID a ni tlangpui)
-    const urls: string[] = [];
-    if (deleteUrl) urls.push(deleteUrl);
-    if (deleteUrls) urls.push(...deleteUrls);
-
-    // Image ID hmanga delete - hei hi a rintlak ber
-    // I marketplace code ah imageIds i save tawh chuan hei hi a thawk ang
-    for (const id of ids) {
-      try {
-        await fetch(`https://api.imgbb.com/1/image/${id}?key=${apiKey}`, {
-          method: 'DELETE'
-        });
-      } catch(e) {}
-    }
-
-    // Backup - deleteUrl hmanga delete
-    if (ids.length === 0) {
-      for (const url of urls) {
+    // deleteUrls atangin ID extract (fallback)
+    // deleteUrl pattern: https://ibb.co/xxxxx/xxxxx -> a hnuhnung ber khi ID a ni
+    if (allIds.length === 0 && deleteUrls.length > 0) {
+      for (const url of deleteUrls) {
         try {
-          await fetch(url);
-        } catch(e) {}
+          const parts = url.split('/');
+          const maybeId = parts[parts.length - 1] || parts[parts.length - 2];
+          if (maybeId) allIds.push(maybeId);
+        } catch {}
       }
     }
 
-    return NextResponse.json({ success: true });
+    const apiKey = process.env.IMGBB_API_KEY || "f7ee6ffb590faa4bffd4b5ffbb44c094";
+    
+    let deletedCount = 0;
+    for (const id of allIds) {
+      try {
+        const res = await fetch(`https://api.imgbb.com/1/image/${id}?key=${apiKey}`, {
+          method: "DELETE",
+        });
+        const data = await res.json();
+        if (data.success) deletedCount++;
+      } catch (e) {
+        console.log("Delete error", e);
+      }
+    }
+
+    // Fallback - deleteUrl hmanga delete tum tho
+    if (deletedCount === 0) {
+      for (const url of deleteUrls) {
+        try { await fetch(url); } catch {}
+      }
+    }
+
+    return NextResponse.json({ success: true, deleted: deletedCount });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
