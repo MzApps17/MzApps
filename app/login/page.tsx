@@ -8,7 +8,10 @@ export default function Login(){
   const [email,setEmail]=useState(""); const [pass,setPass]=useState("");
   const [isSignup,setIsSignup]=useState(false); const [loading,setLoading]=useState(false);
   const [showPass,setShowPass]=useState(false);
+  const [alertMsg,setAlertMsg]=useState("");
   const router=useRouter();
+
+  const showAlert=(msg:string)=>setAlertMsg(msg);
 
   const submit=async(e:any)=>{
     e.preventDefault(); setLoading(true);
@@ -16,7 +19,7 @@ export default function Login(){
       if(isSignup){ await createUserWithEmailAndPassword(auth,email,pass); }
       else { await signInWithEmailAndPassword(auth,email,pass); }
       router.push("/");
-    }catch(err:any){ alert(err.message); } finally{ setLoading(false); }
+    }catch(err:any){ showAlert(err.message); } finally{ setLoading(false); }
   }
 
   const googleLogin=async()=>{
@@ -24,46 +27,77 @@ export default function Login(){
       const provider=new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       router.push("/");
-    }catch(err:any){ alert("Google Error: "+err.message); }
+    }catch(err:any){ showAlert("Google Error: "+err.message); }
   }
 
   const resetPass=async()=>{
-    if(!email){ alert("Email type hmasa rawh!"); return; }
+    if(!email){ showAlert("I email type hmasa rawh!"); return; }
     try{
       await sendPasswordResetEmail(auth, email);
-      alert("Password Reset Link i email ah ka thawn e! En rawh - "+email);
-    }catch(err:any){ alert(err.message); }
+      showAlert("Password Reset Link i email ah ka thawn e! En rawh - "+email);
+    }catch(err:any){ showAlert(err.message); }
   }
 
-  return <main className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+  return <main className="h-screen overflow-hidden flex flex-col bg-gray-50 relative">
+    {/* 1. CHUNG BER ARROW LIAN + BACK */}
+    <div className="w-full p-4 flex items-center gap-2 bg-white">
+      <button onClick={()=>router.back()} className="flex items-center gap-1 font-bold text-[16px]">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+        Back
+      </button>
+    </div>
+
+    <div className="flex-1 flex items-center justify-center p-4">
     <form onSubmit={submit} className="bg-white w-full max-w-sm rounded-[28px] p-8 border shadow-sm">
-      <div className="text-4xl mb-3">👋</div>
+      {/* 2. KUTPHAH LEH MZ APPS PAIH - PLEASE CONTINUE TO LOGIN */}
       <h1 className="text-2xl font-black">{isSignup?"Account Siam":"Lo lut rawh"}</h1>
-      <p className="text-sm text-gray-500 mt-1">MZ Apps ah i lo kal a lawm</p>
+      <p className="text-sm text-gray-500 mt-1">Please continue to login</p>
 
-      <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full mt-6 border-2 p-4 rounded-2xl" required/>
+      <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full mt-6 border-2 p-4 rounded-2xl outline-none" required/>
 
-      {/* PASSWORD WITH EYE */}
+      {/* 3. MIT LEM - I THLALAK ANG KHA */}
       <div className="relative mt-3">
-        <input value={pass} onChange={e=>setPass(e.target.value)} placeholder="Password" type={showPass?"text":"password"} className="w-full border-2 p-4 pr-12 rounded-2xl" required/>
-        <button type="button" onClick={()=>setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-xl">
-          {showPass?"🙈":"👁️"}
+        <input value={pass} onChange={e=>setPass(e.target.value)} placeholder="Password" type={showPass?"text":"password"} className="w-full border-2 p-4 pr-12 rounded-2xl outline-none" required/>
+        <button type="button" onClick={()=>setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2">
+          {showPass? (
+            // eye slash - i thlalak ang
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/><line x1="2" y1="2" x2="22" y2="22" strokeWidth="2.5" strokeLinecap="round"/></svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          )}
         </button>
       </div>
 
-      {!isSignup && <button type="button" onClick={resetPass} className="text-xs text-blue-600 mt-2 text-right w-full">Password i theihnghilh em?</button>}
+      {/* 4. FORGOT PASSWORD BOLD */}
+      {!isSignup && <button type="button" onClick={resetPass} className="text-[13px] font-black text-black mt-3 text-right w-full">Forgot Password</button>}
 
       <button disabled={loading} className="w-full mt-4 bg-black text-white p-4 rounded-2xl font-bold">{loading?"...": isSignup?"Sign Up":"Log In"}</button>
 
       <div className="flex items-center my-4"><div className="flex-1 h-[1px] bg-gray-200"></div><span className="px-3 text-xs text-gray-400">OR</span><div className="flex-1 h-[1px] bg-gray-200"></div></div>
 
+      {/* 5. LOGIN WITH GOOGLE */}
       <button type="button" onClick={googleLogin} className="w-full border-2 p-4 rounded-2xl font-bold flex items-center justify-center gap-2">
-        <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5"/> Google hmangin lut
+        <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5"/> Login with Google
       </button>
 
-      <button type="button" onClick={()=>setIsSignup(!isSignup)} className="w-full mt-4 text-sm text-gray-600">
-        {isSignup?"Account i nei tawh em? Log In":"Account i nei lo em? Sign Up"}
-      </button>
+      {/* 6. SIGN UP BOLD BLUE */}
+      <div className="w-full mt-4 text-sm text-gray-600 text-center">
+        {isSignup? "Account i nei tawh em? " : "Account i nei lo em? "}
+        <button type="button" onClick={()=>setIsSignup(!isSignup)} className="font-black text-blue-600">
+          {isSignup?"Log In":"Sign Up"}
+        </button>
+      </div>
     </form>
+    </div>
+
+    {/* 4. ALERT MAWI */}
+    {alertMsg && (
+      <div className="absolute inset-0 bg-black/50 flex items-center justify-center p-6 z-50">
+        <div className="bg-white rounded-2xl p-6 w-full max-w-xs text-center shadow-xl">
+          <p className="text-[15px] font-bold text-black">{alertMsg}</p>
+          <button onClick={()=>setAlertMsg("")} className="mt-4 w-full bg-black text-white p-3 rounded-xl font-bold">OK</button>
+        </div>
+      </div>
+    )}
   </main>
-}
+  }
