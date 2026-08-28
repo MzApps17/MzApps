@@ -15,6 +15,11 @@ export default function Account(){
   const fileRef=useRef<HTMLInputElement>(null);
   const router=useRouter();
 
+  // Name Edit states - THAR
+  const [showNameEdit,setShowNameEdit]=useState(false);
+  const [newName,setNewName]=useState("");
+  const [savingName,setSavingName]=useState(false);
+
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth, async(u)=>{
       if(!u){ router.push("/login"); return; }
@@ -32,14 +37,12 @@ export default function Account(){
     return ()=>unsub();
   },[]);
 
-  // FIX - Back button & X button
   const openPic = ()=>{
     window.history.pushState({picModal:true},"");
     setShowPic(true);
   };
 
   const closePic = ()=>{
-    // State a awm chuan back ti la, awm lo chuan close tawp
     if(window.history.state?.picModal){
       window.history.back();
     }else{
@@ -50,6 +53,7 @@ export default function Account(){
   useEffect(()=>{
     const onPop=()=>{
       setShowPic(false);
+      setShowNameEdit(false);
     };
     window.addEventListener("popstate",onPop);
     return ()=>window.removeEventListener("popstate",onPop);
@@ -81,6 +85,40 @@ export default function Account(){
     reader.readAsDataURL(file);
   };
 
+  // Hming thlak - vawi 1 chiah
+  const openNameEdit = ()=>{
+    if(profile?.nameChanged){
+      alert("I hming i thlak tawh - vawi 1 chiah thlak theih a ni!");
+      return;
+    }
+    setNewName(profile?.displayName || user?.displayName || user?.email.split("@")[0] || "");
+    window.history.pushState({nameModal:true},"");
+    setShowNameEdit(true);
+  };
+
+  const handleNameChange = async()=>{
+    if(!newName.trim()) return alert("Hming dah rawh");
+    if(profile?.nameChanged) return alert("Vawi 1 chiah thlak theih!");
+    setSavingName(true);
+    try{
+      await updateProfile(user,{displayName:newName.trim()});
+      await setDoc(doc(db,"users",user.uid),{
+        displayName:newName.trim(),
+        nameChanged:true,
+        email:user.email,
+        photoURL: profile?.photoURL || user.photoURL || ""
+      },{merge:true});
+      setProfile((p:any)=>({...p, displayName:newName.trim(), nameChanged:true}));
+      setUser({...user, displayName:newName.trim()});
+      setShowNameEdit(false);
+      if(window.history.state?.nameModal) window.history.back();
+    }catch(e:any){
+      alert(e.message);
+    }finally{
+      setSavingName(false);
+    }
+  };
+
   const removeWish=async(wishId:string, prodId:string)=>{
     await deleteDoc(doc(db,"users",user.uid,"wishlist",wishId));
     setWishlist(w=>w.filter(x=>x.id!==prodId));
@@ -88,6 +126,7 @@ export default function Account(){
 
   if(!user) return <div className="p-10 text-center">Loading...</div>;
   const displayPic = profile?.photoURL || user.photoURL;
+  const displayName = profile?.displayName || user.displayName || user.email.split("@")[0];
 
   return (
     <main className="min-h-screen bg-white pb-10">
@@ -101,7 +140,15 @@ export default function Account(){
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={changePic}/>
           </div>
           <div>
-            <p className="text-[23px] font-black capitalize">{user.displayName || user.email.split("@")[0]}</p>
+            {/* Hming + Edit pencil - THAR */}
+            <div className="flex items-center gap-2">
+              <p className="text-[23px] font-black capitalize">{displayName}</p>
+              {!profile?.nameChanged && (
+                <button onClick={openNameEdit} className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+              )}
+            </div>
             <p className="text-[13px] text-gray-300">{user.email}</p>
             <p className="mt-3 bg-white/20 inline-block px-3 py-1 rounded-full text-[11px]">✅ Verified Member</p>
             {uploading && <p className="text-[11px] mt-2 text-yellow-300">Uploading...</p>}
@@ -124,18 +171,31 @@ export default function Account(){
         <button onClick={async()=>{ await signOut(auth); router.push("/"); }} className="w-full bg-red-50 text-red-600 font-black py-4 rounded-2xl mt-8">Log Out</button>
       </div>
 
-      {/* MODAL - TE DEUH + X FIX */}
       {showPic && displayPic && (
         <div className="fixed inset-0 bg-black/80 z-[999] flex items-center justify-center p-6 backdrop-blur-sm" onClick={closePic}>
           <div className="relative" onClick={e=>e.stopPropagation()}>
-            {/* Pic te deuh - 70% chiah */}
             <img src={displayPic} className="w-[85vw] max-w-[320px] h-[85vw] max-h-[320px] object-cover rounded-[24px] border-4 border-white shadow-2xl"/>
-            {/* X button - closePic chiah */}
             <button onClick={closePic} className="absolute -top-3 -right-3 bg-white text-black w-9 h-9 rounded-full font-black shadow-lg flex items-center justify-center">✕</button>
             <p className="text-white text-center mt-4 text-[12px] opacity-70">Tap outside to close</p>
           </div>
         </div>
       )}
+
+      {/* Hming thlakna Popup - THAR */}
+      {showNameEdit && (
+        <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
+          <div className="bg-white rounded-[22px] p-6 w-full max-w-[340px] shadow-2xl">
+            <h3 className="font-black text-[18px]">Hming thlak rawh</h3>
+            <p className="text-[12px] text-red-500 mt-1 font-bold">⚠️ Hming vawi khat chiah i thlak thei!</p>
+            <p className="text-[11px] text-gray-400 mt-1">He hming hi post details ah a lang ang.</p>
+            <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Hming thar" className="w-full mt-4 border-2 border-gray-200 p-3 rounded-xl outline-none focus:border-black"/>
+            <div className="flex gap-2 mt-5">
+              <button onClick={()=>{ setShowNameEdit(false); if(window.history.state?.nameModal) window.history.back(); }} className="flex-1 bg-gray-100 text-black font-bold py-3 rounded-xl">Cancel</button>
+              <button onClick={handleNameChange} disabled={savingName} className="flex-1 bg-black text-white font-bold py-3 rounded-xl">{savingName?"...":"Change Name"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
-  }
+}
