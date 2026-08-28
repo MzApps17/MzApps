@@ -52,7 +52,7 @@ function NewProductForm(){
   const submit=async(e:any)=>{
     e.preventDefault();
     if(!user){ setShowError("Login phawt rawh"); return; }
-    if(!itemName||!village||!district||!price||!phone){ setShowError("Fill vek rawh Boss"); return; }
+    if(!itemName||!village||!district||!price||!phone){ setShowError("Fillup vek rawh"); return; }
     if(phone.length < 9){ setShowError("Phone number dik lo"); return; }
     if(images.length===0){ setShowError("Thlalak 1 tal thlang rawh"); return; }
     setLoading(true);
