@@ -5,6 +5,20 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase/config";
 import Link from "next/link";
 
+function timeAgo(ts:any){
+  if(!ts) return "TODAY";
+  try{
+    const d = ts.toDate? ts.toDate() : new Date(ts);
+    const diff = Math.floor((Date.now() - d.getTime())/1000);
+    if(diff < 60) return "Just now";
+    if(diff < 3600) return `${Math.floor(diff/60)}m ago`;
+    if(diff < 86400) return `${Math.floor(diff/3600)}hrs ago`;
+    if(diff < 172800) return "YESTERDAY";
+    if(diff < 604800) return `${Math.floor(diff/86400)}d ago`;
+    return d.toLocaleDateString();
+  }catch{ return "TODAY"; }
+}
+
 export default function Home(){
   const [ads,setAds]=useState<any[]>([]);
   const [search,setSearch]=useState("");
@@ -17,7 +31,6 @@ export default function Home(){
   const [wishIds,setWishIds]=useState<Set<string>>(new Set());
   const [user,setUser]=useState<any>(null);
 
-  // Auth + Wishlist IDs load
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth, async(u)=>{
       setUser(u);
@@ -37,16 +50,34 @@ export default function Home(){
   const loadAds = useCallback(async (isNewCat=false)=>{
     setLoading(isNewCat);
     try{
-      let q;
+      let allAds:any[] = [];
       if(cat==="All"){
-        q=query(collection(db,"products"), orderBy("createdAt","desc"), limit(20));
+        const q1=query(collection(db,"products"), orderBy("createdAt","desc"), limit(15));
+        const q2=query(collection(db,"jobs"), orderBy("createdAt","desc"), limit(15));
+        const [snap1,snap2]=await Promise.all([getDocs(q1), getDocs(q2).catch(()=>({docs:[]} as any))]);
+        const p1=snap1.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"}));
+        const p2=(snap2 as any).docs.map((d:any)=>({id:d.id,...d.data() as any, _type:"job"}));
+        allAds=[...p1,...p2].sort((a,b)=>{
+          const ta=a.createdAt?.toMillis? a.createdAt.toMillis() : new Date(a.createdAt||0).getTime();
+          const tb=b.createdAt?.toMillis? b.createdAt.toMillis() : new Date(b.createdAt||0).getTime();
+          return tb-ta;
+        });
+        setAds(allAds);
+        setLastDoc(snap1.docs[snap1.docs.length-1] || null);
+        setHasMore(snap1.docs.length===15);
+      }else if(cat==="Jobs"){
+        const q=query(collection(db,"jobs"), orderBy("createdAt","desc"), limit(20));
+        const snap=await getDocs(q);
+        setAds(snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"job"})));
+        setLastDoc(snap.docs[snap.docs.length-1] || null);
+        setHasMore(snap.docs.length===20);
       }else{
-        q=query(collection(db,"products"), where("category","==",cat), orderBy("createdAt","desc"), limit(20));
+        const q=query(collection(db,"products"), where("category","==",cat), orderBy("createdAt","desc"), limit(20));
+        const snap=await getDocs(q);
+        setAds(snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"})));
+        setLastDoc(snap.docs[snap.docs.length-1] || null);
+        setHasMore(snap.docs.length===20);
       }
-      const snap=await getDocs(q);
-      setAds(snap.docs.map(d=>({id:d.id,...d.data() as any})));
-      setLastDoc(snap.docs[snap.docs.length-1] || null);
-      setHasMore(snap.docs.length===20);
     }catch(e){ console.log(e); }
     setLoading(false);
   },[cat]);
@@ -55,6 +86,7 @@ export default function Home(){
 
   const loadMore = async ()=>{
     if(!lastDoc ||!hasMore || isLoadingMore) return;
+    if(cat==="Jobs") return;
     setIsLoadingMore(true);
     try{
       let q;
@@ -64,7 +96,7 @@ export default function Home(){
         q=query(collection(db,"products"), where("category","==",cat), orderBy("createdAt","desc"), startAfter(lastDoc), limit(20));
       }
       const snap=await getDocs(q);
-      setAds(prev=>[...prev,...snap.docs.map(d=>({id:d.id,...d.data() as any}))]);
+      setAds(prev=>[...prev,...snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"}))]);
       setLastDoc(snap.docs[snap.docs.length-1] || null);
       setHasMore(snap.docs.length===20);
     }catch{}
@@ -121,15 +153,18 @@ export default function Home(){
             <button onClick={(e)=>toggleWish(e,ad.id)} className="absolute top-3 right-3 z-10 bg-white w-8 h-8 rounded-full shadow flex items-center justify-center text-[16px]">
               {wishIds.has(ad.id)? "❤️" : "🤍"}
             </button>
-            <Link href={`/marketplace/${ad.id}`}>
+            <Link href={ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`}>
               <div className="w-full h-40 bg-gray-100 overflow-hidden rounded">
                 <img src={ad.image || ad.images?.[0] || "https://via.placeholder.com/300"} alt={ad.title} loading="lazy" className="w-full h-full object-cover group-active:scale-105 transition-transform duration-200"/>
               </div>
-              <p className="font-black mt-2 text-[16px] text-[#002f34]">₹ {Number(ad.price).toLocaleString("en-IN") || "0"}</p>
+              <p className="font-black mt-2 text-[16px] text-[#002f34]">₹ {Number(ad.price || ad.salary || 0).toLocaleString("en-IN") || "0"}</p>
               <p className="text-[13px] truncate font-medium text-[#002f34]">{ad.title}</p>
-              <div className="flex justify-between mt-2">
-                <p className="text-[10px] text-gray-500 font-bold uppercase truncate">{ad.location || "MIZORAM"}</p>
-                <p className="text-[10px] text-gray-500 font-bold">TODAY</p>
+              <div className="flex justify-between mt-2 items-center">
+                <p className="text-[11px] text-[#666] font-bold uppercase truncate flex items-center gap-1">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s-7-5.91-7-11a7 7 0 0 1 14 0c0 5.09-7 11-7 11z"/><circle cx="12" cy="10" r="3"/></svg>
+                  {ad.location || "ZAWLNUAM, MIZORAM"}
+                </p>
+                <p className="text-[10px] text-gray-500 font-bold uppercase">{timeAgo(ad.createdAt)}</p>
               </div>
             </Link>
           </div>
