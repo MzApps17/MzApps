@@ -8,9 +8,11 @@ function SellNewContent(){
 
   useEffect(()=>{
     if(!cat) return;
-    if(cat==="Jobs"){ router.replace("/jobs/new"); }
-    else if(cat==="Properties"){ router.replace("/properties/new"); }
-    else { router.replace(`/marketplace/new?cat=${encodeURIComponent(cat)}`); }
+    if(cat==="Jobs"){ 
+      router.replace("/jobs/new"); 
+    } else { 
+      router.replace(`/marketplace/new?cat=${encodeURIComponent(cat)}`); 
+    }
   }, [cat, router]);
 
   return <p className="p-6 text-center">Loading...</p>
