@@ -55,6 +55,7 @@ function NewJobForm(){
         phone,
         description,
         uid: user.uid,
+        userId: user.uid,
         userEmail: user.email,
         createdAt: serverTimestamp(),
       });
@@ -148,4 +149,4 @@ export default function NewJobPage(){
       <NewJobForm/>
     </Suspense>
   );
-                                                           }
+}
