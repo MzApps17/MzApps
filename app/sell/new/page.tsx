@@ -1,13 +1,23 @@
 "use client";
+import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 
-export default function NewSell(){
+function SellNewContent(){
   const cat=useSearchParams().get("cat") || "All";
   const router=useRouter();
   
-  // Category a zirin a postna tur hawn sak ang
-  if(cat==="Jobs"){ router.push("/jobs/new"); return null; }
-  if(cat==="Properties"){ router.push("/marketplace/new?cat=Properties"); return null; }
-  router.push(`/marketplace/new?cat=${cat}`);
+  if(typeof window!=="undefined"){
+    if(cat==="Jobs"){ router.push("/jobs/new"); }
+    else if(cat==="Properties"){ router.push("/marketplace/new?cat=Properties"); }
+    else { router.push(`/marketplace/new?cat=${cat}`); }
+  }
   return <p className="p-6 text-center">Loading {cat}...</p>;
+}
+
+export default function NewSell(){
+  return (
+    <Suspense fallback={<p className="p-6 text-center">Loading...</p>}>
+      <SellNewContent />
+    </Suspense>
+  );
 }
