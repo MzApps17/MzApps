@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import Link from "next/link";
 
@@ -8,51 +8,87 @@ export default function Home(){
   const [ads,setAds]=useState<any[]>([]);
   const [search,setSearch]=useState("");
   const [cat,setCat]=useState("All");
+  const [loading,setLoading]=useState(true);
 
-  useEffect(()=>{(async()=>{
-    const s=await getDocs(collection(db,"products"));
-    setAds(s.docs.map(d=>({id:d.id,...d.data() as any})));
-  })()},[]);
+  useEffect(()=>{
+    (async()=>{
+      try{
+        const q=query(collection(db,"products"), orderBy("createdAt","desc"));
+        const snap=await getDocs(q);
+        setAds(snap.docs.map(d=>({id:d.id,...d.data() as any})));
+      }catch(e){ console.log(e); }
+      setLoading(false);
+    })();
+  },[]);
 
-  const cats=["All","Cars","Properties","Mobiles","Jobs","Bikes","Furniture","Fashion"];
+  const categories=["All","Cars","Properties","Mobiles","Jobs","Bikes","Furniture","Fashion","Electronics"];
+
   const filtered=ads.filter(a=>{
     const s=search.toLowerCase();
-    const match =!search || a.title?.toLowerCase().includes(s);
-    const matchCat = cat==="All" || a.category===cat;
-    return match && matchCat;
+    const matchSearch=!s || a.title?.toLowerCase().includes(s) || a.location?.toLowerCase().includes(s);
+    const matchCat=cat==="All" || a.category===cat || a.category?.toLowerCase()===cat.toLowerCase();
+    return matchSearch && matchCat;
   });
 
   return (
-    <main style={{minHeight:"100vh", background:"#f2f2f2", paddingBottom:70}}>
-      <div style={{background:"#fff", position:"sticky", top:0, zIndex:20, padding:12}}>
-        <div style={{display:"flex", alignItems:"center", border:"1px solid #ccc", borderRadius:6, padding:"10px 12px"}}>
-          <span style={{marginRight:8}}>⌕</span>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Find Cars, Mobile Phones and more..." style={{flex:1, outline:"none", border:"none", fontSize:14}}/>
+    <main className="min-h-screen bg-[#f2f2f2]">
+      {/* SEARCH - TOP ONLY */}
+      <div className="bg-white sticky top-0 z-20 p-3 border-b">
+        <div className="flex items-center border border-[#002f34] rounded-md px-3 py-[10px] gap-2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#002f34" strokeWidth="2.5"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input
+            value={search}
+            onChange={e=>setSearch(e.target.value)}
+            placeholder="Find Cars, Mobile Phones and more..."
+            className="flex-1 outline-none text-[14px] text-black placeholder:text-gray-400 bg-transparent"
+          />
         </div>
-        <div style={{display:"flex", gap:8, overflowX:"auto", marginTop:12, paddingBottom:4}}>
-          {cats.map(c=>
-            <button key={c} onClick={()=>setCat(c)} style={{whiteSpace:"nowrap", padding:"6px 14px", borderRadius:20, border:"1px solid #002f34", fontSize:12, fontWeight:"bold", background:cat===c?"#002f34":"#fff", color:cat===c?"#fff":"#002f34"}}>{c}</button>
-          )}
+
+        {/* CATEGORY CHIPS */}
+        <div className="flex gap-2 overflow-x-auto mt-3 -mx-1 px-1 pb-1 scrollbar-hide">
+          {categories.map(c=>(
+            <button
+              key={c}
+              onClick={()=>setCat(c)}
+              className={`whitespace-nowrap px-4 py-1.5 rounded-full border text-[13px] font-bold tracking-wide transition ${cat===c? 'bg-[#002f34] text-white border-[#002f34]' : 'bg-white text-[#002f34] border-gray-300'}`}
+            >
+              {c}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:1, background:"#ddd"}}>
-        {filtered.map(ad=>(
-          <Link key={ad.id} href={`/marketplace/${ad.id}`} style={{background:"#fff", padding:8, textDecoration:"none", color:"black"}}>
-            <img src={ad.image || ad.images?.[0]} style={{width:"100%", height:140, objectFit:"cover"}}/>
-            <p style={{fontWeight:"bold", marginTop:8, fontSize:16}}>₹ {ad.price}</p>
-            <p style={{fontSize:13, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis"}}>{ad.title}</p>
-            <p style={{fontSize:10, color:"gray", marginTop:8}}>{ad.location || "MIZORAM"} • TODAY</p>
-          </Link>
-        ))}
-      </div>
+      {/* PRODUCTS GRID - 2 COL */}
+      {loading? (
+        <div className="grid grid-cols-2 gap-[2px] bg-gray-200 mt-[1px]">
+          {[1,2,3,4].map(i=><div key={i} className="bg-white h-56 animate-pulse"/>)}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-[2px] bg-gray-200">
+          {filtered.map(ad=>(
+            <Link key={ad.id} href={`/marketplace/${ad.id}`} className="bg-white p-2 flex flex-col">
+              <div className="w-full h-36 bg-gray-100 overflow-hidden">
+                <img src={ad.image || ad.images?.[0] || "https://via.placeholder.com/300"} alt={ad.title} className="w-full h-full object-cover"/>
+              </div>
+              <p className="font-black mt-2 text-[16px] text-[#002f34] leading-none">₹ {ad.price?.toLocaleString() || ad.price || "0"}</p>
+              <p className="text-[13px] text-[#002f34] mt-1 truncate leading-tight font-medium">{ad.title}</p>
+              <div className="flex justify-between items-center mt-3">
+                <p className="text-[10px] text-gray-500 font-bold uppercase truncate max-w-[70%]">{ad.location || "MIZORAM"}</p>
+                <p className="text-[10px] text-gray-500 font-bold uppercase">TODAY</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
 
-      <div style={{position:"fixed", bottom:0, left:0, right:0, background:"#fff", borderTop:"1px solid #ddd", display:"flex", justifyContent:"space-around", padding:"8px 0", zIndex:30}}>
-        <Link href="/" style={{display:"flex", flexDirection:"column", alignItems:"center", textDecoration:"none", color:"#002f34", fontSize:10, fontWeight:"bold"}}><span style={{fontSize:20}}>⌂</span>HOME</Link>
-        <Link href="/profile" style={{display:"flex", flexDirection:"column", alignItems:"center", textDecoration:"none", color:"gray", fontSize:10}}><span style={{fontSize:20}}>≡</span>MY ADS</Link>
-        <Link href="/sell" style={{display:"flex", flexDirection:"column", alignItems:"center", textDecoration:"none", color:"black", fontSize:10}}><div style={{width:38, height:38, border:"3px solid #002f34", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, fontWeight:"bold", marginTop:-8}}>+</div>SELL</Link>
-        <Link href="/profile" style={{display:"flex", flexDirection:"column", alignItems:"center", textDecoration:"none", color:"gray", fontSize:10}}><span style={{fontSize:20}}>◯</span>ACCOUNT</Link>
-      </div>
+      {!loading && filtered.length===0 && (
+        <div className="text-center mt-20">
+          <p className="text-5xl">🔍</p>
+          <p className="text-gray-500 mt-3 font-bold">Engmah hmuh a ni lo</p>
+        </div>
+      )}
+
+      <div className="h-5"></div>
     </main>
   );
 }
