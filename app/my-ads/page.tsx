@@ -1,63 +1,114 @@
 "use client";
-import { useEffect, useState } from "react";
-import { collection, query, where, getDocs, or } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
-import { db, auth } from "@/lib/firebase/config";
-import Link from "next/link";
+import { useState, useEffect } from "react";
+import { collection, query, where, onSnapshot, deleteDoc, doc } from "firebase/firestore";
+import { db } from "@/lib/firebase/config";
+import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
 
-export default function MyAds(){
-  const [products,setProducts]=useState<any[]>([]);
-  const [loading,setLoading]=useState(true);
+export default function MyAdsPage(){
+  const {user}=useAuth();
+  const router=useRouter();
+  const [ads,setAds]=useState<any[]>([]);
+  const [deleteId,setDeleteId]=useState<string|null>(null);
+  const [loadingDelete,setLoadingDelete]=useState(false);
+
+  const formatDate = (ts:any)=>{
+    if(!ts) return "";
+    try{
+      const d = ts.toDate? ts.toDate() : new Date(ts.seconds? ts.seconds*1000 : ts);
+      return d.toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    }catch{ return ""; }
+  };
 
   useEffect(()=>{
-    const unsub = onAuthStateChanged(auth, async (user)=>{
-      if(!user){ setLoading(false); return; }
-      try{
-        // A zawng zawng check - userId emaw email emaw
-        const q1 = query(collection(db,"products"), where("userId","==",user.uid));
-        const q2 = query(collection(db,"products"), where("userEmail","==",user.email));
-
-        const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
-
-        const all:any[] = [];
-        const seen = new Set();
-        [...snap1.docs,...snap2.docs].forEach(d=>{
-          if(!seen.has(d.id)){ seen.add(d.id); all.push({id:d.id,...d.data()}); }
-        });
-
-        // Old post te - phone number hmang a filter (a la awm loh chuan hemi hi hman rih)
-        if(all.length===0){
-          const qAll = await getDocs(collection(db,"products"));
-          const filtered = qAll.docs.map(d=>({id:d.id,...d.data()} as any)).filter((p:any)=> p.phone && user.phoneNumber && p.phone.includes(user.phoneNumber.slice(-10)));
-          setProducts(filtered);
-        }else{
-          setProducts(all);
-        }
-      }catch(e){ console.log(e); }
-      setLoading(false);
+    if(!user) return;
+    const q = query(collection(db,"products"), where("uid","==",user.uid));
+    const unsub = onSnapshot(q, (snap)=>{
+      const list = snap.docs.map(d=>({id:d.id,...d.data() as any}));
+      // userId hmang a post ho pawh la tel - hlui leh thar zawng zawng a lang theih nan
+      setAds(list);
     });
     return ()=>unsub();
-  },[]);
+  },[user]);
 
-  if(loading) return <div className="p-10 text-center font-black">Loading...</div>;
+  // userId hmang a zawng tel na
+  useEffect(()=>{
+    if(!user) return;
+    const q2 = query(collection(db,"products"), where("userId","==",user.uid));
+    const unsub2 = onSnapshot(q2, (snap)=>{
+      const list2 = snap.docs.map(d=>({id:d.id,...d.data() as any}));
+      setAds(prev=>{
+        const merged = [...prev];
+        list2.forEach(item=>{
+          if(!merged.find(m=>m.id===item.id)) merged.push(item);
+        });
+        return merged;
+      });
+    });
+    return ()=>unsub2();
+  },[user]);
 
-  return (
-    <main className="bg-[#f2f4f5] min-h-screen p-4 pb-20">
-      <h1 className="font-black text-[20px] mb-4">Ka Thil Zawrh te ({products.length})</h1>
-      {products.length===0? (
-        <div className="bg-white rounded-2xl p-10 text-center text-gray-400">I la zawrh lo</div>
-      ):(
-        <div className="grid gap-3">
-          {products.map((p:any)=>(
-            <Link key={p.id} href={`/product/${p.id}`} className="bg-white rounded-2xl p-3 flex gap-3">
-              <img src={p.images?.[0] || p.image} className="w-24 h-24 rounded-xl object-cover bg-gray-100"/>
-              <div className="flex-1">
-                <p className="font-black text-[18px]">₹ {Number(p.price).toLocaleString("en-IN")}</p>
-                <p className="font-bold text-[14px] line-clamp-1">{p.title}</p>
-                <p className="text-[12px] text-gray-500 mt-1">{p.village} • {p.category}</p>
+  const handleDelete = async ()=>{
+    if(!deleteId) return;
+    setLoadingDelete(true);
+    try{
+      await deleteDoc(doc(db,"products",deleteId));
+      setDeleteId(null);
+    }catch(e){ alert("Delete failed"); }
+    setLoadingDelete(false);
+  };
+
+  return(
+    <main className="bg-[#f5f5f5] min-h-screen pb-24">
+      <h1 className="font-black text-[24px] p-4 text-black">My Ads ({ads.length})</h1>
+
+      <div className="flex flex-col gap-3 p-3">
+        {ads.map((ad)=>(
+          <div key={ad.id} className="bg-white rounded-[20px] p-3 flex gap-3 shadow-sm">
+            <img src={ad.image || ad.images?.[0]} className="w-28 h-28 rounded-xl object-cover bg-gray-100"/>
+            <div className="flex-1 flex flex-col justify-between">
+              <div>
+                <p className="font-black text-[18px]">₹ {ad.price?.toLocaleString('en-IN')}</p>
+                <p className="font-bold text-[16px] -mt-1">{ad.title}</p>
+                <p className="text-[13px] text-gray-500">{ad.village} • {ad.category}</p>
+                {/* DATE & TIME - Hei hi i duh */}
+                <p className="text-[11px] text-gray-400 mt-[2px] font-medium">{formatDate(ad.createdAt)}</p>
               </div>
-            </Link>
-          ))}
+              {/* EDIT & DELETE BUTTON */}
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={()=>router.push(`/marketplace/edit/${ad.id}`)}
+                  className="flex-1 bg-white border border-black text-black font-black text-[12px] py-2 rounded-xl active:scale-95"
+                >
+                  EDIT
+                </button>
+                <button
+                  onClick={()=>setDeleteId(ad.id)}
+                  className="flex-1 bg-red-500 text-white font-black text-[12px] py-2 rounded-xl active:scale-95"
+                >
+                  DELETE
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {ads.length===0 && <p className="text-center text-gray-400 mt-20 font-bold">Thil zawrh ila neilo!!</p>}
+      </div>
+
+      {/* DELETE ALERT MAWI TAK */}
+      {deleteId && (
+        <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-6 backdrop-blur-sm">
+          <div className="bg-white rounded-[24px] p-7 w-full max-w-[320px] text-center shadow-2xl">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600 text-3xl font-black">!</div>
+            <h2 className="font-black text-[18px] mb-1">Delete duh tak tak em?</h2>
+            <p className="text-[13px] text-gray-500 mb-5">He thil hi i delete chuan a bo hlen tawh ang.</p>
+            <div className="flex gap-3">
+              <button onClick={()=>setDeleteId(null)} className="flex-1 bg-gray-100 text-black font-black py-3.5 rounded-xl">Cancel</button>
+              <button onClick={handleDelete} disabled={loadingDelete} className="flex-1 bg-red-500 text-white font-black py-3.5 rounded-xl disabled:opacity-50">
+                {loadingDelete?"Deleting...":"Delete"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </main>
