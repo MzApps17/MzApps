@@ -124,7 +124,6 @@ function NewJobForm(){
           <div className="bg-white rounded-[24px] p-7 w-full max-w-[320px] text-center shadow-2xl">
             <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl">✓</div>
             <h2 className="font-black text-[18px] mb-1">Post Create Successful!</h2>
-            <p className="text-[13px] text-gray-500 mb-6">I hnaruak post a ni ta.</p>
             <button onClick={()=>{ setShowSuccess(false); router.replace("/"); }} className="w-full bg-black text-white font-black py-3.5 rounded-xl">OK</button>
           </div>
         </div>
