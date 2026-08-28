@@ -6,6 +6,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+const IMGBB_API_KEY = "f7ee6ffb590faa4bffd4b5ffbb44c094"; // <-- HETAH I KEY DAH RAWH
+
 function NewProductForm(){
   const {user}=useAuth();
   const router=useRouter();
@@ -64,6 +66,24 @@ function NewProductForm(){
     });
   };
 
+  // === HEI CHIAH HI KA SIAM DANG LAM - UPLOAD NA CHIAH ===
+  const uploadToImgBB = async (base64Image: string) => {
+    const base64 = base64Image.split(',')[1];
+    const form = new FormData();
+    form.append("image", base64);
+    const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+      method: "POST",
+      body: form,
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error("Image upload failed");
+    return {
+      url: data.data.url,
+      deleteUrl: data.data.delete_url,
+      deleteHash: data.data.delete_url.split('/').pop()
+    };
+  };
+
   const submit=async(e:any)=>{
     e.preventDefault();
     if(!user){ setShowError("Login phawt rawh"); return; }
@@ -72,11 +92,20 @@ function NewProductForm(){
     if(images.length===0){ setShowError("Thlalak 1 tal thlang rawh"); return; }
     setLoading(true);
     try{
+      // ImgBB ah upload hmasa
+      const uploaded = await Promise.all(images.map(img => uploadToImgBB(img)));
+      const imageUrls = uploaded.map(u => u.url);
+      const deleteHashes = uploaded.map(u => u.deleteHash);
+      const deleteUrls = uploaded.map(u => u.deleteUrl);
+
       await addDoc(collection(db,"products"),{
         title:itemName, category, village, district,
         location:`${village}, ${district}`,
         price:Number(price), phone, description,
-        image:images[0], images,
+        image:imageUrls[0],
+        images:imageUrls,
+        deleteHashes: deleteHashes,
+        deleteUrls: deleteUrls,
         uid:user.uid, userEmail:user.email,
         createdAt:serverTimestamp(),
       });
@@ -84,6 +113,7 @@ function NewProductForm(){
     }catch(err:any){ setShowError(err.message); }
     setLoading(false);
   };
+  // === SIAM DANG LAM TAWP ===
 
   return (
     <main className="bg-white min-h-screen pb-24">
