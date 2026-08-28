@@ -24,8 +24,7 @@ export default function Account(){
       const snap=await getDocs(query(collection(db,"users",u.uid,"wishlist")));
       const items:any[]=[];
       for(const d of snap.docs){
-        const prodId=d.data().productId;
-        const prod=await getDoc(doc(db,"products",prodId));
+        const prod=await getDoc(doc(db,"products",d.data().productId));
         if(prod.exists()) items.push({id:prod.id,...prod.data(), wishId:d.id});
       }
       setWishlist(items);
@@ -33,32 +32,37 @@ export default function Account(){
     return ()=>unsub();
   },[]);
 
-  // --- BACK BUTTON FIX START ---
-  useEffect(()=>{
-    if(showPic){
-      window.history.pushState({picModal:true},"");
+  // FIX - Back button & X button
+  const openPic = ()=>{
+    window.history.pushState({picModal:true},"");
+    setShowPic(true);
+  };
+
+  const closePic = ()=>{
+    // State a awm chuan back ti la, awm lo chuan close tawp
+    if(window.history.state?.picModal){
+      window.history.back();
+    }else{
+      setShowPic(false);
     }
-  },[showPic]);
+  };
 
   useEffect(()=>{
-    const onPopState = (e:PopStateEvent)=>{
-      if(showPic){
-        setShowPic(false);
-      }
+    const onPop=()=>{
+      setShowPic(false);
     };
-    window.addEventListener("popstate",onPopState);
-    return ()=>window.removeEventListener("popstate",onPopState);
-  },[showPic]);
-  // --- BACK BUTTON FIX END ---
+    window.addEventListener("popstate",onPop);
+    return ()=>window.removeEventListener("popstate",onPop);
+  },[]);
 
   const changePic = async(e:any)=>{
     const file=e.target.files[0];
     if(!file) return;
-    if(file.size > 2*1024*1024) return alert("File lian lutuk - 2MB aia tlem");
+    if(file.size > 2*1024*1024) return alert("2MB aia tlem thlang rawh");
     setUploading(true);
     const reader=new FileReader();
     reader.onload=async()=>{
-      let base64=reader.result as string;
+      const base64=reader.result as string;
       const img=new Image();
       img.onload=async()=>{
         const canvas=document.createElement("canvas");
@@ -71,7 +75,6 @@ export default function Account(){
         setProfile({photoURL:compressed});
         setUser({...user, photoURL:compressed});
         setUploading(false);
-        alert("Thlak fel!");
       };
       img.src=base64;
     };
@@ -83,58 +86,56 @@ export default function Account(){
     setWishlist(w=>w.filter(x=>x.id!==prodId));
   };
 
-  if(!user) return <div className="p-10 text-center font-bold">Loading...</div>;
+  if(!user) return <div className="p-10 text-center">Loading...</div>;
   const displayPic = profile?.photoURL || user.photoURL;
-
-  const closePic = ()=>{
-    setShowPic(false);
-    // history back kha cancel nan
-    if(window.history.state?.picModal){
-      window.history.back();
-    }
-  };
 
   return (
     <main className="min-h-screen bg-white pb-10">
       <div className="bg-black text-white m-3 rounded-[30px] p-7">
         <div className="flex items-center gap-5">
           <div className="relative">
-            <div onClick={()=>setShowPic(true)} className="w-28 h-28 bg-white rounded-full flex items-center justify-center overflow-hidden cursor-pointer border-4 border-white/20">
+            <div onClick={openPic} className="w-28 h-28 bg-white rounded-full flex items-center justify-center overflow-hidden cursor-pointer border-4 border-white/20">
               {displayPic? <img src={displayPic} className="w-full h-full object-cover"/> : <span className="text-black text-4xl font-black">{user.email[0].toUpperCase()}</span>}
             </div>
-            <button onClick={()=>fileRef.current?.click()} className="absolute -bottom-1 -right-1 bg-[#00C853] w-9 h-9 rounded-full flex items-center justify-center border-[3px] border-black text-white font-black text-xl">+</button>
+            <button onClick={()=>fileRef.current?.click()} className="absolute -bottom-1 -right-1 bg-[#00C853] w-9 h-9 rounded-full flex items-center justify-center border-[3px] border-black text-white font-black">+</button>
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={changePic}/>
           </div>
           <div>
             <p className="text-[23px] font-black capitalize">{user.displayName || user.email.split("@")[0]}</p>
-            <p className="text-[13px] text-gray-300 mt-1">{user.email}</p>
+            <p className="text-[13px] text-gray-300">{user.email}</p>
             <p className="mt-3 bg-white/20 inline-block px-3 py-1 rounded-full text-[11px]">✅ Verified Member</p>
-            {uploading && <p className="text-[11px] mt-2 text-yellow-300 animate-pulse">Uploading...</p>}
+            {uploading && <p className="text-[11px] mt-2 text-yellow-300">Uploading...</p>}
           </div>
         </div>
       </div>
 
-      <div className="p-3 mt-2">
+      <div className="p-3">
         <h2 className="font-black text-[16px] mb-3">❤️ My Wishlist ({wishlist.length})</h2>
-        {wishlist.length===0? <p className="text-gray-400 text-[13px] bg-gray-50 p-5 rounded-2xl text-center">Wishlist ah engmah a la awm lo</p> :
+        {wishlist.length===0? <p className="bg-gray-50 p-5 rounded-2xl text-center text-gray-400 text-[13px]">Wishlist a la awm lo</p> :
         <div className="grid grid-cols-2 gap-2">
           {wishlist.map((item:any)=>(
             <div key={item.id} className="bg-white border rounded-xl overflow-hidden relative">
               <Link href={`/marketplace/${item.id}`}><img src={item.image || item.images?.[0]} className="w-full h-32 object-cover"/></Link>
-              <button onClick={()=>removeWish(item.wishId, item.id)} className="absolute top-2 right-2 bg-black/70 text-white w-7 h-7 rounded-full">✕</button>
-              <div className="p-2"><p className="text-[12px] font-bold truncate">{item.title}</p><p className="text-[14px] font-black">₹{Number(item.price).toLocaleString("en-IN")}</p></div>
+              <button onClick={()=>removeWish(item.wishId,item.id)} className="absolute top-2 right-2 bg-black/70 text-white w-7 h-7 rounded-full text-xs">✕</button>
+              <div className="p-2"><p className="text-[12px] font-bold truncate">{item.title}</p><p className="font-black">₹{Number(item.price).toLocaleString("en-IN")}</p></div>
             </div>
           ))}
         </div>}
         <button onClick={async()=>{ await signOut(auth); router.push("/"); }} className="w-full bg-red-50 text-red-600 font-black py-4 rounded-2xl mt-8">Log Out</button>
       </div>
 
+      {/* MODAL - TE DEUH + X FIX */}
       {showPic && displayPic && (
-        <div onClick={closePic} className="fixed inset-0 bg-black z-[100] flex items-center justify-center p-0">
-          <img src={displayPic} className="max-w-full max-h-full object-contain" onClick={e=>e.stopPropagation()}/>
-          <button onClick={closePic} className="absolute top-4 right-4 bg-white/20 text-white w-10 h-10 rounded-full backdrop-blur">✕</button>
+        <div className="fixed inset-0 bg-black/80 z-[999] flex items-center justify-center p-6 backdrop-blur-sm" onClick={closePic}>
+          <div className="relative" onClick={e=>e.stopPropagation()}>
+            {/* Pic te deuh - 70% chiah */}
+            <img src={displayPic} className="w-[85vw] max-w-[320px] h-[85vw] max-h-[320px] object-cover rounded-[24px] border-4 border-white shadow-2xl"/>
+            {/* X button - closePic chiah */}
+            <button onClick={closePic} className="absolute -top-3 -right-3 bg-white text-black w-9 h-9 rounded-full font-black shadow-lg flex items-center justify-center">✕</button>
+            <p className="text-white text-center mt-4 text-[12px] opacity-70">Tap outside to close</p>
+          </div>
         </div>
       )}
     </main>
   );
-}
+  }
