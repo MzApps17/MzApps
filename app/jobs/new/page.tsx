@@ -70,7 +70,7 @@ function NewJobForm(){
         <button onClick={()=>router.replace("/sell")} className="w-10 h-10 flex items-center justify-center -ml-2">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
         </button>
-        <h1 className="font-black text-[22px] text-black">Create Job Post</h1>
+        <h1 className="font-black text-[22px] text-black">Create Post</h1>
       </div>
 
       <form onSubmit={submit} className="p-4 flex flex-col gap-4">
