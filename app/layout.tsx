@@ -22,8 +22,8 @@ function Footer(){
         <span className={`text-[10px] ${isSell?"font-black":"font-bold"}`}>SELL</span>
       </Link>
 
-      <Link href="/my-ads" className={`flex flex-col items-center w-20 ${isMyAds?"text-[#002f34]":"text-gray-400"}`}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isMyAds?"2.6":"1.6"}><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      <Link href="/my-ads" className={`flex flex-col items-center justify-center w-20 ${isMyAds?"text-[#002f34]":"text-gray-400"}`}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isMyAds?"2.6":"1.6"} strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
         <span className={`text-[10px] ${isMyAds?"font-black":"font-bold"}`}>MY ADS</span>
       </Link>
 
