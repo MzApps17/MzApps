@@ -1,10 +1,34 @@
 "use client";
 import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
-export default function Detail({params}:{params:{id:string}}){
+import { useAuth } from "@/hooks/useAuth";
+import { useParams, useRouter } from "next/navigation";
+
+export default function Detail(){
+  const {id}=useParams(); const {user}=useAuth(); const router=useRouter();
   const [p,setP]=useState<any>(null);
-  useEffect(()=>{(async()=>{const d=await getDoc(doc(db,"products",params.id)); setP(d.data())})()},[params.id]);
-  if(!p) return <p className="p-10">Loading...</p>
-  return <main className="p-4 max-w-md mx-auto"><img src={p.image} className="w-full rounded-2xl h-80 object-cover"/><h1 className="text-2xl font-bold mt-4">{p.title}</h1><p className="text-2xl font-black text-blue-600 mt-2">₹{p.price}</p><a href={`https://wa.me/?text=${p.title} ka duh e`} className="block bg-green-500 text-white text-center p-4 rounded-xl font-bold mt-6">WhatsApp ah Biak rawh</a></main>
+  useEffect(()=>{ (async()=>{
+    const snap=await getDoc(doc(db,"products",id as string));
+    if(snap.exists()) setP({id:snap.id,...snap.data()});
+  })()},[id]);
+
+  const handleDelete=async()=>{
+    if(!confirm("Delete duh em?")) return;
+    await deleteDoc(doc(db,"products",id as string));
+    router.push("/marketplace");
+  }
+
+  if(!p) return <p className="p-4">Loading...</p>;
+  return (
+    <div className="p-4 max-w-md mx-auto">
+      <img src={p.image || p.imageUrl} className="w-full h-80 object-cover rounded-2xl"/>
+      <h1 className="text-2xl font-bold mt-4">{p.title}</h1>
+      <p className="text-blue-600 text-xl font-bold">₹{p.price}</p>
+      <div className="flex gap-2 mt-4">
+        <a href={`https://wa.me/91XXXXXXXXXX?text=Hei ${p.title} hi ka duh e`} target="_blank" className="flex-1 bg-green-600 text-white p-3 rounded-xl text-center font-bold">WhatsApp ah be rawh</a>
+        {user?.uid===p.uid && <button onClick={handleDelete} className="bg-red-100 text-red-600 p-3 rounded-xl">Delete</button>}
+      </div>
+    </div>
+  )
 }
