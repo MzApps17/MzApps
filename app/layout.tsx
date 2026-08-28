@@ -1,5 +1,5 @@
 import "./globals.css";
-import Footer from "@/components/Footer";
+import Footer from "../components/Footer";
 
 export const metadata = {
   title: "MZ Apps",
@@ -9,7 +9,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-white text-black">
+      <body className="bg-white text-black antialiased">
         <div className="pb-[60px]">{children}</div>
         <Footer />
       </body>
