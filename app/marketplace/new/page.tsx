@@ -1,5 +1,5 @@
 "use client";
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/hooks/useAuth";
@@ -24,6 +24,21 @@ function NewProductForm(){
   const [showError,setShowError]=useState("");
 
   const districts=["Aizawl","Lunglei","Saiha","Champhai","Kolasib","Serchhip","Lawngtlai","Mamit","Saitual","Khawzawl","Hnahthial"];
+
+  useEffect(()=>{
+    window.history.pushState({page:"create-post"}, "", window.location.href);
+    const onPopState = () => {
+      if(showSuccess || showError){
+        setShowSuccess(false);
+        setShowError("");
+        window.history.pushState({page:"create-post"}, "", window.location.href);
+      } else {
+        router.replace("/sell");
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return ()=> window.removeEventListener("popstate", onPopState);
+  }, [showSuccess, showError, router]);
 
   const handleImage=(e:any)=>{
     const files=e.target.files;
@@ -73,14 +88,13 @@ function NewProductForm(){
   return (
     <main className="bg-white min-h-screen pb-24">
       <div className="flex items-center gap-4 p-4 border-b sticky top-0 bg-white z-10">
-        <Link href="/sell" className="w-10 h-10 flex items-center justify-center -ml-2">
+        <button onClick={()=>router.replace("/sell")} className="w-10 h-10 flex items-center justify-center -ml-2">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-        </Link>
+        </button>
         <h1 className="font-black text-[22px] text-black">Create Post</h1>
       </div>
 
       <form onSubmit={submit} className="p-4 flex flex-col gap-4">
-        {/* 1 - Item Name - Ahmasa ber */}
         <div>
           <label className="text-[13px] font-black mb-1.5 block">Item Name</label>
           <input value={itemName} onChange={e=>setItemName(e.target.value)} placeholder="Item name" className="w-full border border-gray-300 rounded-xl p-4 text-[15px] outline-none focus:border-black"/>
@@ -130,7 +144,6 @@ function NewProductForm(){
         </button>
       </form>
 
-      {/* SUCCESS MODAL - Mawi deuh - mz-apps says awm lo */}
       {showSuccess && (
         <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[24px] p-7 w-full max-w-[320px] text-center shadow-2xl">
@@ -141,7 +154,6 @@ function NewProductForm(){
         </div>
       )}
 
-      {/* ERROR MODAL - Mawi deuh */}
       {showError && (
         <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[24px] p-7 w-full max-w-[320px] text-center shadow-2xl">
