@@ -18,6 +18,7 @@ function NewProductForm(){
   const [district,setDistrict]=useState("");
   const [price,setPrice]=useState("");
   const [phone,setPhone]=useState("");
+  const [description,setDescription]=useState("");
   const [images,setImages]=useState<string[]>([]);
   const [loading,setLoading]=useState(false);
 
@@ -59,7 +60,8 @@ function NewProductForm(){
       await addDoc(collection(db,"products"),{
         title:itemName, category, village, district,
         location:`${village}, ${district}`,
-        price:Number(price), phone, image:images[0], images,
+        price:Number(price), phone, description,
+        image:images[0], images,
         uid:user.uid, userEmail:user.email,
         createdAt:serverTimestamp(),
       });
@@ -106,6 +108,13 @@ function NewProductForm(){
           <label className="text-[13px] font-black mb-1.5 block">Phone Number</label>
           <input value={phone} onChange={e=>setPhone(e.target.value)} type="tel" placeholder="WhatsApp Number" className="w-full border-2 border-black rounded-xl p-4 bg-[#f7f7f7]"/>
         </div>
+
+        {/* NEW - DESCRIPTION - Phone hnuai ah chiah */}
+        <div>
+          <label className="text-[13px] font-black mb-1.5 block">Description</label>
+          <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Thil chanchin chipchiar deuhin ziak rawh..." rows={4} className="w-full border border-gray-300 rounded-xl p-4 text-[15px] outline-none focus:border-black resize-none"></textarea>
+        </div>
+
         <div>
           <label className="text-[13px] font-black mb-1.5 block">Photos ({images.length}/5)</label>
           <div className="grid grid-cols-3 gap-2">
