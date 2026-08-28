@@ -5,6 +5,8 @@ import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 
+const IMGBB_API_KEY = "f7ee6ffb590faa4bffd4b5ffbb44c094"; // <-- HETAH I KEY DAH RAWH
+
 export default function MyAdsPage(){
   const {user}=useAuth();
   const router=useRouter();
@@ -58,16 +60,52 @@ export default function MyAdsPage(){
     return true;
   }).sort((a,b)=> (b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
 
+  // === HEI CHIAH HI KA SIAM DANG LAM - DELETE NA CHIAH ===
   const handleDelete = async ()=>{
     if(!deleteItem) return;
     setLoadingDelete(true);
     try{
       const colName = deleteItem.type==="job"? "jobs" : "products";
+
+      // 1. Ads atangin a kimchang la chhuak - ImgBB delete turin
+      const adToDelete = ads.find(a => a.id === deleteItem.id);
+
+      // 2. ImgBB atangin thlalak delete - Product chauh
+      if (adToDelete && adToDelete.type === "product") {
+        // A thar ho - deleteHashes awm
+        if (adToDelete.deleteHashes && adToDelete.deleteHashes.length > 0) {
+          for (let hash of adToDelete.deleteHashes) {
+            try {
+              await fetch(`https://api.imgbb.com/1/image/${hash}?key=${IMGBB_API_KEY}`, {
+                method: 'DELETE'
+              });
+            } catch(e) {
+              console.log("ImgBB delete failed:", e);
+            }
+          }
+        }
+        // A hlui ho - deleteUrls atanga hash lak chhuah tum
+        else if (adToDelete.deleteUrls && adToDelete.deleteUrls.length > 0) {
+          for (let delUrl of adToDelete.deleteUrls) {
+            try {
+              const hash = delUrl.split('/').pop();
+              if (hash) {
+                await fetch(`https://api.imgbb.com/1/image/${hash}?key=${IMGBB_API_KEY}`, {
+                  method: 'DELETE'
+                });
+              }
+            } catch(e) {}
+          }
+        }
+      }
+
+      // 3. Firestore atangin delete
       await deleteDoc(doc(db,colName,deleteItem.id));
       setDeleteItem(null);
     }catch(e){ alert("Delete failed"); }
     setLoadingDelete(false);
   };
+  // === SIAM DANG LAM TAWP ===
 
   const handleEdit = (ad:any)=>{
     if(ad.type==="job"){ router.push(`/jobs/edit/${ad.id}`); }else{ router.push(`/marketplace/edit/${ad.id}`); }
@@ -102,7 +140,6 @@ export default function MyAdsPage(){
                 </div>
                 <p className="text-[11px] text-gray-400 mt-[2px] font-medium">{formatDate(ad.createdAt)}</p>
               </div>
-              {/* EDIT var uk, DELETE dum, dinglam sir */}
               <div className="flex gap-2 mt-2 justify-end">
                 <button onClick={()=>handleEdit(ad)} className="px-5 py-2 bg-[#f0f0f0] text-black font-black text-[11px] rounded-full border border-gray-200 active:scale-95">EDIT</button>
                 <button onClick={()=>setDeleteItem({id:ad.id,type:ad.type})} className="px-5 py-2 bg-black text-white font-black text-[11px] rounded-full active:scale-95">DELETE</button>
