@@ -6,17 +6,17 @@ import { auth, db } from "@/lib/firebase/config";
 import Link from "next/link";
 
 function timeAgo(ts:any){
-  if(!ts) return "TODAY";
+  if(!ts) return "today";
   try{
     const d = ts.toDate? ts.toDate() : new Date(ts);
     const diff = Math.floor((Date.now() - d.getTime())/1000);
-    if(diff < 60) return "Just now";
+    if(diff < 60) return "just now";
     if(diff < 3600) return `${Math.floor(diff/60)}m ago`;
-    if(diff < 86400) return `${Math.floor(diff/3600)}hrs ago`;
-    if(diff < 172800) return "YESTERDAY";
+    if(diff < 86400) return `${Math.floor(diff/3600)} hrs ago`;
+    if(diff < 172800) return "yesterday";
     if(diff < 604800) return `${Math.floor(diff/86400)}d ago`;
     return d.toLocaleDateString();
-  }catch{ return "TODAY"; }
+  }catch{ return "today"; }
 }
 
 export default function Home(){
@@ -154,8 +154,14 @@ export default function Home(){
               {wishIds.has(ad.id)? "❤️" : "🤍"}
             </button>
             <Link href={ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`}>
-              <div className="w-full h-40 bg-gray-100 overflow-hidden rounded">
-                <img src={ad.image || ad.images?.[0] || "https://via.placeholder.com/300"} alt={ad.title} loading="lazy" className="w-full h-full object-cover group-active:scale-105 transition-transform duration-200"/>
+              <div className="w-full h-40 bg-gray-100 overflow-hidden rounded flex items-center justify-center">
+                {(ad._type==="job" &&!ad.image &&!ad.images?.[0])? (
+                  <div className="w-full h-full bg-[#f3f4f6] flex items-center justify-center p-3">
+                    <p className="text-[20px] font-black text-[#002f34] text-center leading-tight capitalize">{ad.title || ad.jobTitle || "Job"}</p>
+                  </div>
+                ) : (
+                  <img src={ad.image || ad.images?.[0] || "https://via.placeholder.com/300"} alt={ad.title} loading="lazy" className="w-full h-full object-cover group-active:scale-105 transition-transform duration-200"/>
+                )}
               </div>
               <p className="font-black mt-2 text-[16px] text-[#002f34]">₹ {Number(ad.price || ad.salary || 0).toLocaleString("en-IN") || "0"}</p>
               <p className="text-[13px] truncate font-medium text-[#002f34]">{ad.title}</p>
@@ -164,7 +170,7 @@ export default function Home(){
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s-7-5.91-7-11a7 7 0 0 1 14 0c0 5.09-7 11-7 11z"/><circle cx="12" cy="10" r="3"/></svg>
                   {ad.location || "ZAWLNUAM, MIZORAM"}
                 </p>
-                <p className="text-[10px] text-gray-500 font-bold uppercase">{timeAgo(ad.createdAt)}</p>
+                <p className="text-[10px] text-gray-500 font-bold">{timeAgo(ad.createdAt)}</p>
               </div>
             </Link>
           </div>
@@ -175,4 +181,4 @@ export default function Home(){
       {isLoadingMore && <p className="text-center py-4 text-[12px] font-bold text-gray-400">Loading more...</p>}
     </main>
   );
-}
+          }
