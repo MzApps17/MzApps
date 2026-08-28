@@ -19,7 +19,7 @@ const cats=[
 export default function Sell(){
   return <main className="bg-white min-h-screen">
     <div className="flex items-center gap-4 p-4 border-b">
-      <Link href="/">←</Link><h1 className="font-bold text-lg">Categories</h1>
+    <h2 className="font-bold text-lg">Categories</h2>
     </div>
     <div className="grid grid-cols-2">
       {cats.map(c=>
