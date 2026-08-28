@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-const IMGBB_API_KEY = "f7ee6ffb590faa4bffd4b5ffbb44c094"; // <-- HETAH I KEY DAH RAWH
+const IMGBB_API_KEY = process.env.NEXT_PUBLIC_IMGBB_KEY!;
 
 function NewProductForm(){
   const {user}=useAuth();
@@ -66,7 +66,6 @@ function NewProductForm(){
     });
   };
 
-  // === HEI CHIAH HI KA SIAM DANG LAM - UPLOAD NA CHIAH ===
   const uploadToImgBB = async (base64Image: string) => {
     const base64 = base64Image.split(',')[1];
     const form = new FormData();
@@ -80,7 +79,8 @@ function NewProductForm(){
     return {
       url: data.data.url,
       deleteUrl: data.data.delete_url,
-      deleteHash: data.data.delete_url.split('/').pop()
+      deleteHash: data.data.delete_url.split('/').pop(),
+      id: data.data.id
     };
   };
 
@@ -92,11 +92,11 @@ function NewProductForm(){
     if(images.length===0){ setShowError("Thlalak 1 tal thlang rawh"); return; }
     setLoading(true);
     try{
-      // ImgBB ah upload hmasa
       const uploaded = await Promise.all(images.map(img => uploadToImgBB(img)));
       const imageUrls = uploaded.map(u => u.url);
       const deleteHashes = uploaded.map(u => u.deleteHash);
       const deleteUrls = uploaded.map(u => u.deleteUrl);
+      const imageIds = uploaded.map(u => u.id);
 
       await addDoc(collection(db,"products"),{
         title:itemName, category, village, district,
@@ -106,6 +106,7 @@ function NewProductForm(){
         images:imageUrls,
         deleteHashes: deleteHashes,
         deleteUrls: deleteUrls,
+        imageIds: imageIds,
         uid:user.uid, userEmail:user.email,
         createdAt:serverTimestamp(),
       });
@@ -113,7 +114,6 @@ function NewProductForm(){
     }catch(err:any){ setShowError(err.message); }
     setLoading(false);
   };
-  // === SIAM DANG LAM TAWP ===
 
   return (
     <main className="bg-white min-h-screen pb-24">
