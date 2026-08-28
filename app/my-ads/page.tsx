@@ -23,19 +23,15 @@ export default function MyAdsPage(){
   useEffect(()=>{
     if(!user) return;
     const q = query(collection(db,"products"), where("uid","==",user.uid));
-    const unsub = onSnapshot(q, (snap)=>{
-      const list = snap.docs.map(d=>({id:d.id,...d.data() as any}));
-      // userId hmang a post ho pawh la tel - hlui leh thar zawng zawng a lang theih nan
-      setAds(list);
+    return onSnapshot(q, (snap)=>{
+      setAds(snap.docs.map(d=>({id:d.id,...d.data() as any})));
     });
-    return ()=>unsub();
   },[user]);
 
-  // userId hmang a zawng tel na
   useEffect(()=>{
     if(!user) return;
     const q2 = query(collection(db,"products"), where("userId","==",user.uid));
-    const unsub2 = onSnapshot(q2, (snap)=>{
+    return onSnapshot(q2, (snap)=>{
       const list2 = snap.docs.map(d=>({id:d.id,...d.data() as any}));
       setAds(prev=>{
         const merged = [...prev];
@@ -45,7 +41,6 @@ export default function MyAdsPage(){
         return merged;
       });
     });
-    return ()=>unsub2();
   },[user]);
 
   const handleDelete = async ()=>{
@@ -61,7 +56,6 @@ export default function MyAdsPage(){
   return(
     <main className="bg-[#f5f5f5] min-h-screen pb-24">
       <h1 className="font-black text-[24px] p-4 text-black">My Ads ({ads.length})</h1>
-
       <div className="flex flex-col gap-3 p-3">
         {ads.map((ad)=>(
           <div key={ad.id} className="bg-white rounded-[20px] p-3 flex gap-3 shadow-sm">
@@ -71,40 +65,26 @@ export default function MyAdsPage(){
                 <p className="font-black text-[18px]">₹ {ad.price?.toLocaleString('en-IN')}</p>
                 <p className="font-bold text-[16px] -mt-1">{ad.title}</p>
                 <p className="text-[13px] text-gray-500">{ad.village} • {ad.category}</p>
-                {/* DATE & TIME - Hei hi i duh */}
                 <p className="text-[11px] text-gray-400 mt-[2px] font-medium">{formatDate(ad.createdAt)}</p>
               </div>
-              {/* EDIT & DELETE BUTTON */}
               <div className="flex gap-2 mt-2">
-                <button
-                  onClick={()=>router.push(`/marketplace/edit/${ad.id}`)}
-                  className="flex-1 bg-white border border-black text-black font-black text-[12px] py-2 rounded-xl active:scale-95"
-                >
-                  EDIT
-                </button>
-                <button
-                  onClick={()=>setDeleteId(ad.id)}
-                  className="flex-1 bg-red-500 text-white font-black text-[12px] py-2 rounded-xl active:scale-95"
-                >
-                  DELETE
-                </button>
+                <button onClick={()=>router.push(`/marketplace/edit/${ad.id}`)} className="flex-1 bg-black text-white font-black text-[12px] py-3 rounded-xl active:scale-95">EDIT</button>
+                <button onClick={()=>setDeleteId(ad.id)} className="flex-1 bg-black text-white font-black text-[12px] py-3 rounded-xl active:scale-95">DELETE</button>
               </div>
             </div>
           </div>
         ))}
-        {ads.length===0 && <p className="text-center text-gray-400 mt-20 font-bold">Thil zawrh ila neilo!!</p>}
       </div>
 
-      {/* DELETE ALERT MAWI TAK */}
       {deleteId && (
         <div className="fixed inset-0 bg-black/60 z-[999] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[24px] p-7 w-full max-w-[320px] text-center shadow-2xl">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600 text-3xl font-black">!</div>
+            <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-black">!</div>
             <h2 className="font-black text-[18px] mb-1">Delete duh tak tak em?</h2>
             <p className="text-[13px] text-gray-500 mb-5">He thil hi i delete chuan a bo hlen tawh ang.</p>
             <div className="flex gap-3">
-              <button onClick={()=>setDeleteId(null)} className="flex-1 bg-gray-100 text-black font-black py-3.5 rounded-xl">Cancel</button>
-              <button onClick={handleDelete} disabled={loadingDelete} className="flex-1 bg-red-500 text-white font-black py-3.5 rounded-xl disabled:opacity-50">
+              <button onClick={()=>setDeleteId(null)} className="flex-1 bg-white border-2 border-black text-black font-black py-3.5 rounded-xl">Cancel</button>
+              <button onClick={handleDelete} disabled={loadingDelete} className="flex-1 bg-black text-white font-black py-3.5 rounded-xl disabled:opacity-50">
                 {loadingDelete?"Deleting...":"Delete"}
               </button>
             </div>
