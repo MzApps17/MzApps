@@ -92,7 +92,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             title: payload.notification?.title || "Post thar a awm e!",
             body: payload.notification?.body || ""
           });
-          setTimeout(()=> setNotif(null), 4000);
+          setTimeout(()=> setNotif(null), 10000);
         });
 
       } catch (e) {
