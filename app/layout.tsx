@@ -2,9 +2,9 @@
 import "./globals.css";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { initializeApp } from "firebase/app";
-import { getMessaging, getToken } from "firebase/messaging";
+import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
@@ -50,6 +50,8 @@ function Footer(){
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const [notif, setNotif] = useState<{title: string, body: string} | null>(null);
+
   useEffect(() => {
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
@@ -84,6 +86,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }
           console.log("FCM Token saved:", token);
         }
+
+        onMessage(messaging, (payload) => {
+          setNotif({
+            title: payload.notification?.title || "Post thar a awm e!",
+            body: payload.notification?.body || ""
+          });
+          setTimeout(()=> setNotif(null), 4000);
+        });
+
       } catch (e) {
         console.log("FCM Error:", e);
       }
@@ -95,6 +106,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className="bg-white text-black">
+        {notif && (
+          <div className="fixed top-3 left-3 right-3 bg-[#002f34] text-white p-4 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.3)] z-[9999] flex items-center gap-3">
+            <div className="bg-white/20 w-10 h-10 rounded-full flex items-center justify-center text-lg">🔔</div>
+            <div className="flex-1">
+              <div className="font-bold text-[13px] leading-tight">{notif.title}</div>
+              <div className="text-[12px] opacity-80 leading-tight mt-0.5">{notif.body}</div>
+            </div>
+            <button onClick={()=> setNotif(null)} className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center text-xs">✕</button>
+          </div>
+        )}
         <div className="pb-[60px]">{children}</div>
         <Footer />
       </body>
