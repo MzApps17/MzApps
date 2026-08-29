@@ -84,10 +84,11 @@ export default function NotificationsPage(){
       <div className="divide-y divide-gray-100">
         {notis.map((n:any)=>{
           const img = n.image || n.images?.[0] || "";
-          const village = n.village || n.location?.split(",")[0] || n.district || "";
-          const district = n.district || n.location || "Mizoram";
+          const village = n.village || n.location?.split(",")[0] || "";
+          const district = n.district || n.location?.split(",")[1] || n.location || "Mizoram";
           const category = n.category || (n._type==="job"? "Job" : "Product");
           const isJob = n._type==="job";
+          const sellerName = n.userName || n.sellerName || n.postedByName || n.authorName || n.name || "Mi pakhat";
 
           return (
             <div
@@ -108,9 +109,9 @@ export default function NotificationsPage(){
               <div className="flex-1 min-w-0">
                 <p className="text-[13.5px] leading-[18px] text-[#002f34]">
                   <span className="font-black">{n.title || "Thil thar"}</span>
-                  {" "}
+                  <span className="text-gray-700"> • </span>
                   <span className="font-medium text-gray-700">
-                    {village? `${village}, ` : ""}{district} ah {isJob? "hna" : "post"} a siam e
+                    {sellerName}{village? `, ${village}` : ""}{district? `, ${district}` : ""} chuan Post thar a siam e
                   </span>
                   <span className="text-gray-500"> • {category}</span>
                 </p>
@@ -128,4 +129,4 @@ export default function NotificationsPage(){
       <div className="h-[80px]"/>
     </main>
   );
-      }
+}
