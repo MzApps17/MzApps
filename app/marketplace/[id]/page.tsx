@@ -91,6 +91,14 @@ export default function ProductDetail(){
     }
   };
 
+  const goToSellerProfile = ()=>{
+    if(currentUser && sellerUid && currentUser.uid === sellerUid){
+      router.push("/account");
+    } else {
+      if(sellerUid) router.push(`/seller/${sellerUid}`);
+    }
+  };
+
   return (
     <main className="bg-white min-h-screen pb-[140px]">
       <div className="relative bg-black w-full aspect-[4/3] overflow-hidden">
@@ -127,8 +135,8 @@ export default function ProductDetail(){
           <p className="text-[14px] whitespace-pre-wrap leading-6">{product.description}</p>
         </div>
 
-        {/* Seller - EDITED: pic leh hming tilian, underline paih */}
-        <div onClick={()=>{ if(sellerUid) router.push(`/seller/${sellerUid}`); }} className="bg-[#f8f9fa] rounded-2xl p-4 mt-4 flex items-center gap-3 cursor-pointer active:bg-gray-200">
+        {/* Seller - EDITED: mahni anih chuan /account ah kal */}
+        <div onClick={goToSellerProfile} className="bg-[#f8f9fa] rounded-2xl p-4 mt-4 flex items-center gap-3 cursor-pointer active:bg-gray-200">
           <div className="w-[56px] h-[56px] bg-black text-white rounded-full flex items-center justify-center font-black overflow-hidden flex-shrink-0">
             {displayPic? <img src={displayPic} className="w-full h-full object-cover"/> : <span className="text-[20px]">{displayName[0]?.toUpperCase()}</span>}
           </div>
