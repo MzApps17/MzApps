@@ -17,6 +17,8 @@ export default function SellerProfile(){
   const [showReport,setShowReport]=useState(false);
   const [reportMsg,setReportMsg]=useState("");
   const [reporting,setReporting]=useState(false);
+  const [showSuccess,setShowSuccess]=useState(false);
+  const [errorMsg,setErrorMsg]=useState("");
 
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth,(u)=>setCurrentUser(u));
@@ -72,7 +74,7 @@ export default function SellerProfile(){
   };
 
   const handleReport=async()=>{
-    if(!reportMsg.trim()) return alert("Chhan ziak rawh");
+    if(!reportMsg.trim()){ setErrorMsg("Chhan ziak rawh"); return; }
     setReporting(true);
     try{
       await addDoc(collection(db,"reports"),{
@@ -82,9 +84,9 @@ export default function SellerProfile(){
         sellerName: seller?.displayName || "",
         createdAt: serverTimestamp()
       });
-      alert("Report pek a ni tawh");
       setShowReport(false); setReportMsg(""); setShowMenu(false);
-    }catch(e:any){ alert(e.message); }
+      setShowSuccess(true);
+    }catch(e:any){ setErrorMsg(e.message); }
     finally{ setReporting(false); }
   };
 
@@ -155,14 +157,30 @@ export default function SellerProfile(){
             <h3 className="font-black text-[18px]">Report {seller.displayName}</h3>
             <p className="text-[12px] text-gray-400 mt-1">Eng vangin?</p>
             <textarea value={reportMsg} onChange={e=>setReportMsg(e.target.value)} placeholder="Report chhan ziak rawh..." className="w-full mt-4 border-2 border-gray-200 p-3 rounded-xl outline-none focus:border-black h-28 text-[14px] resize-none"/>
+            {errorMsg && <p className="text-red-500 text-[12px] mt-2 font-bold">{errorMsg}</p>}
             <div className="flex gap-2 mt-5">
-              <button onClick={()=>setShowReport(false)} className="flex-1 bg-[#e5e7eb] text-black font-bold py-3 rounded-xl">Cancel</button>
+              <button onClick={()=>{setShowReport(false); setErrorMsg("");}} className="flex-1 bg-[#e5e7eb] text-black font-bold py-3 rounded-xl">Cancel</button>
               <button onClick={handleReport} disabled={reporting} className="flex-1 bg-black text-white font-bold py-3 rounded-xl">{reporting?"...":"Report"}</button>
             </div>
           </div>
         </div>
       )}
+
+      {/* SUCCESS MODAL - MAWI DEUH BUTTON DUM */}
+      {showSuccess && (
+        <div className="fixed inset-0 bg-black/70 z-[1100] flex items-center justify-center p-6 backdrop-blur-sm">
+          <div className="bg-white rounded-[26px] p-7 w-full max-w-[340px] shadow-2xl text-center">
+            <div className="w-14 h-14 bg-black rounded-full flex items-center justify-center mx-auto">
+              <span className="text-white text-2xl">✓</span>
+            </div>
+            <h3 className="font-black text-[18px] mt-4">Report i thawn ta e</h3>
+            <p className="text-[13px] text-gray-500 mt-2 leading-5">Kan lo en ho ang a, a dik loh chuan action kan la ang.</p>
+            <button onClick={()=>setShowSuccess(false)} className="w-full bg-black text-white font-black py-3.5 rounded-xl mt-6 text-[15px]">OK</button>
+          </div>
+        </div>
+      )}
+
       {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
     </main>
   )
-}
+            }
