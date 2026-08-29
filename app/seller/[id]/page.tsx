@@ -6,6 +6,20 @@ import { db, auth } from "@/lib/firebase/config";
 import Link from "next/link";
 import { onAuthStateChanged } from "firebase/auth";
 
+function timeAgo(ts:any){
+  if(!ts) return "";
+  try{
+    const d = ts.toDate? ts.toDate() : new Date(ts.seconds? ts.seconds*1000 : ts);
+    const diff = Math.floor((Date.now() - d.getTime())/1000);
+    if(diff < 60) return "just now";
+    if(diff < 3600) return `${Math.floor(diff/60)}m ago`;
+    if(diff < 86400) return `${Math.floor(diff/3600)} hrs ago`;
+    if(diff < 172800) return "yesterday";
+    if(diff < 604800) return `${Math.floor(diff/86400)}d ago`;
+    return d.toLocaleDateString();
+  }catch{ return ""; }
+}
+
 export default function SellerProfile(){
   const {id}=useParams();
   const router=useRouter();
@@ -19,6 +33,8 @@ export default function SellerProfile(){
   const [reporting,setReporting]=useState(false);
   const [showSuccess,setShowSuccess]=useState(false);
   const [errorMsg,setErrorMsg]=useState("");
+  const [showLoginAlert,setShowLoginAlert]=useState(false);
+  const [showPic,setShowPic]=useState(false);
 
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth,(u)=>setCurrentUser(u));
@@ -31,7 +47,6 @@ export default function SellerProfile(){
       let sellerData:any=null;
       if(sSnap.exists()){ sellerData=sSnap.data(); setSeller(sellerData); }
 
-      // Ads zawng kim - field hming hrang hrang a awm thei
       let allMap = new Map();
       const tryQuery = async (field:string, value:any)=>{
         if(!value) return;
@@ -94,7 +109,6 @@ export default function SellerProfile(){
 
   return (
     <main className="min-h-screen bg-white pb-10">
-      {/* 1. CHUNGBER - Arrow lian leh dot 3 bold */}
       <div className="flex items-center justify-between p-3 pt-4 bg-white sticky top-0 z-50">
         <button onClick={()=>{ if(window.history.length>1) router.back(); else router.push("/"); }} className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow border">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5">
@@ -107,23 +121,29 @@ export default function SellerProfile(){
           </button>
           {showMenu && (
             <div className="absolute right-0 top-12 bg-white border rounded-xl shadow-xl w-44 z-50 overflow-hidden">
-              <button onClick={()=>{ setShowReport(true); setShowMenu(false); }} className="w-full text-left px-4 py-3 text-[14px] font-bold hover:bg-gray-50">🚩 Report User</button>
+              <button onClick={()=>{
+                if(!currentUser){
+                  setShowMenu(false);
+                  setShowLoginAlert(true);
+                  return;
+                }
+                setShowReport(true); setShowMenu(false);
+              }} className="w-full text-left px-4 py-3 text-[14px] font-bold hover:bg-gray-50">🚩 Report User</button>
             </div>
           )}
         </div>
       </div>
 
       <div className="flex items-center gap-5 p-5">
-        <div className="w-24 h-24 rounded-full bg-black text-white flex items-center justify-center font-black text-3xl overflow-hidden flex-shrink-0">
+        <button onClick={()=> seller.photoURL && setShowPic(true)} className="w-24 h-24 rounded-full bg-black text-white flex items-center justify-center font-black text-3xl overflow-hidden flex-shrink-0 active:scale-95 transition-transform">
           {seller.photoURL? <img src={seller.photoURL} className="w-full h-full object-cover"/> : seller.displayName?.[0]?.toUpperCase()}
-        </div>
+        </button>
         <div>
           <p className="font-black text-[24px] capitalize">{seller.displayName}</p>
           <p className="text-[14px] text-gray-500 mt-1">{posts.length} Ads</p>
         </div>
       </div>
 
-      {/* 2. Vanlalnghaka Ads - Ads by nilo in */}
       <h2 className="font-black text-[18px] px-5 mt-6">{seller.displayName} Ads</h2>
 
       {posts.length===0? (
@@ -139,7 +159,8 @@ export default function SellerProfile(){
                 <Link href={`/marketplace/${p.id}`}>
                   <p className="font-bold text-[14px] truncate">{p.title}</p>
                   <p className="font-black text-[16px] mt-1">₹{Number(p.price).toLocaleString("en-IN")}</p>
-                  <p className="text-[11px] text-gray-500 mt-1">{p.village || ""} • {p.category || ""}</p>
+                  <p className="text-[11px] text-gray-500 mt-1 truncate">{p.village || p.location?.split(",")[0] || ""} {p.district? `• ${p.district}`:""} • {p.category || ""}</p>
+                  <p className="text-[10px] text-gray-400 font-bold mt-1">{timeAgo(p.createdAt)}</p>
                 </Link>
               </div>
               <button onClick={(e)=>toggleWish(e,p.id)} className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow border text-[18px]">
@@ -150,7 +171,6 @@ export default function SellerProfile(){
         </div>
       )}
 
-      {/* Report Popup - message type + cancel var uk + report dum */}
       {showReport && (
         <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[22px] p-6 w-full max-w-[340px] shadow-2xl">
@@ -166,7 +186,6 @@ export default function SellerProfile(){
         </div>
       )}
 
-      {/* SUCCESS MODAL - MAWI DEUH BUTTON DUM */}
       {showSuccess && (
         <div className="fixed inset-0 bg-black/70 z-[1100] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[26px] p-7 w-full max-w-[340px] shadow-2xl text-center">
@@ -180,7 +199,25 @@ export default function SellerProfile(){
         </div>
       )}
 
+      {/* LOGIN BLOCK - LOGIN LO TAN */}
+      {showLoginAlert && (
+        <div className="fixed inset-0 bg-black/60 z-[1200] flex items-center justify-center p-6 backdrop-blur-sm">
+          <div className="bg-white rounded-[20px] w-full max-w-[300px] p-6 shadow-2xl text-center">
+            <p className="font-bold text-[16px] text-[#002f34]">Login hmasa phawt rawh</p>
+            <button onClick={()=> setShowLoginAlert(false)} className="w-full mt-5 bg-black text-white font-black py-3 rounded-xl text-[14px]">OK</button>
+          </div>
+        </div>
+      )}
+
+      {/* PROFILE PIC VIEW */}
+      {showPic && (
+        <div onClick={()=>setShowPic(false)} className="fixed inset-0 bg-black/90 z-[1300] flex items-center justify-center p-4">
+          <img src={seller.photoURL} className="max-w-full max-h-[85vh] object-contain rounded-2xl"/>
+          <button className="absolute top-5 right-5 w-10 h-10 bg-white/20 rounded-full text-white font-black">✕</button>
+        </div>
+      )}
+
       {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
     </main>
   )
-}
+                                                                      }
