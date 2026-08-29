@@ -15,7 +15,6 @@ export default function Account(){
   const fileRef=useRef<HTMLInputElement>(null);
   const router=useRouter();
 
-  // Name Edit states - THAR
   const [showNameEdit,setShowNameEdit]=useState(false);
   const [newName,setNewName]=useState("");
   const [savingName,setSavingName]=useState(false);
@@ -76,7 +75,8 @@ export default function Account(){
         const compressed=canvas.toDataURL("image/jpeg",0.6);
         await setDoc(doc(db,"users",user.uid),{photoURL:compressed, email:user.email},{merge:true});
         await updateProfile(user,{photoURL:compressed});
-        setProfile({photoURL:compressed});
+        // BUG FIX - profile a bo lo nan merge
+        setProfile((p:any)=>({...p, photoURL:compressed}));
         setUser({...user, photoURL:compressed});
         setUploading(false);
       };
@@ -85,7 +85,6 @@ export default function Account(){
     reader.readAsDataURL(file);
   };
 
-  // Hming thlak - vawi 1 chiah
   const openNameEdit = ()=>{
     if(profile?.nameChanged){
       alert("I hming i thlak tawh - vawi 1 chiah thlak theih a ni!");
@@ -140,7 +139,6 @@ export default function Account(){
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={changePic}/>
           </div>
           <div>
-            {/* Hming + Edit pencil - THAR */}
             <div className="flex items-center gap-2">
               <p className="text-[23px] font-black capitalize">{displayName}</p>
               {!profile?.nameChanged && (
@@ -181,7 +179,6 @@ export default function Account(){
         </div>
       )}
 
-      {/* Hming thlakna Popup - THAR */}
       {showNameEdit && (
         <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[22px] p-6 w-full max-w-[340px] shadow-2xl">
@@ -190,7 +187,7 @@ export default function Account(){
             <p className="text-[11px] text-gray-400 mt-1">He hming hi post details ah a lang ang.</p>
             <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Hming thar" className="w-full mt-4 border-2 border-gray-200 p-3 rounded-xl outline-none focus:border-black"/>
             <div className="flex gap-2 mt-5">
-              <button onClick={()=>{ setShowNameEdit(false); if(window.history.state?.nameModal) window.history.back(); }} className="flex-1 bg-gray-100 text-black font-bold py-3 rounded-xl">Cancel</button>
+              <button onClick={()=>{ setShowNameEdit(false); if(window.history.state?.nameModal) window.history.back(); }} className="flex-1 bg-gray-200 text-black font-bold py-3 rounded-xl">Cancel</button>
               <button onClick={handleNameChange} disabled={savingName} className="flex-1 bg-black text-white font-bold py-3 rounded-xl">{savingName?"...":"Change Name"}</button>
             </div>
           </div>
