@@ -40,8 +40,9 @@ export default function NotificationsPage(){
           return tb - ta;
         });
 
-        // POST TU HMING LA CHHUAK
-        const userIds = [...new Set(merged.map((m:any)=> m.userId || m.uid || m.createdBy || m.sellerId).filter(Boolean))];
+        // FIX: Set error siamtha
+        const allIds = merged.map((m:any)=> m.userId || m.uid || m.createdBy || m.sellerId).filter(Boolean);
+        const userIds = Array.from(new Set(allIds));
         const userMap: any = {};
         await Promise.all(userIds.map(async (uid:any)=>{
           try{
