@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, limit, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { useRouter } from "next/navigation";
 
@@ -34,11 +34,31 @@ export default function NotificationsPage(){
         ]);
         const p1 = snap1.docs.map((d:any)=>({id:d.id,...d.data(), _type:"product"}));
         const p2 = (snap2 as any).docs.map((d:any)=>({id:d.id,...d.data(), _type:"job"}));
-        const merged = [...p1,...p2].sort((a:any,b:any)=>{
+        let merged = [...p1,...p2].sort((a:any,b:any)=>{
           const ta = a.createdAt?.toMillis? a.createdAt.toMillis() : new Date(a.createdAt||0).getTime();
           const tb = b.createdAt?.toMillis? b.createdAt.toMillis() : new Date(b.createdAt||0).getTime();
           return tb - ta;
         });
+
+        // POST TU HMING LA CHHUAK
+        const userIds = [...new Set(merged.map((m:any)=> m.userId || m.uid || m.createdBy || m.sellerId).filter(Boolean))];
+        const userMap: any = {};
+        await Promise.all(userIds.map(async (uid:any)=>{
+          try{
+            const uSnap = await getDoc(doc(db,"users",uid));
+            if(uSnap.exists()){
+              const uData:any = uSnap.data();
+              userMap[uid] = uData.displayName || uData.name || uData.userName || uData.fullName || "";
+            }
+          }catch{}
+        }));
+
+        merged = merged.map((m:any)=>{
+          const uid = m.userId || m.uid || m.createdBy || m.sellerId;
+          const realName = userMap[uid] || m.userName || m.sellerName || m.postedByName || m.authorName || m.name || "";
+          return {...m, _realSellerName: realName};
+        });
+
         setNotis(merged);
       }catch(e){ console.log(e); }
       setLoading(false);
@@ -48,7 +68,6 @@ export default function NotificationsPage(){
 
   return (
     <main className="min-h-screen bg-white">
-      {/* HEADER - Arrow lian + Notification */}
       <div className="sticky top-0 bg-white z-20 border-b border-gray-100 px-3 py-3 flex items-center gap-4">
         <button onClick={()=> router.back()} className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
@@ -85,10 +104,10 @@ export default function NotificationsPage(){
         {notis.map((n:any)=>{
           const img = n.image || n.images?.[0] || "";
           const village = n.village || n.location?.split(",")[0] || "";
-          const district = n.district || n.location?.split(",")[1] || n.location || "Mizoram";
+          const district = n.district || n.location?.split(",")[1] || n.location || "";
           const category = n.category || (n._type==="job"? "Job" : "Product");
           const isJob = n._type==="job";
-          const sellerName = n.userName || n.sellerName || n.postedByName || n.authorName || n.name || "Mi pakhat";
+          const sellerName = n._realSellerName;
 
           return (
             <div
