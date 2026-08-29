@@ -30,14 +30,21 @@ export default function JobDetail(){
           const uSnap=await getDoc(doc(db,"users",uid));
           if(uSnap.exists()) setSeller(uSnap.data());
         }
-        if(auth.currentUser){
-          const wSnap=await getDoc(doc(db,"users",auth.currentUser.uid,"wishlist",id as string));
-          setWished(wSnap.exists());
-        }
       }
     };
     if(id) getJob();
   },[id]);
+
+  // FIX CHIAH - currentUser lo load hnuah wishlist check nawn leh
+  useEffect(()=>{
+    const checkWish=async()=>{
+      if(currentUser && id){
+        const wSnap=await getDoc(doc(db,"users",currentUser.uid,"wishlist",id as string));
+        setWished(wSnap.exists());
+      }
+    };
+    checkWish();
+  },[currentUser, id]);
 
   const toggleWish=async()=>{
     if(!currentUser) return router.push("/login");
@@ -71,7 +78,6 @@ export default function JobDetail(){
 
   return (
     <main className="bg-white min-h-screen pb-[140px]">
-      {/* TOP BAR - Arrow lian + Love - MARKETPLACE ang chiah */}
       <div className="flex items-center justify-between p-3 pt-4 bg-white sticky top-0 z-50">
         <button onClick={()=>{ if(window.history.length>1) router.back(); else router.push("/jobs"); }} className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg border">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5">
