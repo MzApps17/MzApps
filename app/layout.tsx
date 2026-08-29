@@ -2,6 +2,20 @@
 import "./globals.css";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { initializeApp } from "firebase/app";
+import { getMessaging, getToken } from "firebase/messaging";
+import { getFirestore, doc, setDoc } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
 
 function Footer(){
   const pathname = usePathname();
@@ -36,6 +50,48 @@ function Footer(){
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const setupNotifications = async () => {
+      try {
+        if (!('Notification' in window)) return;
+        const permission = await Notification.requestPermission();
+        if (permission!== 'granted') return;
+
+        const messaging = getMessaging(app);
+        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        const token = await getToken(messaging, {
+          vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
+          serviceWorkerRegistration: registration
+        });
+
+        if (token) {
+          const user = auth.currentUser;
+          if (user) {
+            await setDoc(doc(db, "fcmTokens", user.uid), {
+              token: token,
+              uid: user.uid,
+              createdAt: new Date()
+            });
+          } else {
+            await setDoc(doc(db, "fcmTokens", token.slice(0, 20)), {
+              token: token,
+              createdAt: new Date()
+            });
+          }
+          console.log("FCM Token saved:", token);
+        }
+      } catch (e) {
+        console.log("FCM Error:", e);
+      }
+    };
+
+    setupNotifications();
+  }, []);
+
   return (
     <html lang="en">
       <body className="bg-white text-black">
