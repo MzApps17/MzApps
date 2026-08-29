@@ -18,6 +18,8 @@ export default function Account(){
   const [newName,setNewName]=useState("");
   const [savingName,setSavingName]=useState(false);
 
+  const adminEmails=["mizochatapps@gmail.com"];
+
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth, async(u)=>{
       if(!u){ router.push("/login"); return; }
@@ -95,6 +97,7 @@ export default function Account(){
   if(!user) return <div className="p-10 text-center">Loading...</div>;
   const displayPic = profile?.photoURL || user.photoURL;
   const displayName = profile?.displayName || user.displayName || user.email.split("@")[0];
+  const isAdmin = adminEmails.includes(user.email);
 
   return (
     <main className="min-h-screen bg-white pb-10">
@@ -108,7 +111,6 @@ export default function Account(){
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={changePic}/>
           </div>
           <div className="flex-1 min-w-0">
-            {/* FIX 1: Hming sei pawn a lang, truncate + wrap */}
             <p className="text-[22px] font-black capitalize break-all leading-6">{displayName}</p>
             <p className="text-[12px] text-gray-300 truncate mt-1">{user.email}</p>
             <p className="mt-3 bg-white/20 inline-block px-3 py-1 rounded-full text-[11px]">✅ Verified Member</p>
@@ -134,13 +136,16 @@ export default function Account(){
           ))}
         </div>}
 
-        {/* FIX 1: Hming thlakna chu tawp lam ah ka dah - a lang chiang tawh */}
         {!profile?.nameChanged? (
-          <button onClick={openNameEdit} className="w-full bg-black text-white font-black py-4 rounded-2xl mt-6 flex items-center justify-center gap-2">
-            ✏️ Hming Thlak
-          </button>
+          <button onClick={openNameEdit} className="w-full bg-black text-white font-black py-4 rounded-2xl mt-6 flex items-center justify-center gap-2">✏️ Hming Thlak</button>
         ) : (
           <p className="text-center text-[11px] text-gray-400 mt-6">Hming vawi 1 i thlak tawh</p>
+        )}
+
+        {isAdmin && (
+          <Link href="/admin/reports" className="w-full bg-red-600 text-white font-black py-4 rounded-2xl mt-3 flex items-center justify-center gap-2 block text-center">
+            🚩 Admin - Reports En
+          </Link>
         )}
 
         <button onClick={async()=>{ await signOut(auth); router.push("/"); }} className="w-full bg-red-50 text-red-600 font-black py-4 rounded-2xl mt-3">Log Out</button>
@@ -169,4 +174,4 @@ export default function Account(){
       )}
     </main>
   );
-            }
+        }
