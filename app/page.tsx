@@ -50,6 +50,31 @@ export default function Home(){
     return ()=>unsub();
   },[]);
 
+  // === BELH CHIAH - Online presence (login + login lo) ===
+  useEffect(()=>{
+    const markOnline = async()=>{
+      try{
+        let anonId = localStorage.getItem("anon_id");
+        if(!anonId){
+          anonId = "anon_" + Math.random().toString(36).slice(2,11);
+          localStorage.setItem("anon_id", anonId);
+        }
+        await setDoc(doc(db,"presence", anonId), {
+          lastSeen: new Date(),
+          uid: auth.currentUser?.uid || null,
+          isAnon:!auth.currentUser
+        }, {merge:true});
+        if(auth.currentUser){
+          await setDoc(doc(db,"users", auth.currentUser.uid), { lastSeen: new Date() }, {merge:true});
+        }
+      }catch{}
+    };
+    markOnline();
+    const iv = setInterval(markOnline, 60000);
+    return ()=> clearInterval(iv);
+  },[user]);
+  // === BELH CHIAH ZO ===
+
   useEffect(()=>{
     const t=setTimeout(()=>setDebouncedSearch(search),300);
     return ()=>clearTimeout(t);
@@ -210,4 +235,4 @@ export default function Home(){
       )}
     </main>
   );
-                                                                                   }
+    }
