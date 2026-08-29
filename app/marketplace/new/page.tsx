@@ -1,6 +1,6 @@
 "use client";
 import { useState, Suspense, useEffect } from "react";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -110,6 +110,25 @@ function NewProductForm(){
         uid:user.uid, userEmail:user.email,
         createdAt:serverTimestamp(),
       });
+
+      // --- NOTIFICATION BELH ---
+      try {
+        const snap = await getDocs(collection(db, "fcmTokens"));
+        const tokens = snap.docs.map(d => d.data().token).filter(Boolean);
+        if(tokens.length > 0){
+          await fetch("/api/sendNotification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: "Marketplace Thar!",
+              body: `${itemName} - ₹${price} | ${village}`,
+              tokens: tokens
+            })
+          });
+        }
+      } catch(err){ console.log("Notify error", err); }
+      // --- NOTIFICATION END ---
+
       setShowSuccess(true);
     }catch(err:any){ setShowError(err.message); }
     setLoading(false);
@@ -203,4 +222,4 @@ export default function NewProduct(){
       <NewProductForm/>
     </Suspense>
   );
-}
+      }
