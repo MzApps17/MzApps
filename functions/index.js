@@ -3,18 +3,16 @@ const admin = require("firebase-admin");
 admin.initializeApp();
 
 exports.sendOnNewPost = functions.firestore
- .document("products/{productId}")
- .onCreate(async (snap, context)=>{
+.document("products/{productId}")
+.onCreate(async (snap, context)=>{
     const data = snap.data();
-    
-    // TITLE: Grass Cutter - Post thar a awm e!
+    const authorUid = data.userId || data.uid || data.sellerId || "";
+
     const titleText = `${data.title || "Thil thar"} - Post thar a awm e!`;
-    
-    // BODY: Lalpekkima, Zamuang, Mamit Dist chuan Post thar a siam e.
     const userName = data.userName || data.sellerName || "Mi pakhat";
     const village = data.village || "";
     const district = data.district || "";
-    
+
     let locationPart = "";
     if(village && district){
       locationPart = `${village}, ${district} Dist`;
@@ -26,10 +24,36 @@ exports.sendOnNewPost = functions.firestore
       locationPart = data.location;
     }
 
-    const bodyText = `${userName}${locationPart ? `, ${locationPart}` : ""} chuan Post thar a siam e.`;
+    const bodyText = `${userName}${locationPart? `, ${locationPart}` : ""} chuan Post thar a siam e.`;
 
+    // 1. FCM TOKENS LA
     const tokensSnap = await admin.firestore().collection("fcmTokens").get();
-    const tokens = tokensSnap.docs.map(d=> d.data().token).filter(Boolean);
+    const allTokensData = tokensSnap.docs.map(d => d.data());
+    const tokens = allTokensData.map(d=> d.token).filter(Boolean);
+
+    // 2. FIRESTORE NOTIFICATIONS - Mi zawng zawng tan siam (a zuartu tiam lo in)
+    const usersSnap = await admin.firestore().collection("users").get();
+
+    const batch = admin.firestore().batch();
+    usersSnap.forEach(userDoc => {
+      if(userDoc.id === authorUid) return; // A zuartu hnenah thawn lo
+
+      const notifRef = admin.firestore().collection("notifications").doc();
+      batch.set(notifRef, {
+        userId: userDoc.id, // Tu hnenah nge a thlen dawn
+        title: titleText,
+        body: bodyText,
+        productId: context.params.productId,
+        type: "product",
+        isRead: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        fromUserId: authorUid,
+        image: data.images? data.images[0] : ""
+      });
+    });
+    await batch.commit();
+
+    // 3. FCM THAWN LEH
     if(tokens.length === 0) return null;
 
     const chunks = [];
