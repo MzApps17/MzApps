@@ -4,6 +4,7 @@ import { collection, getDocs, query, orderBy, limit, startAfter, where, doc, set
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase/config";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 function timeAgo(ts:any){
   if(!ts) return "today";
@@ -30,6 +31,9 @@ export default function Home(){
   const [debouncedSearch,setDebouncedSearch]=useState("");
   const [wishIds,setWishIds]=useState<Set<string>>(new Set());
   const [user,setUser]=useState<any>(null);
+  const [showLoginAlert,setShowLoginAlert]=useState(false);
+  const [hasNewNoti,setHasNewNoti]=useState(false);
+  const router = useRouter();
 
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth, async(u)=>{
@@ -37,6 +41,11 @@ export default function Home(){
       if(u){
         const snap=await getDocs(collection(db,"users",u.uid,"wishlist"));
         setWishIds(new Set(snap.docs.map(d=>d.data().productId)));
+        // noti check - thar a awm chuan sen a lang ang
+        try{
+          const notiSnap = await getDocs(query(collection(db,"users",u.uid,"notifications"), where("read","==",false), limit(1)));
+          if(!notiSnap.empty) setHasNewNoti(true);
+        }catch{}
       }
     });
     return ()=>unsub();
@@ -115,7 +124,7 @@ export default function Home(){
 
   const toggleWish = async(e:any, adId:string)=>{
     e.preventDefault();
-    if(!user){ alert("Login phawt rawh Boss!"); return; }
+    if(!user){ setShowLoginAlert(true); return; }
     const wishRef=doc(db,"users",user.uid,"wishlist",adId);
     if(wishIds.has(adId)){
       await deleteDoc(wishRef);
@@ -136,10 +145,29 @@ export default function Home(){
   return (
     <main className="min-h-screen bg-[#f2f2f2]">
       <div className="bg-white sticky top-0 z-20 p-3 border-b">
-        <div className="flex items-center border-[1.5px] border-[#002f34] rounded-md px-3 py-[10px] gap-2">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#002f34" strokeWidth="2.5"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.3-4.3"/></svg>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Find Cars, Mobile..." className="flex-1 outline-none text-[14px] bg-transparent"/>
+        {/* CHUNG - SEARCH TI TAWI + LOGIN SIRKUAL DUM + NOTI ICON */}
+        <div className="flex items-center gap-2">
+          <div className="flex flex-1 items-center border-[1.5px] border-[#002f34] rounded-md px-3 py-[9px] gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#002f34" strokeWidth="2.5"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Find Cars, Mobile..." className="flex-1 outline-none text-[14px] bg-transparent"/>
+          </div>
+
+          <button onClick={()=> router.push(user? "/account" : "/login")} className="w-9 h-9 bg-black rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden border border-black">
+            {user?.photoURL? (
+              <img src={user.photoURL} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-[26px] h-[26px] bg-white rounded-full flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+            )}
+          </button>
+
+          <button onClick={()=> router.push("/notifications")} className="w-9 h-9 bg-white border border-gray-200 rounded-full flex items-center justify-center flex-shrink-0 relative">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 6 5 6 10H0s6-3 6-10"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
+            {hasNewNoti && <span className="absolute top-[3px] right-[4px] w-[9px] h-[9px] bg-red-600 rounded-full border border-white"></span>}
+          </button>
         </div>
+
         <div className="flex gap-2 overflow-x-auto mt-3 pb-1 no-scrollbar">
           {categories.map(c=>(
             <button key={c} onClick={()=>setCat(c)} className={`whitespace-nowrap px-4 py-1.5 rounded-full border text-[13px] font-black ${cat===c?'bg-[#002f34] text-white border-[#002f34]':'bg-white text-[#002f34] border-gray-300'}`}>{c}</button>
@@ -179,6 +207,16 @@ export default function Home(){
 
       {loading && <div className="grid grid-cols-2 gap-[1px] bg-gray-200">{[1,2,3,4,5,6].map(i=><div key={i} className="bg-white h-56 animate-pulse"/>)}</div>}
       {isLoadingMore && <p className="text-center py-4 text-[12px] font-bold text-gray-400">Loading more...</p>}
+
+      {/* CUSTOM LOGIN ALERT - BROWSER ALERT AI AH */}
+      {showLoginAlert && (
+        <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
+          <div className="bg-white rounded-[20px] w-full max-w-[300px] p-6 shadow-2xl text-center">
+            <p className="font-bold text-[16px] text-[#002f34]">Login hmasa phawt rawh</p>
+            <button onClick={()=> setShowLoginAlert(false)} className="w-full mt-5 bg-black text-white font-black py-3 rounded-xl text-[14px]">OK</button>
+          </div>
+        </div>
+      )}
     </main>
   );
-          }
+              }
