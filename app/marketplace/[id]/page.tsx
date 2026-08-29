@@ -11,7 +11,6 @@ export default function ProductDetail(){
   const [currentImg,setCurrentImg]=useState(0);
   const [seller,setSeller]=useState<any>(null);
 
-  // Phone back button FIX
   useEffect(()=>{
     const onPop=()=>{
       router.push("/");
@@ -104,14 +103,14 @@ export default function ProductDetail(){
           <p className="text-[14px] whitespace-pre-wrap leading-6">{product.description}</p>
         </div>
 
-        {/* Seller - pic + hming + click a profile visit */}
+        {/* Seller - EDITED: pic leh hming tilian, underline paih */}
         <div onClick={()=>{ if(sellerUid) router.push(`/seller/${sellerUid}`); }} className="bg-[#f8f9fa] rounded-2xl p-4 mt-4 flex items-center gap-3 cursor-pointer active:bg-gray-200">
-          <div className="w-11 h-11 bg-black text-white rounded-full flex items-center justify-center font-black overflow-hidden flex-shrink-0">
-            {displayPic? <img src={displayPic} className="w-full h-full object-cover"/> : <span>{displayName[0]?.toUpperCase()}</span>}
+          <div className="w-[56px] h-[56px] bg-black text-white rounded-full flex items-center justify-center font-black overflow-hidden flex-shrink-0">
+            {displayPic? <img src={displayPic} className="w-full h-full object-cover"/> : <span className="text-[20px]">{displayName[0]?.toUpperCase()}</span>}
           </div>
           <div className="flex-1">
-            <p className="font-bold text-[14px] capitalize underline">{displayName}</p>
-            <p className="text-[12px] text-gray-500">Verified Seller • View Profile</p>
+            <p className="font-bold text-[17px] capitalize">{displayName}</p>
+            <p className="text-[13px] text-gray-500">Verified Seller • View Profile</p>
           </div>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="gray" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
         </div>
