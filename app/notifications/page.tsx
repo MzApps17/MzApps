@@ -40,7 +40,6 @@ export default function NotificationsPage(){
           return tb - ta;
         });
 
-        // FIX: Set error siamtha
         const allIds = merged.map((m:any)=> m.userId || m.uid || m.createdBy || m.sellerId).filter(Boolean);
         const userIds = Array.from(new Set(allIds));
         const userMap: any = {};
@@ -131,7 +130,7 @@ export default function NotificationsPage(){
                   <span className="font-black">{n.title || "Thil thar"}</span>
                   <span className="text-gray-700"> • </span>
                   <span className="font-medium text-gray-700">
-                    {sellerName}{village? `, ${village}` : ""}{district? `, ${district}` : ""} chuan Post thar a siam e
+                    {sellerName}{village? `, ${village}` : ""}{district? `, ${district} Dist` : ""} chuan Post thar a siam e
                   </span>
                   <span className="text-gray-500"> • {category}</span>
                 </p>
