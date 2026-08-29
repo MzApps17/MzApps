@@ -9,10 +9,13 @@ export default function ProductDetail(){
   const router=useRouter();
   const [product,setProduct]=useState<any>(null);
   const [currentImg,setCurrentImg]=useState(0);
+  const [seller,setSeller]=useState<any>(null);
 
+  // Phone back button FIX
   useEffect(()=>{
-    window.history.pushState({page:"detail"}, "", window.location.href);
-    const onPop=()=>router.replace("/");
+    const onPop=()=>{
+      router.push("/");
+    };
     window.addEventListener("popstate",onPop);
     return ()=>window.removeEventListener("popstate",onPop);
   },[router]);
@@ -20,7 +23,15 @@ export default function ProductDetail(){
   useEffect(()=>{
     const getProd=async()=>{
       const snap=await getDoc(doc(db,"products",id as string));
-      if(snap.exists()) setProduct(snap.data());
+      if(snap.exists()){
+        const data=snap.data();
+        setProduct(data);
+        const uid = (data as any).userId || (data as any).uid || (data as any).userUid || (data as any).sellerId;
+        if(uid){
+          const userSnap = await getDoc(doc(db,"users",uid));
+          if(userSnap.exists()) setSeller(userSnap.data());
+        }
+      }
     };
     if(id) getProd();
   },[id]);
@@ -45,11 +56,23 @@ export default function ProductDetail(){
     return d.toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: true });
   };
 
+  const displayName = seller?.displayName || product.userName || product.userEmail?.split("@")[0] || "User";
+  const displayPic = seller?.photoURL || null;
+  const sellerUid = product.userId || product.uid || product.userUid || product.sellerId;
+
+  const handleBack = ()=>{
+    if(window.history.length > 1){
+      router.back();
+    }else{
+      router.push("/");
+    }
+  };
+
   return (
     <main className="bg-white min-h-screen pb-[140px]">
       <div className="relative bg-black w-full aspect-[4/3] overflow-hidden">
         <img src={allImages[currentImg]} className="w-full h-full object-contain bg-black"/>
-        <button onClick={()=>router.replace("/")} className="absolute top-4 left-4 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+        <button onClick={handleBack} className="absolute top-4 left-4 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5">
             <path d="M19 12H5"/>
             <path d="M12 19l-7-7 7-7"/>
@@ -81,12 +104,16 @@ export default function ProductDetail(){
           <p className="text-[14px] whitespace-pre-wrap leading-6">{product.description}</p>
         </div>
 
-        <div className="bg-[#f8f9fa] rounded-2xl p-4 mt-4 flex items-center gap-3">
-          <div className="w-11 h-11 bg-black text-white rounded-full flex items-center justify-center font-black">N</div>
-          <div>
-            <p className="font-bold text-[14px]">{product.userEmail?.split("@")[0]}</p>
-            <p className="text-[12px] text-gray-500">Verified Seller</p>
+        {/* Seller - pic + hming + click a profile visit */}
+        <div onClick={()=>{ if(sellerUid) router.push(`/seller/${sellerUid}`); }} className="bg-[#f8f9fa] rounded-2xl p-4 mt-4 flex items-center gap-3 cursor-pointer active:bg-gray-200">
+          <div className="w-11 h-11 bg-black text-white rounded-full flex items-center justify-center font-black overflow-hidden flex-shrink-0">
+            {displayPic? <img src={displayPic} className="w-full h-full object-cover"/> : <span>{displayName[0]?.toUpperCase()}</span>}
           </div>
+          <div className="flex-1">
+            <p className="font-bold text-[14px] capitalize underline">{displayName}</p>
+            <p className="text-[12px] text-gray-500">Verified Seller • View Profile</p>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="gray" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
         </div>
       </div>
 
