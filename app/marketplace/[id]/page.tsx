@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase/config";
+import { onAuthStateChanged } from "firebase/auth";
 
 export default function ProductDetail(){
   const {id}=useParams();
@@ -10,6 +11,13 @@ export default function ProductDetail(){
   const [product,setProduct]=useState<any>(null);
   const [currentImg,setCurrentImg]=useState(0);
   const [seller,setSeller]=useState<any>(null);
+  const [currentUser,setCurrentUser]=useState<any>(null);
+  const [wished,setWished]=useState(false);
+
+  useEffect(()=>{
+    const unsub=onAuthStateChanged(auth,(u)=>setCurrentUser(u));
+    return ()=>unsub();
+  },[]);
 
   useEffect(()=>{
     const onPop=()=>{
@@ -30,10 +38,26 @@ export default function ProductDetail(){
           const userSnap = await getDoc(doc(db,"users",uid));
           if(userSnap.exists()) setSeller(userSnap.data());
         }
+        if(auth.currentUser){
+          const wSnap=await getDoc(doc(db,"users",auth.currentUser.uid,"wishlist",id as string));
+          if(wSnap.exists()) setWished(true);
+        }
       }
     };
     if(id) getProd();
   },[id]);
+
+  const toggleWish=async()=>{
+    if(!currentUser){ router.push("/login"); return; }
+    const wishRef=doc(db,"users",currentUser.uid,"wishlist",id as string);
+    if(wished){
+      await deleteDoc(wishRef);
+      setWished(false);
+    }else{
+      await setDoc(wishRef,{productId:id, createdAt:serverTimestamp()});
+      setWished(true);
+    }
+  };
 
   if(!product) return <div className="p-10 text-center font-black">Loading...</div>;
 
@@ -77,7 +101,7 @@ export default function ProductDetail(){
             <path d="M12 19l-7-7 7-7"/>
           </svg>
         </button>
-        <button className="absolute top-4 right-4 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg text-[22px]">🤍</button>
+        <button onClick={toggleWish} className="absolute top-4 right-4 w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg text-[22px]">{wished? "❤️":"🤍"}</button>
       </div>
 
       {allImages.length > 1 && (
