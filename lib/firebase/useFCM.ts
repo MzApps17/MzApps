@@ -10,7 +10,7 @@ export async function setupFCM(userId: string){
 
     const messaging = getMessaging(app);
     const token = await getToken(messaging, {
-      vapidKey: "I VAPID KEY KHAN DAH RAWH" // Firebase console > Project Settings > Cloud Messaging ah i hmu ang
+      vapidKey: "BNuctrJ5weNQdE7spg1q4uaQzEtIIn5z5HOKy6rrH86Te3gHq_0HUPSbj5aKczxkSORRgwktEM5-9riBKG8Qj9o" // Firebase console > Project Settings > Cloud Messaging ah i hmu ang
     });
 
     if(token){
