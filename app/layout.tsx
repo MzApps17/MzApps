@@ -125,6 +125,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
+        <meta name="google-site-verification" content="1qX19xWmSKS6P49gzl2xh6snf0MJufrYwW6-s6urRsk" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#002f34" />
         <link rel="apple-touch-icon" href="/IMG-20260830-WA0778.jpg" />
