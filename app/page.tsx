@@ -37,7 +37,6 @@ export default function Home(){
 
   // === BELH CHIAH 1 - SCROLL RESTORE - FIXED ===
   useEffect(()=>{
-    // Ads a load zawh chauh ah restore rawh - a hma chuan scroll tur a awm lo
     if(ads.length > 0 &&!loading){
       const saved = sessionStorage.getItem("mzHomeScroll");
       if(saved){
@@ -121,7 +120,10 @@ export default function Home(){
           const tb=b.createdAt?.toMillis? b.createdAt.toMillis() : new Date(b.createdAt||0).getTime();
           return tb-ta;
         });
-        setAds(allAds);
+        // FIX 1 - DUPLICATE REMOVE + POST THAR CHUNG BER AH
+        const uniqueMap = new Map();
+        allAds.forEach((ad:any)=> uniqueMap.set(ad.id, ad));
+        setAds(Array.from(uniqueMap.values()));
         setLastDoc(snap1.docs[snap1.docs.length-1] || null);
         setHasMore(snap1.docs.length===15);
       }else if(cat==="Jobs"){
@@ -155,9 +157,18 @@ export default function Home(){
         q=query(collection(db,"products"), where("category","==",cat), orderBy("createdAt","desc"), startAfter(lastDoc), limit(20));
       }
       const snap=await getDocs(q);
-      setAds(prev=>[...prev,...snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"}))]);
-      setLastDoc(snap.docs[snap.docs.length-1] || null);
-      setHasMore(snap.docs.length===20);
+      if(snap.empty){
+        setHasMore(false);
+      }else{
+        // FIX 2 - DOUBLE VENNA
+        setAds(prev=>{
+          const existingIds = new Set(prev.map((a:any)=>a.id));
+          const newOnes = snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"})).filter((a:any)=>!existingIds.has(a.id));
+          return [...prev,...newOnes];
+        });
+        setLastDoc(snap.docs[snap.docs.length-1] || null);
+        setHasMore(snap.docs.length===20);
+      }
     }catch{}
     setIsLoadingMore(false);
   };
@@ -194,7 +205,6 @@ export default function Home(){
 
   return (
     <main className="min-h-screen bg-[#f2f2f2]">
-      {/* SEO FIX FOR GOOGLE - SOFT 404 SOLVE */}
       <div style={{position:'absolute', left:'-9999px', top:'auto', width:'1px', height:'1px', overflow:'hidden'}}>
         <h1>MizoApps - Mizoram No.1 Marketplace, Jobs, Chat - Buy Sell Cars, Properties, Mobiles in Mizoram</h1>
         <h2>Mizo thil zawrhna, hna zawnna, Mizo Marketplace Official</h2>
@@ -269,4 +279,4 @@ export default function Home(){
       )}
     </main>
   );
-}
+        }
