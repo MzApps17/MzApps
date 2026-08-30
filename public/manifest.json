@@ -1,0 +1,23 @@
+{
+  "name": "MzApps - Mizoram Marketplace",
+  "short_name": "MzApps",
+  "description": "Mizoram Buy and Sell",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#002f34",
+  "icons": [
+    {
+      "src": "/IMG-20260830-WA0778.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/IMG-20260830-WA0778.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
