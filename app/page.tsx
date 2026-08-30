@@ -194,6 +194,14 @@ export default function Home(){
 
   return (
     <main className="min-h-screen bg-[#f2f2f2]">
+      {/* SEO FIX FOR GOOGLE - SOFT 404 SOLVE */}
+      <div style={{position:'absolute', left:'-9999px', top:'auto', width:'1px', height:'1px', overflow:'hidden'}}>
+        <h1>MizoApps - Mizoram No.1 Marketplace, Jobs, Chat - Buy Sell Cars, Properties, Mobiles in Mizoram</h1>
+        <h2>Mizo thil zawrhna, hna zawnna, Mizo Marketplace Official</h2>
+        <p>MizoApps.in is Mizoram largest marketplace for buying and selling cars, bikes, mobiles, properties, jobs, furniture, fashion. Mizo OLX.</p>
+        <p>Aizawl, Lunglei, Saiha, Champhai, Kolasib, Serchhip, Lawngtlai, Mamit, Saitual, Khawzawl</p>
+      </div>
+
       <div className="bg-white sticky top-0 z-20 p-3 border-b">
         <div className="flex items-center gap-2">
           <div className="flex flex-1 items-center border-[1.5px] border-[#002f34] rounded-md px-3 py-[9px] gap-2">
