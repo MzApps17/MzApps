@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.mzapps.buysell",
+      "sha256_cert_fingerprints": [
+        "77:E0:BC:7D:99:54:78:C1:74:92:0B:55:1A:0C:81:84:CD:65:92:4E:AD:B6:47:4C:F9:B2:C7:A9:58:E0:29:33"
+      ]
+    }
+  }
+]
