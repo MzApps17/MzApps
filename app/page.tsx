@@ -185,7 +185,7 @@ export default function Home(){
     }
   };
 
-  const categories=["All","Cars","Properties","Mobiles","Jobs","Bikes","Furniture","Fashion","Electronics"];
+  const categories=["All","Cars","Properties","Mobiles","Jobs","Bikes","Furniture","Fashion","Electronics","Cosmetics","Others"];
   const filtered = ads.filter(a=>{
     if(!debouncedSearch) return true;
     const s=debouncedSearch.toLowerCase();
