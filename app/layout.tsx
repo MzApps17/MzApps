@@ -57,24 +57,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // --- INSTALL CHECK - i duh ang chiah ---
+    // --- INSTALL CHECK - SIAM THAT CHIAH ---
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
     if (!isStandalone) {
       const handler = (e: any) => {
         e.preventDefault();
         setDeferredPrompt(e);
-        setShowAndroidPrompt(true); // Luh apiang in lang
+        setShowAndroidPrompt(true);
       };
       window.addEventListener('beforeinstallprompt', handler);
-      // beforeinstallprompt a awm lo pawn 3s hnu ah lang tho
+
       const t = setTimeout(() => {
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         if (!isIOS) setShowAndroidPrompt(true);
       }, 3000);
-      return () => {
-        window.removeEventListener('beforeinstallprompt', handler);
-        clearTimeout(t);
-      };
+
+      // Cleanup atan
+      // return hi a hmaa i dah sual vangin notification a thawk lo - tunah ka dah lo
     }
 
     const setupNotifications = async () => {
@@ -112,7 +111,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       if (outcome === 'accepted') setShowAndroidPrompt(false);
       setDeferredPrompt(null);
     } else {
-      setShowAndroidPrompt(false);
+      // Firefox leh browser dang tan - eng browser atang pawh
+      const isFirefox = /Firefox/.test(navigator.userAgent);
+      if(isFirefox){
+        alert("Firefox ah: A chung a dot 3 (⋮) > Install emaw Add to Home Screen click rawh!");
+      } else {
+        alert("Browser Menu (⋮) > Add to Home Screen / Install App tih click rawh!");
+      }
+      // setShowAndroidPrompt(false); // duh chuan comment rawh - an luh apiang a lang tur chuan
     }
   };
 
@@ -136,9 +142,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
         <div className="pb-[60px]">{children}</div>
         <Footer />
-        {/* iOS tan - i component ngai */}
         <IosInstallPopup />
-        {/* Android tan - luh apiang a lang tur */}
         {showAndroidPrompt && (
           <div className="fixed bottom-[70px] left-3 right-3 z-[9998] animate-in slide-in-from-bottom">
             <div className="max-w-md mx-auto bg-black text-white rounded-[20px] p-4 flex items-center gap-3 shadow-2xl">
