@@ -28,24 +28,21 @@ export async function POST(req: Request){
     const message = {
       notification: { 
         title: title || "Marketplace Thar!", 
-        body: body || "Post thar a awm e!" 
+        body: body || "Post thar a awm e!",
+        image: "https://mizoapps.in/icon-512.png"
+      },
+      data: { 
+        type: "new_post",
+        url: "/marketplace"
       },
       webpush: {
         notification: {
-          title: title || "Marketplace Thar!",
-          body: body || "Post thar a awm e!",
           icon: "https://mizoapps.in/icon-512.png",
-          badge: "https://mizoapps.in/icon-192.png",
-          vibrate: [200, 100, 200],
-          requireInteraction: false
+          badge: "https://mizoapps.in/icon-192.png"
         },
         fcmOptions: {
           link: "https://mizoapps.in/marketplace"
         }
-      },
-      data: { 
-        url: "https://mizoapps.in/marketplace",
-        type: "new_post" 
       }
     };
 
@@ -61,16 +58,13 @@ export async function POST(req: Request){
         });
         totalSent += res.successCount;
         totalFailed += res.failureCount;
-        console.log(`Chunk ${i/500 + 1}: Sent ${res.successCount}, Failed ${res.failureCount}`);
       } catch(chunkError){
-        console.log("Chunk error:", chunkError);
         totalFailed += chunk.length;
       }
     }
 
     return NextResponse.json({ success: true, sent: totalSent, failed: totalFailed, total: validTokens.length });
   } catch(e:any){
-    console.error("SendNotification error:", e);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
