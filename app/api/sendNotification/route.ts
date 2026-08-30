@@ -34,8 +34,8 @@ export async function POST(req: Request){
         notification: {
           title: title || "Marketplace Thar!",
           body: body || "Post thar a awm e!",
-          icon: "https://mizoapps.in/icon-512x512.png",
-          badge: "https://mizoapps.in/badge-72x72.png",
+          icon: "https://mizoapps.in/icon-512.png",
+          badge: "https://mizoapps.in/icon-192.png",
           vibrate: [200, 100, 200],
           requireInteraction: false
         },
