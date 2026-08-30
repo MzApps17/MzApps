@@ -14,6 +14,8 @@ const cats=[
   {name:"Books, Sports", icon:"🎸"},
   {name:"Pets", icon:"🐶"},
   {name:"Services", icon:"🛠️"},
+  {name:"Cosmetics", icon:"💄"},
+  {name:"Others", icon:"📦"},
 ];
 
 export default function Sell(){
