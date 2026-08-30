@@ -31,17 +31,14 @@ function Footer(){
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isHome?"2.6":"1.6"}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span className={`text-[12px] ${isHome?"font-black":"font-bold"}`}>HOME</span>
       </Link>
-
       <Link href="/sell" className={`flex flex-col items-center w-20 ${isSell?"text-[#002f34]":"text-gray-400"}`}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isSell?"2.6":"1.6"}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         <span className={`text-[12px] ${isSell?"font-black":"font-bold"}`}>SELL</span>
       </Link>
-
       <Link href="/my-ads" className={`flex flex-col items-center justify-center w-20 ${isMyAds?"text-[#002f34]":"text-gray-400"}`}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isMyAds?"2.6":"1.6"} strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
         <span className={`text-[12px] ${isMyAds?"font-black":"font-bold"}`}>MY ADS</span>
       </Link>
-
       <Link href="/account" className={`flex flex-col items-center w-20 ${isAccount?"text-[#002f34]":"text-gray-400"}`}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isAccount?"2.6":"1.6"}><circle cx="12" cy="7" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
         <span className={`text-[12px] ${isAccount?"font-black":"font-bold"}`}>ACCOUNT</span>
@@ -52,57 +49,72 @@ function Footer(){
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [notif, setNotif] = useState<{title: string, body: string} | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showAndroidPrompt, setShowAndroidPrompt] = useState(false);
 
   useEffect(() => {
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
+    // --- INSTALL CHECK - i duh ang chiah ---
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    if (!isStandalone) {
+      const handler = (e: any) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+        setShowAndroidPrompt(true); // Luh apiang in lang
+      };
+      window.addEventListener('beforeinstallprompt', handler);
+      // beforeinstallprompt a awm lo pawn 3s hnu ah lang tho
+      const t = setTimeout(() => {
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        if (!isIOS) setShowAndroidPrompt(true);
+      }, 3000);
+      return () => {
+        window.removeEventListener('beforeinstallprompt', handler);
+        clearTimeout(t);
+      };
+    }
+
     const setupNotifications = async () => {
       try {
         if (!('Notification' in window)) return;
         const permission = await Notification.requestPermission();
         if (permission!== 'granted') return;
-
         const messaging = getMessaging(app);
         const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
         const token = await getToken(messaging, {
           vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY,
           serviceWorkerRegistration: registration
         });
-
         if (token) {
           const user = auth.currentUser;
           if (user) {
-            await setDoc(doc(db, "fcmTokens", user.uid), {
-              token: token,
-              uid: user.uid,
-              createdAt: new Date()
-            });
+            await setDoc(doc(db, "fcmTokens", user.uid), { token: token, uid: user.uid, createdAt: new Date() });
           } else {
-            await setDoc(doc(db, "fcmTokens", token.slice(0, 20)), {
-              token: token,
-              createdAt: new Date()
-            });
+            await setDoc(doc(db, "fcmTokens", token.slice(0, 20)), { token: token, createdAt: new Date() });
           }
-          console.log("FCM Token saved:", token);
         }
-
         onMessage(messaging, (payload) => {
-          setNotif({
-            title: payload.notification?.title || "Post thar a awm e!",
-            body: payload.notification?.body || ""
-          });
+          setNotif({ title: payload.notification?.title || "Post thar a awm e!", body: payload.notification?.body || "" });
           setTimeout(()=> setNotif(null), 10000);
         });
-
-      } catch (e) {
-        console.log("FCM Error:", e);
-      }
+      } catch (e) { console.log("FCM Error:", e); }
     };
-
     setupNotifications();
   }, []);
+
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') setShowAndroidPrompt(false);
+      setDeferredPrompt(null);
+    } else {
+      setShowAndroidPrompt(false);
+    }
+  };
 
   return (
     <html lang="en">
@@ -124,7 +136,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
         <div className="pb-[60px]">{children}</div>
         <Footer />
+        {/* iOS tan - i component ngai */}
         <IosInstallPopup />
+        {/* Android tan - luh apiang a lang tur */}
+        {showAndroidPrompt && (
+          <div className="fixed bottom-[70px] left-3 right-3 z-[9998] animate-in slide-in-from-bottom">
+            <div className="max-w-md mx-auto bg-black text-white rounded-[20px] p-4 flex items-center gap-3 shadow-2xl">
+              <img src="/IMG-20260830-WA0778.jpg" className="w-12 h-12 rounded-xl bg-white object-cover" alt="icon"/>
+              <div className="flex-1">
+                <p className="font-black text-[14px]">MizoApps Install rawh! 🚀</p>
+                <p className="text-[11px] text-gray-300">A rang zawk nan App ah lut rawh!</p>
+              </div>
+              <button onClick={handleInstall} className="bg-white text-black font-black px-5 py-2.5 rounded-full text-[12px] active:scale-95">INSTALL</button>
+              <button onClick={()=>setShowAndroidPrompt(false)} className="text-gray-400 px-2">✕</button>
+            </div>
+          </div>
+        )}
       </body>
     </html>
   );
