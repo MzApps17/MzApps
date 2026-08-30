@@ -7,6 +7,7 @@ import { initializeApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import IosInstallPopup from "@/components/layout/IosInstallPopup";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -123,6 +124,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
         <div className="pb-[60px]">{children}</div>
         <Footer />
+        <IosInstallPopup />
       </body>
     </html>
   );
