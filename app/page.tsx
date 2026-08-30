@@ -35,21 +35,27 @@ export default function Home(){
   const [hasNewNoti,setHasNewNoti]=useState(false);
   const router = useRouter();
 
-  // === BELH CHIAH 1 - SCROLL RESTORE ===
+  // === BELH CHIAH 1 - SCROLL RESTORE - FIXED ===
   useEffect(()=>{
-    const saved = sessionStorage.getItem("mzHomeScroll");
-    if(saved){
-      setTimeout(()=> window.scrollTo(0, parseInt(saved)), 150);
+    // Ads a load zawh chauh ah restore rawh - a hma chuan scroll tur a awm lo
+    if(ads.length > 0 &&!loading){
+      const saved = sessionStorage.getItem("mzHomeScroll");
+      if(saved){
+        setTimeout(()=> window.scrollTo(0, parseInt(saved)), 100);
+      }
     }
-  },[]);
+  },[ads, loading]);
 
   useEffect(()=>{
     const onScroll = () => {
-      sessionStorage.setItem("mzHomeScroll", String(window.scrollY));
+      if(!loading){
+        sessionStorage.setItem("mzHomeScroll", String(window.scrollY));
+      }
     };
     window.addEventListener("scroll", onScroll);
     return ()=> window.removeEventListener("scroll", onScroll);
-  },[]);
+  },[loading]);
+
   const saveScroll = () => {
     sessionStorage.setItem("mzHomeScroll", String(window.scrollY));
   };
