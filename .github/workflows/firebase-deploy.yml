@@ -16,4 +16,4 @@ jobs:
           args: deploy --only functions
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          PROJECT_ID: mz-apps-mauve
+          PROJECT_ID: mzapps-899ef
