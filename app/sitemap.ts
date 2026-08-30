@@ -1,7 +1,18 @@
-export default function sitemap(){
+import type { MetadataRoute } from 'next'
+ 
+export default function sitemap(): MetadataRoute.Sitemap {
   return [
-    { url: 'https://mizoapps.in', lastModified: new Date(), changeFrequency: 'daily' as const, priority: 1 },
-    { url: 'https://mizoapps.in/marketplace', lastModified: new Date(), priority: 0.8 },
-    { url: 'https://mizoapps.in/jobs', lastModified: new Date(), priority: 0.8 },
+    {
+      url: 'https://mizoapps.in',
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 1,
+    },
+    {
+      url: 'https://mizoapps.in/sell',
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
   ]
 }
