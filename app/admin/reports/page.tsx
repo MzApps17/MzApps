@@ -1,7 +1,7 @@
-// app/admin/reports/page.tsx - MODAL MAWI TAK
+// app/admin/reports/page.tsx - REPORTS + ALL POSTS MANAGER
 "use client";
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, orderBy, doc, deleteDoc, getDoc, where } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, deleteDoc, getDoc, where, updateDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
@@ -15,9 +15,14 @@ export default function ReportsPage(){
   const adminEmails=["mizochatapps@gmail.com"];
   const router=useRouter();
 
-  // MODAL THAR
   const [confirmModal,setConfirmModal]=useState<{type:'post'|'ban'|null, reportId:string, userId:string, userName:string} | null>(null);
   const [successModal,setSuccessModal]=useState<string|null>(null);
+
+  // --- THAR - ALL POSTS ---
+  const [allPosts,setAllPosts]=useState<any[]>([]);
+  const [search,setSearch]=useState("");
+  const [editPost,setEditPost]=useState<any|null>(null);
+  const [saving,setSaving]=useState(false);
 
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth, async(u)=>{
@@ -27,6 +32,7 @@ export default function ReportsPage(){
         router.push("/");
         return;
       }
+      // Reports fetch
       const q=query(collection(db,"reports"), orderBy("createdAt","desc"));
       const snap=await getDocs(q);
       const list:any[]=[];
@@ -47,6 +53,10 @@ export default function ReportsPage(){
         list.push({id:d.id,...data, reportedUser, reporterUser});
       }
       setReports(list);
+
+      // All Posts fetch - THAR
+      fetchAllPosts();
+
       try{
         const twoMinAgo = new Date(Date.now() - 2*60*1000);
         const onlineQ = query(collection(db,"presence"), where("lastSeen",">", twoMinAgo));
@@ -65,6 +75,20 @@ export default function ReportsPage(){
     return ()=>{ unsub(); clearInterval(iv); };
   },[]);
 
+  const fetchAllPosts = async () => {
+    const all:any[] = [];
+    const cols = ["products", "jobs"];
+    for(const colName of cols){
+      try{
+        const q = query(collection(db, colName), orderBy("createdAt","desc"));
+        const snap = await getDocs(q);
+        snap.docs.forEach(d=> all.push({id:d.id, col:colName,...d.data()}));
+      }catch{}
+    }
+    all.sort((a,b)=> (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0));
+    setAllPosts(all);
+  };
+
   const confirmDelete=async()=>{
     if(!showDeleteId) return;
     setDeleting(true);
@@ -80,7 +104,7 @@ export default function ReportsPage(){
     setActionId(confirmModal.reportId);
     const reportedUserId = confirmModal.userId;
     try{
-      const collectionsToCheck = ["posts", "products", "ads", "listings"];
+      const collectionsToCheck = ["posts", "products", "ads", "listings", "jobs"];
       let totalDeleted = 0;
       for(const colName of collectionsToCheck){
         try{
@@ -93,6 +117,7 @@ export default function ReportsPage(){
         }catch{}
       }
       setSuccessModal(`${totalDeleted} post delete a ni e! ✅`);
+      fetchAllPosts();
     }catch(e:any){ setSuccessModal("Error: "+e.message); }
     setActionId(null);
     setConfirmModal(null);
@@ -106,7 +131,7 @@ export default function ReportsPage(){
     try{
       await deleteDoc(doc(db,"users",reportedUserId));
       try{ await deleteDoc(doc(db,"presence",reportedUserId)); }catch{}
-      const collectionsToCheck = ["posts", "products", "ads", "listings"];
+      const collectionsToCheck = ["posts", "products", "ads", "listings", "jobs"];
       for(const colName of collectionsToCheck){
         try{
           const pq = query(collection(db, colName), where("uid","==", reportedUserId));
@@ -120,10 +145,40 @@ export default function ReportsPage(){
       await deleteDoc(doc(db,"reports",reportId));
       setReports(r=>r.filter(x=>x.id!==reportId));
       setSuccessModal(`User ${confirmModal.userName} BAN a ni e! 🚫`);
+      fetchAllPosts();
     }catch(e:any){ setSuccessModal("Error ban: "+e.message); }
     setActionId(null);
     setConfirmModal(null);
   };
+
+  // THAR - single post delete/edit
+  const deleteSinglePost = async (post:any) => {
+    if(!confirm(`"${post.title || post.name}" hi delete duh em?`)) return;
+    await deleteDoc(doc(db, post.col, post.id));
+    setAllPosts(p=>p.filter(x=>x.id!==post.id));
+    setSuccessModal("Post delete a ni e!");
+  };
+
+  const saveEdit = async () => {
+    if(!editPost) return;
+    setSaving(true);
+    try{
+      await updateDoc(doc(db, editPost.col, editPost.id), {
+        title: editPost.title,
+        price: editPost.price,
+        description: editPost.description || editPost.desc || "",
+      });
+      setAllPosts(p=>p.map(x=> x.id===editPost.id? editPost : x));
+      setEditPost(null);
+      setSuccessModal("Edit save a ni e! ✅");
+    }catch(e:any){ setSuccessModal("Error: "+e.message); }
+    setSaving(false);
+  };
+
+  const filteredPosts = allPosts.filter(p =>
+    (p.title?.toLowerCase()||"").includes(search.toLowerCase()) ||
+    (p.name?.toLowerCase()||"").includes(search.toLowerCase())
+  );
 
   return (
     <main className="min-h-screen bg-white pb-10">
@@ -138,7 +193,7 @@ export default function ReportsPage(){
       </div>
 
       <div className="p-3 max-w-md mx-auto">
-        {reports.length===0 && <p className="text-gray-400 text-center mt-20 font-bold">Report a awm lo</p>}
+        {reports.length===0 && <p className="text-gray-400 text-center mt-10 font-bold">Report a awm lo</p>}
         <div className="flex flex-col gap-3 mt-2">
           {reports.map(r=>(
             <div key={r.id} className="border-2 rounded-2xl p-4 bg-white">
@@ -148,8 +203,8 @@ export default function ReportsPage(){
               </div>
               <p className="text-[13px] mt-2 bg-gray-50 p-3 rounded-xl">"{r.message}"</p>
               <div className="mt-3 bg-gray-50 p-2.5 rounded-xl space-y-1">
-                <p className="text-[12px]"><span className="text-gray-500">🚩 Reported:</span> <span className="font-black text-black">{r.reportedUser?.displayName || r.reportedUser?.name || r.sellerName || "Unknown"}</span> <span className="text-[10px] text-gray-400">({r.reportedUserId?.slice(0,6)}...)</span></p>
-                <p className="text-[12px]"><span className="text-gray-500">👤 Reporter:</span> <span className="font-black text-black">{r.reporterUser?.displayName || r.reporterUser?.name || "Anonymous"}</span> <span className="text-[10px] text-gray-400">({r.reporterId?.slice(0,6)}...)</span></p>
+                <p className="text-[12px]"><span className="text-gray-500">🚩 Reported:</span> <span className="font-black text-black">{r.reportedUser?.displayName || r.reportedUser?.name || r.sellerName || "Unknown"}</span></p>
+                <p className="text-[12px]"><span className="text-gray-500">👤 Reporter:</span> <span className="font-black text-black">{r.reporterUser?.displayName || r.reporterUser?.name || "Anonymous"}</span></p>
               </div>
               <div className="grid grid-cols-3 gap-2 mt-3">
                 <button onClick={()=>setConfirmModal({type:'post', reportId:r.id, userId:r.reportedUserId, userName: r.reportedUser?.displayName || "User"})} disabled={actionId===r.id} className="bg-orange-500 text-white py-2.5 rounded-xl text-[11px] font-black active:scale-95 disabled:opacity-50">{actionId===r.id? "..." : "🗑️ POST DELETE"}</button>
@@ -159,14 +214,40 @@ export default function ReportsPage(){
             </div>
           ))}
         </div>
+
+        {/* === THAR - ALL USERS POSTS === */}
+        <div className="mt-10 border-t-4 border-black pt-6">
+          <h2 className="font-black text-[20px] text-[#002f34]">📦 Users Post Zawng Zawng ({filteredPosts.length})</h2>
+          <p className="text-[12px] text-gray-500 font-bold mb-3">Admin chiah in i delete / edit thei</p>
+
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search title..." className="w-full border-2 rounded-xl px-4 py-3 text-[14px] font-bold outline-none focus:border-black" />
+
+          <div className="flex flex-col gap-2 mt-4">
+            {filteredPosts.map(p=>(
+              <div key={p.id} className="border rounded-2xl p-3 flex gap-3 bg-gray-50">
+                <img src={p.imageUrl || p.images?.[0] || "/no-image.png"} className="w-16 h-16 rounded-xl object-cover bg-white border" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-black text-[13px] truncate">{p.title || p.name || "No title"}</p>
+                  <p className="text-[12px] font-bold text-green-600">₹{p.price || 0} • {p.col}</p>
+                  <p className="text-[10px] text-gray-400 truncate">{p.userId?.slice(0,10)}... • {p.createdAt?.toDate?.()?.toLocaleDateString() || ""}</p>
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={()=>setEditPost(p)} className="bg-black text-white px-3 py-1.5 rounded-full text-[10px] font-black">✏️ EDIT</button>
+                    <button onClick={()=>deleteSinglePost(p)} className="bg-red-600 text-white px-3 py-1.5 rounded-full text-[10px] font-black">🗑️ DELETE</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {filteredPosts.length===0 && <p className="text-center text-gray-400 font-bold mt-10">Post a awm lo / Search hmuh loh</p>}
+          </div>
+        </div>
       </div>
 
+      {/*... i modal hlui te kha a ngai vek... */}
       {showDeleteId && (
         <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[28px] p-6 w-full max-w-[320px] shadow-2xl text-center">
             <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 text-2xl">🗑️</div>
             <p className="font-black text-[18px] text-[#002f34]">Delete report?</p>
-            <p className="text-[13px] text-gray-500 mt-1 leading-5">He report hi i delete duh tak tak em? A bo hlen ang.</p>
             <div className="flex gap-2 mt-6">
               <button onClick={()=>setShowDeleteId(null)} className="flex-1 bg-[#f3f4f6] text-black font-bold py-3.5 rounded-2xl text-[14px] active:scale-95">Cancel</button>
               <button onClick={confirmDelete} disabled={deleting} className="flex-1 bg-black text-white font-black py-3.5 rounded-2xl text-[14px] active:scale-95">{deleting?"...":"OK"}</button>
@@ -184,16 +265,29 @@ export default function ReportsPage(){
             <p className="font-black text-[18px] text-[#002f34] leading-tight">
               {confirmModal.type==='ban'? `Ban ${confirmModal.userName}?` : `Delete ${confirmModal.userName} posts?`}
             </p>
-            <p className="text-[13px] text-gray-500 mt-2 leading-5">
-              {confirmModal.type==='ban'
-               ? `He user ${confirmModal.userName} hi i BAN duh tak tak em? A account leh post zawng zawng a bo vek ang!`
-                : `He User ${confirmModal.userName} post zawng zawng DELETE vek ang em? A bo hlen ang!`}
-            </p>
             <div className="flex gap-2 mt-6">
               <button onClick={()=>setConfirmModal(null)} className="flex-1 bg-[#f3f4f6] text-black font-bold py-3.5 rounded-2xl text-[14px] active:scale-95">Cancel</button>
               <button onClick={confirmModal.type==='ban'? executeBan : executePostDelete} disabled={!!actionId} className={`flex-1 text-white font-black py-3.5 rounded-2xl text-[14px] active:scale-95 ${confirmModal.type==='ban'? 'bg-red-600' : 'bg-orange-500'}`}>
                 {actionId? "..." : confirmModal.type==='ban'? "BAN" : "DELETE"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editPost && (
+        <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-[28px] p-6 w-full max-w-[360px] shadow-2xl">
+            <p className="font-black text-[18px]">✏️ Edit Post</p>
+            <p className="text-[11px] text-gray-400 font-bold mb-3">{editPost.col} / {editPost.id.slice(0,8)}...</p>
+            <div className="flex flex-col gap-3">
+              <input value={editPost.title || ""} onChange={e=>setEditPost({...editPost, title:e.target.value})} placeholder="Title" className="border-2 rounded-xl px-4 py-3 text-[14px] font-bold" />
+              <input value={editPost.price || ""} onChange={e=>setEditPost({...editPost, price:e.target.value})} placeholder="Price" type="number" className="border-2 rounded-xl px-4 py-3 text-[14px] font-bold" />
+              <textarea value={editPost.description || editPost.desc || ""} onChange={e=>setEditPost({...editPost, description:e.target.value})} placeholder="Description" rows={4} className="border-2 rounded-xl px-4 py-3 text-[13px] font-bold" />
+            </div>
+            <div className="flex gap-2 mt-5">
+              <button onClick={()=>setEditPost(null)} className="flex-1 bg-gray-100 font-bold py-3.5 rounded-2xl">Cancel</button>
+              <button onClick={saveEdit} disabled={saving} className="flex-1 bg-black text-white font-black py-3.5 rounded-2xl">{saving?"...":"SAVE"}</button>
             </div>
           </div>
         </div>
@@ -211,4 +305,4 @@ export default function ReportsPage(){
 
     </main>
   );
-        }
+}
