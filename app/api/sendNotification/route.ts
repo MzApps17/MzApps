@@ -19,7 +19,6 @@ export async function POST(req: Request){
       return NextResponse.json({ error: "No tokens" });
     }
 
-    // Filter valid tokens only
     const validTokens = tokens.filter((t:any) => t && typeof t === 'string' && t.length > 20);
     
     if(validTokens.length === 0){
@@ -31,18 +30,28 @@ export async function POST(req: Request){
         title: title || "Marketplace Thar!", 
         body: body || "Post thar a awm e!" 
       },
-      data: { type: "new_post" },
       webpush: {
+        notification: {
+          title: title || "Marketplace Thar!",
+          body: body || "Post thar a awm e!",
+          icon: "https://mizoapps.in/icon-512x512.png",
+          badge: "https://mizoapps.in/badge-72x72.png",
+          vibrate: [200, 100, 200],
+          requireInteraction: false
+        },
         fcmOptions: {
-          link: "/"
+          link: "https://mizoapps.in/marketplace"
         }
+      },
+      data: { 
+        url: "https://mizoapps.in/marketplace",
+        type: "new_post" 
       }
     };
 
     let totalSent = 0;
     let totalFailed = 0;
 
-    // Token 500 zel in thawn
     for(let i=0; i<validTokens.length; i+=500){
       const chunk = validTokens.slice(i, i+500);
       try {
