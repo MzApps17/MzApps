@@ -20,7 +20,7 @@ export default function IosInstallPopup() {
       <div className="text-2xl">📲</div>
       <div className="flex-1 text-[13px] leading-5">
         <b>iPhone ah App ang in dah rawh!</b><br/>
-        Hnuai ah Share ↗️ button hmet la -> <b>"Add to Home Screen"</b> hmet rawh.
+        Hnuai ah Share hmet la, Add to Home Screen hmet rawh.
       </div>
       <button
         onClick={() => {
