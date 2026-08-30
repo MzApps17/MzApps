@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import admin from "firebase-admin";
 
-// Firebase Admin init (vawikhat chauh)
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -20,22 +19,49 @@ export async function POST(req: Request){
       return NextResponse.json({ error: "No tokens" });
     }
 
-    const message = {
-      notification: { title, body },
-      data: { type: "new_post" },
-    };
-
-    // Token 500 zel in thawn
-    for(let i=0; i<tokens.length; i+=500){
-      const chunk = tokens.slice(i, i+500);
-      await admin.messaging().sendEachForMulticast({
-        ...message,
-        tokens: chunk,
-      });
+    // Filter valid tokens only
+    const validTokens = tokens.filter((t:any) => t && typeof t === 'string' && t.length > 20);
+    
+    if(validTokens.length === 0){
+      return NextResponse.json({ error: "No valid tokens" });
     }
 
-    return NextResponse.json({ success: true, sent: tokens.length });
+    const message = {
+      notification: { 
+        title: title || "Marketplace Thar!", 
+        body: body || "Post thar a awm e!" 
+      },
+      data: { type: "new_post" },
+      webpush: {
+        fcmOptions: {
+          link: "/"
+        }
+      }
+    };
+
+    let totalSent = 0;
+    let totalFailed = 0;
+
+    // Token 500 zel in thawn
+    for(let i=0; i<validTokens.length; i+=500){
+      const chunk = validTokens.slice(i, i+500);
+      try {
+        const res = await admin.messaging().sendEachForMulticast({
+          ...message,
+          tokens: chunk,
+        });
+        totalSent += res.successCount;
+        totalFailed += res.failureCount;
+        console.log(`Chunk ${i/500 + 1}: Sent ${res.successCount}, Failed ${res.failureCount}`);
+      } catch(chunkError){
+        console.log("Chunk error:", chunkError);
+        totalFailed += chunk.length;
+      }
+    }
+
+    return NextResponse.json({ success: true, sent: totalSent, failed: totalFailed, total: validTokens.length });
   } catch(e:any){
+    console.error("SendNotification error:", e);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
