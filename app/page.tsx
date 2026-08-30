@@ -35,6 +35,26 @@ export default function Home(){
   const [hasNewNoti,setHasNewNoti]=useState(false);
   const router = useRouter();
 
+  // === BELH CHIAH 1 - SCROLL RESTORE ===
+  useEffect(()=>{
+    const saved = sessionStorage.getItem("mzHomeScroll");
+    if(saved){
+      setTimeout(()=> window.scrollTo(0, parseInt(saved)), 150);
+    }
+  },[]);
+
+  useEffect(()=>{
+    const onScroll = () => {
+      sessionStorage.setItem("mzHomeScroll", String(window.scrollY));
+    };
+    window.addEventListener("scroll", onScroll);
+    return ()=> window.removeEventListener("scroll", onScroll);
+  },[]);
+  const saveScroll = () => {
+    sessionStorage.setItem("mzHomeScroll", String(window.scrollY));
+  };
+  // === BELH CHIAH 1 ZO ===
+
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth, async(u)=>{
       setUser(u);
@@ -198,7 +218,7 @@ export default function Home(){
             <button onClick={(e)=>toggleWish(e,ad.id)} className="absolute top-3 right-3 z-10 bg-white w-8 h-8 rounded-full shadow flex items-center justify-center text-[16px]">
               {wishIds.has(ad.id)? "❤️" : "🤍"}
             </button>
-            <Link href={ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`}>
+            <Link onClick={saveScroll} href={ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`}>
               <div className="w-full h-40 bg-gray-100 overflow-hidden rounded flex items-center justify-center">
                 {(ad._type==="job" &&!ad.image &&!ad.images?.[0])? (
                   <div className="w-full h-full bg-[#f3f4f6] flex items-center justify-center p-3">
@@ -235,4 +255,4 @@ export default function Home(){
       )}
     </main>
   );
-    }
+}
