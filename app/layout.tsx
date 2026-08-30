@@ -149,7 +149,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <img src="/IMG-20260830-WA0778.jpg" className="w-12 h-12 rounded-xl bg-white object-cover" alt="icon"/>
               <div className="flex-1">
                 <p className="font-black text-[14px]">MizoApps Install rawh! 🚀</p>
-                <p className="text-[11px] text-gray-300">A ran leh awlsam zawk nan App ah lut rawh!</p>
+                <p className="text-[11px] text-gray-300">A ran leh awlsam zawk nan Apps install rawh!</p>
               </div>
               <button onClick={handleInstall} className="bg-white text-black font-black px-5 py-2.5 rounded-full text-[12px] active:scale-95">INSTALL</button>
               <button onClick={()=>setShowAndroidPrompt(false)} className="text-gray-400 px-2">✕</button>
