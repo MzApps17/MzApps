@@ -105,6 +105,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <html lang="en">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#002f34" />
+        <link rel="apple-touch-icon" href="/IMG-20260830-WA0778.jpg" />
+      </head>
       <body className="bg-white text-black">
         {notif && (
           <div className="fixed top-3 left-3 right-3 bg-[#002f34] text-white p-4 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.3)] z-[9999] flex items-center gap-3">
