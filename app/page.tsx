@@ -208,7 +208,7 @@ export default function Home(){
       <div style={{position:'absolute', left:'-9999px', top:'auto', width:'1px', height:'1px', overflow:'hidden'}}>
         <h1>MizoApps - Mizoram No.1 Marketplace, Jobs, Chat - Buy Sell Cars, Properties, Mobiles in Mizoram</h1>
         <h2>Mizo thil zawrhna, hna zawnna, Mizo Marketplace Official</h2>
-        <p>MizoApps.in is Mizoram largest marketplace for buying and selling cars, bikes, mobiles, properties, jobs, furniture, fashion. Mizo OLX.</p>
+        <p>MizoApps.in is Mizoram largest marketplace for buying and selling cars, bikes, mobiles, properties, jobs, furniture, fashion.</p>
         <p>Aizawl, Lunglei, Saiha, Champhai, Kolasib, Serchhip, Lawngtlai, Mamit, Saitual, Khawzawl</p>
       </div>
 
