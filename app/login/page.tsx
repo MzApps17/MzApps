@@ -93,9 +93,9 @@ export default function Login(){
         </button>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4 pt-1">
+      <div className="flex-1 flex items-start justify-center p-4 pt-3">
         <form onSubmit={submit} className="bg-white w-full max-w-sm rounded-[28px] p-7 border shadow-sm">
-          <p className="text-[15px] text-gray-500">Please login to continue</p>
+          <p className="text-[15px] text-gray-500">{isSignup? "Please Signup to Continue" : "Please login to continue"}</p>
 
           <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full mt-6 border-2 border-gray-200 p-4 rounded-2xl outline-none focus:border-black focus:ring-1 focus:ring-black" required />
           <div className="relative mt-3">
