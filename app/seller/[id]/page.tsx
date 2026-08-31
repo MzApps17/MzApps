@@ -20,7 +20,6 @@ function timeAgo(ts:any){
   }catch{ return ""; }
 }
 
-// ✅ FIX - Hming lakna - Account page mil
 function getDisplayName(seller:any, fallbackPost:any = null){
   if(seller?.displayName && seller.displayName.trim()!=="") return seller.displayName.trim();
   if(seller?.fullName && seller.fullName.trim()!=="") return seller.fullName.trim();
@@ -29,7 +28,6 @@ function getDisplayName(seller:any, fallbackPost:any = null){
   if(seller?.username && seller.username.trim()!=="") return seller.username.trim();
   if(seller?.email) return seller.email.split('@')[0];
   if(seller?.userEmail) return seller.userEmail.split('@')[0];
-
   if(fallbackPost){
     if(fallbackPost.sellerName) return fallbackPost.sellerName;
     if(fallbackPost.userName) return fallbackPost.userName;
@@ -40,7 +38,6 @@ function getDisplayName(seller:any, fallbackPost:any = null){
   return "Mizo User";
 }
 
-// ✅ FIX - Pic lakna - Account page mil
 function getPhotoURL(seller:any){
   if(!seller) return null;
   return seller.photoURL || seller.profilePic || seller.avatar || seller.image || seller.profileImage || seller.photo || null;
@@ -140,68 +137,111 @@ export default function SellerProfile(){
   const photoURL = getPhotoURL(seller);
 
   return (
-    <main className="min-h-screen bg-white pb-10">
-      <div className="flex items-center justify-between p-3 pt-4 bg-white sticky top-0 z-50">
-        <button onClick={()=>{ if(window.history.length>1) router.back(); else router.push("/"); }} className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow border">
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5">
-            <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
-          </svg>
+    <main className="min-h-screen bg-[#f5f5f7] pb-24">
+      {/* HEADER */}
+      <div className="flex items-center justify-between p-3 pt-4 bg-[#f5f5f7] sticky top-0 z-50">
+        <button onClick={()=>{ if(window.history.length>1) router.back(); else router.push("/"); }} className="w-11 h-11 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
         </button>
         <div className="relative">
-          <button onClick={()=>setShowMenu(!showMenu)} className="w-12 h-12 rounded-full flex items-center justify-center bg-white shadow border">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="black"><circle cx="12" cy="5" r="2.8"/><circle cx="12" cy="12" r="2.8"/><circle cx="12" cy="19" r="2.8"/></svg>
+          <button onClick={()=>setShowMenu(!showMenu)} className="w-11 h-11 rounded-full flex items-center justify-center bg-white shadow-sm border border-gray-100">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="black"><circle cx="12" cy="5" r="2.8"/><circle cx="12" cy="12" r="2.8"/><circle cx="12" cy="19" r="2.8"/></svg>
           </button>
           {showMenu && (
-            <div className="absolute right-0 top-12 bg-white border rounded-xl shadow-xl w-44 z-50 overflow-hidden">
+            <div className="absolute right-0 top-12 bg-white border border-gray-100 rounded-2xl shadow-xl w-44 z-50 overflow-hidden">
               <button onClick={()=>{
-                if(!currentUser){
-                  setShowMenu(false);
-                  setShowLoginAlert(true);
-                  return;
-                }
+                if(!currentUser){ setShowMenu(false); setShowLoginAlert(true); return; }
                 setShowReport(true); setShowMenu(false);
-              }} className="w-full text-left px-4 py-3 text-[14px] font-bold hover:bg-gray-50">🚩 Report User</button>
+              }} className="w-full text-left px-4 py-3.5 text-[13px] font-bold hover:bg-gray-50">🚩 Report User</button>
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-5 p-5">
-        <button onClick={()=> photoURL && setShowPic(true)} className="w-24 h-24 rounded-full bg-black text-white flex items-center justify-center font-black text-3xl overflow-hidden flex-shrink-0 active:scale-95 transition-transform">
-          {photoURL? <img src={photoURL} className="w-full h-full object-cover"/> : displayName?.[0]?.toUpperCase()}
-        </button>
-        <div>
-          <p className="font-black text-[24px] capitalize">{displayName}</p>
-          <p className="text-[14px] text-gray-500 mt-1">{posts.length} Ads</p>
+      {/* PROFILE CARD - NALH TAK */}
+      <div className="mx-3 mt-1 bg-[#111111] rounded-[32px] p-6 text-white relative overflow-hidden">
+        <div className="absolute -top-16 -right-16 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
+        <div className="flex items-center gap-5 relative z-10">
+          <button onClick={()=> photoURL && setShowPic(true)} className="w-[92px] h-[92px] rounded-full bg-white flex items-center justify-center font-black text-3xl overflow-hidden flex-shrink-0 border-[3px] border-white/20 shadow-xl active:scale-95 transition">
+            {photoURL? <img src={photoURL} className="w-full h-full object-cover"/> : displayName?.[0]?.toUpperCase()}
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="font-black text-[22px] leading-6 capitalize truncate">{displayName}</p>
+            <p className="text-[13px] text-white/60 mt-1.5">{posts.length} Ads • Joined {seller?.createdAt? timeAgo(seller.createdAt) : "2026"}</p>
+            <div className="mt-3 flex items-center gap-2">
+              <span className="bg-white/15 backdrop-blur px-3 py-1.5 rounded-full text-[11px] font-bold border border-white/10">✅ Verified Seller</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <h2 className="font-black text-[18px] px-5 mt-6">{displayName} Ads</h2>
+      {/* ✅ PERSONAL INFO - ACCOUNT PAGE ANG KHAN */}
+      <div className="p-3 flex flex-col gap-3">
+        <div className="bg-white rounded-[26px] p-2 border border-gray-100 shadow-sm">
+          <p className="text-[11px] font-black px-4 pt-2 pb-1 text-gray-400 tracking-widest">PERSONAL INFO</p>
 
-      {posts.length===0? (
-        <p className="text-center text-gray-400 text-[13px] mt-10 bg-gray-50 mx-5 p-6 rounded-2xl">Ads a la awm lo</p>
-      ):(
-        <div className="p-3 grid grid-cols-1 gap-3">
-          {posts.map((p:any)=>(
-            <div key={p.id} className="bg-white border rounded-2xl overflow-hidden flex gap-3 p-2 relative">
-              <Link href={`/marketplace/${p.id}`} className="w-28 h-28 flex-shrink-0">
-                <img src={p.image || p.images?.[0]} className="w-full h-full object-cover rounded-xl"/>
-              </Link>
-              <div className="flex-1 py-1 pr-10">
-                <Link href={`/marketplace/${p.id}`}>
-                  <p className="font-bold text-[14px] truncate">{p.title}</p>
-                  <p className="font-black text-[16px] mt-1">₹{Number(p.price).toLocaleString("en-IN")}</p>
-                  <p className="text-[11px] text-gray-500 mt-1 truncate">{p.village || p.location?.split(",")[0] || ""} {p.district? `• ${p.district}`:""} • {p.category || ""}</p>
-                  <p className="text-[10px] text-gray-400 font-bold mt-1">{timeAgo(p.createdAt)}</p>
-                </Link>
-              </div>
-              <button onClick={(e)=>toggleWish(e,p.id)} className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow border text-[18px]">
-                {wished.has(p.id)? "❤️":"🤍"}
-              </button>
-            </div>
-          ))}
+          <div className="flex items-center gap-3 px-3 py-3.5">
+            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📧</div>
+            <div className="flex-1 min-w-0"><p className="text-[11px] text-gray-400">Email</p><p className="text-[13px] font-bold truncate">{seller?.email || seller?.userEmail || "Private"}</p></div>
+            <span className="text-[10px] bg-green-50 text-green-600 px-2.5 py-1 rounded-full font-black">Verified</span>
+          </div>
+          <div className="h-[1px] bg-gray-100 mx-3"></div>
+
+          <div className="flex items-center gap-3 px-3 py-3.5">
+            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📱</div>
+            <div className="flex-1"><p className="text-[11px] text-gray-400">Phone</p><p className="text-[13px] font-bold">{seller?.phone || "Set ve loh"}</p></div>
+          </div>
+          <div className="h-[1px] bg-gray-100 mx-3"></div>
+
+          <div className="flex items-center gap-3 px-3 py-3.5">
+            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📍</div>
+            <div className="flex-1"><p className="text-[11px] text-gray-400">Khua / Location</p><p className="text-[13px] font-bold">{seller?.khua || seller?.village || seller?.location || "Aizawl, Mizoram"}</p></div>
+          </div>
+          <div className="h-[1px] bg-gray-100 mx-3"></div>
+
+          <div className="flex items-center gap-3 px-3 py-3.5">
+            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">🎂</div>
+            <div className="flex-1"><p className="text-[11px] text-gray-400">Date of Birth</p><p className="text-[13px] font-bold">{seller?.dob? new Date(seller.dob).toLocaleDateString('en-GB',{day:'2-digit', month:'short', year:'numeric'}) : "Set ve loh"}</p></div>
+          </div>
+          <div className="h-[1px] bg-gray-100 mx-3"></div>
+
+          <div className="flex items-center gap-3 px-3 py-3.5">
+            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📦</div>
+            <div className="flex-1"><p className="text-[11px] text-gray-400">Total Ads</p><p className="text-[13px] font-bold">{posts.length} Active Ads</p></div>
+            <span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full font-black">{posts.length}</span>
+          </div>
         </div>
-      )}
+
+        {/* ADS LIST - DESIGN THAR */}
+        <div className="bg-white rounded-[26px] p-4 border border-gray-100 shadow-sm">
+          <h2 className="font-black text-[16px] mb-3 flex items-center gap-2">{displayName} Ads <span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full">{posts.length}</span></h2>
+
+          {posts.length===0? (
+            <p className="text-center text-gray-400 text-[13px] py-10 bg-gray-50 rounded-2xl">Ads a la awm lo</p>
+          ):(
+            <div className="flex flex-col gap-3">
+              {posts.map((p:any)=>(
+                <div key={p.id} className="bg-[#fafafa] border border-gray-100 rounded-[20px] overflow-hidden flex gap-3 p-2.5 relative active:scale-[0.98] transition">
+                  <Link href={`/marketplace/${p.id}`} className="w-[108px] h-[108px] flex-shrink-0">
+                    <img src={p.image || p.images?.[0]} className="w-full h-full object-cover rounded-[16px]"/>
+                  </Link>
+                  <div className="flex-1 py-1 pr-12 min-w-0">
+                    <Link href={`/marketplace/${p.id}`}>
+                      <p className="font-bold text-[14px] leading-4 line-clamp-2">{p.title}</p>
+                      <p className="font-black text-[18px] mt-2">₹{Number(p.price).toLocaleString("en-IN")}</p>
+                      <p className="text-[11px] text-gray-500 mt-1.5 truncate">{p.village || p.location?.split(",")[0] || "Aizawl"} {p.district? `• ${p.district}`:""} • {p.category || "General"}</p>
+                      <p className="text-[10px] text-gray-400 font-bold mt-1">{timeAgo(p.createdAt)}</p>
+                    </Link>
+                  </div>
+                  <button onClick={(e)=>toggleWish(e,p.id)} className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 text-[18px] active:scale-90 transition">
+                    {wished.has(p.id)? "❤️":"🤍"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {showReport && (
         <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
@@ -211,7 +251,7 @@ export default function SellerProfile(){
             <textarea value={reportMsg} onChange={e=>setReportMsg(e.target.value)} placeholder="Report chhan ziak rawh..." className="w-full mt-4 border-2 border-gray-200 p-3 rounded-xl outline-none focus:border-black h-28 text-[14px] resize-none"/>
             {errorMsg && <p className="text-red-500 text-[12px] mt-2 font-bold">{errorMsg}</p>}
             <div className="flex gap-2 mt-5">
-              <button onClick={()=>{setShowReport(false); setErrorMsg("");}} className="flex-1 bg-[#e5e7eb] text-black font-bold py-3 rounded-xl">Cancel</button>
+              <button onClick={()=>{setShowReport(false); setErrorMsg("");}} className="flex-1 bg-gray-100 text-black font-bold py-3 rounded-xl">Cancel</button>
               <button onClick={handleReport} disabled={reporting} className="flex-1 bg-black text-white font-bold py-3 rounded-xl">{reporting?"...":"Report"}</button>
             </div>
           </div>
@@ -234,7 +274,7 @@ export default function SellerProfile(){
       {showLoginAlert && (
         <div className="fixed inset-0 bg-black/60 z-[1200] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[20px] w-full max-w-[300px] p-6 shadow-2xl text-center">
-            <p className="font-bold text-[16px] text-[#002f34]">Login hmasa phawt rawh</p>
+            <p className="font-bold text-[16px]">Login hmasa phawt rawh</p>
             <button onClick={()=> setShowLoginAlert(false)} className="w-full mt-5 bg-black text-white font-black py-3 rounded-xl text-[14px]">OK</button>
           </div>
         </div>
@@ -242,12 +282,12 @@ export default function SellerProfile(){
 
       {showPic && (
         <div onClick={()=>setShowPic(false)} className="fixed inset-0 bg-black/90 z-[1300] flex items-center justify-center p-4">
-          <img src={photoURL || ""} className="max-w-full max-h-[85vh] object-contain rounded-2xl"/>
-          <button className="absolute top-5 right-5 w-10 h-10 bg-white/20 rounded-full text-white font-black">✕</button>
+          <img src={photoURL || ""} className="max-w-full max-h-[85vh] object-contain rounded-[22px]"/>
+          <button className="absolute top-5 right-5 w-10 h-10 bg-white/20 backdrop-blur rounded-full text-white font-black">✕</button>
         </div>
       )}
 
       {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
     </main>
   )
-    }
+}
