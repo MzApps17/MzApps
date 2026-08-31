@@ -82,13 +82,12 @@ export default function Home(){
 
   useEffect(()=>{ const t=setTimeout(()=>setDebouncedSearch(search),300); return ()=>clearTimeout(t); },[search]);
 
-  // === HMING & PIC DIK TAK LA CHHUAK NA ===
   const fetchUserProfiles = async (adsList:any[]) => {
-    const ids = [...new Set(adsList.map(a=>a.userId).filter(Boolean))];
-    const missing = ids.filter(id=>!userMap[id]);
+    const ids = Array.from(new Set(adsList.map((a:any)=>a.userId).filter(Boolean))) as string[];
+    const missing = ids.filter((id:string)=>!userMap[id]);
     if(missing.length===0) return;
     try{
-      const newMap = {...userMap};
+      const newMap:any = {...userMap};
       await Promise.all(missing.map(async(uid)=>{
         const snap = await getDoc(doc(db,"users",uid));
         if(snap.exists()) newMap[uid] = snap.data();
@@ -182,7 +181,6 @@ export default function Home(){
       <div style={{position:'absolute', left:'-9999px', top:'auto', width:'1px', height:'1px', overflow:'hidden'}}>
         <h1>MizoApps - Mizoram No.1 Marketplace</h1>
       </div>
-
       <div className="bg-white sticky top-0 z-20 p-3 border-b">
         <div className="flex items-center gap-2">
           <div className="flex flex-1 items-center border-[1.5px] border-[#002f34] rounded-md px-3 py-[9px] gap-2">
@@ -207,51 +205,27 @@ export default function Home(){
       <div className="flex flex-col">
         {filtered.map(ad=>{
           const u = userMap[ad.userId];
-          const realName = u?.displayName || u?.name || u?.fullName || ad.userName || ad.userDisplayName || ad.title?.split(" ")[0] || "Mizo User";
-          const realPic = u?.photoURL || u?.profilePic || u?.avatar || ad.userPhoto || ad.userPic || `https://ui-avatars.com/api/?name=${encodeURIComponent(realName)}&background=random`;
+          const realName = u?.displayName || u?.name || u?.fullName || u?.userName || ad.userName || "Mizo User";
+          const realPic = u?.photoURL || u?.profilePic || u?.avatar || u?.image || ad.userPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(realName)}&background=002f34&color=fff`;
           return (
             <div key={ad.id} className="bg-white mb-2 w-full cursor-pointer">
               <div className="flex items-center gap-3 p-3">
-                <img
-                  onClick={(e)=>{ e.stopPropagation(); if(ad.userId) { saveScroll(); router.push(`/user/${ad.userId}`); } }}
-                  src={realPic}
-                  className="w-10 h-10 rounded-full object-cover border cursor-pointer active:scale-95"
-                />
+                <img onClick={(e)=>{ e.stopPropagation(); if(ad.userId){ saveScroll(); router.push(`/user/${ad.userId}`); } }} src={realPic} className="w-10 h-10 rounded-full object-cover border cursor-pointer active:scale-95" alt="profile"/>
                 <div className="flex flex-col">
-                  <span
-                    onClick={(e)=>{ e.stopPropagation(); if(ad.userId) { saveScroll(); router.push(`/user/${ad.userId}`); } }}
-                    className="font-bold text-[15px] leading-none cursor-pointer hover:underline active:opacity-60"
-                  >
-                    {realName}
-                  </span>
+                  <span onClick={(e)=>{ e.stopPropagation(); if(ad.userId){ saveScroll(); router.push(`/user/${ad.userId}`); } }} className="font-bold text-[15px] leading-none cursor-pointer hover:underline active:opacity-60">{realName}</span>
                   <span className="text-[12px] text-gray-500 mt-1">{timeAgo(ad.createdAt)}</span>
                 </div>
               </div>
-
-              <div className="px-3 pb-1" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
-                <h2 className="font-bold text-[16px] text-[#002f34] line-clamp-1">{ad.title}</h2>
-              </div>
-              <div className="px-3 pb-2" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
-                <p className="text-[13px] text-gray-700 line-clamp-2">{ad.description || ad.desc || ""}</p>
-              </div>
-
+              <div className="px-3 pb-1" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><h2 className="font-bold text-[16px] text-[#002f34] line-clamp-1">{ad.title}</h2></div>
+              <div className="px-3 pb-2" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><p className="text-[13px] text-gray-700 line-clamp-2">{ad.description || ad.desc || ""}</p></div>
               <div className="relative w-full bg-gray-100" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
                 <div className="w-full h-[380px] bg-gray-100 overflow-hidden flex items-center justify-center">
-                  {(ad._type==="job" &&!ad.image &&!ad.images?.[0])? (
-                    <div className="w-full h-full bg-[#f3f4f6] flex items-center justify-center p-3"><p className="text-[22px] font-black text-[#002f34] text-center leading-tight capitalize">{ad.title || "Job"}</p></div>
-                  ) : (<img src={ad.image || ad.images?.[0] || "https://via.placeholder.com/300"} alt={ad.title} loading="lazy" className="w-full h-full object-cover"/>)}
+                  {(ad._type==="job" &&!ad.image &&!ad.images?.[0])? (<div className="w-full h-full bg-[#f3f4f6] flex items-center justify-center p-3"><p className="text-[22px] font-black text-[#002f34] text-center leading-tight capitalize">{ad.title || "Job"}</p></div>) : (<img src={ad.image || ad.images?.[0] || "https://via.placeholder.com/300"} alt={ad.title} loading="lazy" className="w-full h-full object-cover"/>)}
                 </div>
                 <button onClick={(e)=>toggleWish(e,ad.id)} className="absolute top-3 right-3 bg-white/90 backdrop-blur p-2.5 rounded-full shadow-md"><span className="text-[18px]">{wishIds.has(ad.id)? "❤️" : "🤍"}</span></button>
               </div>
-
-              <div className="px-3 pt-2.5" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
-                <p className="font-black text-[18px] text-[#002f34]">₹ {Number(ad.price || ad.salary || 0).toLocaleString("en-IN") || "0"}</p>
-              </div>
-              <div className="px-3 pt-1 flex items-center gap-1 text-gray-500" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                <span className="text-[11px] font-bold uppercase">{ad.khua || ad.location || "AIZAWL"}, {ad.district || "MIZORAM"}</span>
-              </div>
-
+              <div className="px-3 pt-2.5" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><p className="font-black text-[18px] text-[#002f34]">₹ {Number(ad.price || ad.salary || 0).toLocaleString("en-IN") || "0"}</p></div>
+              <div className="px-3 pt-1 flex items-center gap-1 text-gray-500" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="text-[11px] font-bold uppercase">{ad.khua || ad.location || "AIZAWL"}, {ad.district || "MIZORAM"}</span></div>
               <div className="flex items-center gap-6 px-3 py-3 mt-2 border-t border-gray-100">
                 <button onClick={(e)=>{ e.stopPropagation(); if(!user){ setShowLoginAlert(true); return; } }} className="flex items-center gap-1.5 text-[13px] font-bold">❤️ {ad.likes || 0}</button>
                 <button onClick={(e)=>{ e.stopPropagation(); if(!user){ setShowLoginAlert(true); return; } setSelectedPostId(ad.id); }} className="flex items-center gap-1.5 text-[13px] font-bold">💬 {ad.commentsCount || 0} Comment</button>
