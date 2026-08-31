@@ -90,48 +90,35 @@ export default function SellerProfile(){
       const allPosts = Array.from(allMap.values());
       setPosts(allPosts);
 
-      // ✅ FIX - HOME PAGE NEN A IN-ANG CHIAH A COUNT LAK - FRESH DOC ATANG
       const lCounts:Record<string,number>={};
       const cCounts:Record<string,number>={};
       const likedSet=new Set<string>();
       for(const p of allPosts){
         try{
-          // 1. Fresh product doc la - Home page in a chhiar ang chiah
           const freshSnap = await getDoc(doc(db,"products", p.id));
           const freshData = freshSnap.exists()? freshSnap.data() as any : p;
 
-          // LIKE COUNT - Home ah a hman dan ang zawng zawng check
           let lc = 0;
           if(typeof freshData.likeCount === 'number') lc = freshData.likeCount;
           else if(typeof freshData.likesCount === 'number') lc = freshData.likesCount;
           else if(typeof freshData.likes === 'number') lc = freshData.likes;
           else if(Array.isArray(freshData.likes)) lc = freshData.likes.length;
           else if(Array.isArray(freshData.likedBy)) lc = freshData.likedBy.length;
-          else if(Array.isArray(freshData.likedUsers)) lc = freshData.likedUsers.length;
-          else {
-            // subcollection fallback
-            try{ const ls = await getDocs(collection(db,"products",p.id,"likes")); lc = ls.size;
-              ls.forEach(d=>{ if(auth.currentUser && d.id===auth.currentUser.uid) likedSet.add(p.id); });
-            }catch{}
-          }
-          // like ve tawh em check - array field atang pawh
+          else { try{ const ls = await getDocs(collection(db,"products",p.id,"likes")); lc = ls.size; ls.forEach(d=>{ if(auth.currentUser && d.id===auth.currentUser.uid) likedSet.add(p.id); }); }catch{} }
+
           if(auth.currentUser){
             if(Array.isArray(freshData.likes) && freshData.likes.includes(auth.currentUser.uid)) likedSet.add(p.id);
             if(Array.isArray(freshData.likedBy) && freshData.likedBy.includes(auth.currentUser.uid)) likedSet.add(p.id);
           }
           lCounts[p.id]=lc;
 
-          // COMMENT COUNT - Home ah 8 a in tih ang kha
           let cc = 0;
           if(typeof freshData.commentCount === 'number') cc = freshData.commentCount;
           else if(typeof freshData.commentsCount === 'number') cc = freshData.commentsCount;
           else if(typeof freshData.comments === 'number') cc = freshData.comments;
           else if(Array.isArray(freshData.comments)) cc = freshData.comments.length;
-          else {
-            try{ const cs = await getDocs(collection(db,"products",p.id,"comments")); cc = cs.size; }catch{}
-          }
+          else { try{ const cs = await getDocs(collection(db,"products",p.id,"comments")); cc = cs.size; }catch{} }
           cCounts[p.id]=cc;
-
         }catch{}
       }
       setLikeCounts(lCounts);
@@ -150,8 +137,9 @@ export default function SellerProfile(){
 
   const toggleWish=async(e:any, pid:string)=>{
     e.preventDefault(); e.stopPropagation();
-    if(!currentUser) return router.push("/login");
-    const wishRef=doc(db,"users",currentUser.uid,"wishlist",pid);
+    if(!auth.currentUser){ router.push("/login"); return; }
+    const uid = auth.currentUser.uid;
+    const wishRef=doc(db,"users",uid,"wishlist",pid);
     if(wished.has(pid)){
       await deleteDoc(wishRef);
       setWished(prev=>{ const n=new Set(prev); n.delete(pid); return n; });
@@ -161,28 +149,28 @@ export default function SellerProfile(){
     }
   };
 
-  // ✅ FIX - LIKE THEIH TAWH, HOME NEN SYNC 100%
+  // ✅ FIX 100% - LIKE DIRECT A THAWK TAWH
   const toggleLike=async(e:any, pid:string)=>{
-    e.preventDefault(); e.stopPropagation();
-    if(!currentUser){ router.push("/login"); return; }
-    const likeRef=doc(db,"products",pid,"likes",currentUser.uid);
+    e.preventDefault();
+    e.stopPropagation();
+    // @ts-ignore
+    if(e.nativeEvent) e.nativeEvent.stopImmediatePropagation();
+    const u = auth.currentUser || currentUser;
+    if(!u){ router.push("/login"); return; }
+
+    const likeRef=doc(db,"products",pid,"likes",u.uid);
     const prodRef=doc(db,"products",pid);
-    try{
-      if(liked.has(pid)){
-        await deleteDoc(likeRef);
-        try{ await updateDoc(prodRef,{ likeCount: increment(-1), likesCount: increment(-1), commentCount: increment(0) }); }catch{}
-        setLiked(prev=>{ const n=new Set(prev); n.delete(pid); return n; });
-        setLikeCounts(prev=>({...prev, [pid]: Math.max(0,(prev[pid]||1)-1)}));
-      }else{
-        await setDoc(likeRef,{userId:currentUser.uid, createdAt:serverTimestamp()});
-        try{ await updateDoc(prodRef,{ likeCount: increment(1), likesCount: increment(1) }); }catch{
-          // field a la awm loh chuan siam
-          try{ await setDoc(prodRef,{ likeCount: (likeCounts[pid]||0)+1 }, {merge:true}); }catch{}
-        }
-        setLiked(prev=>{ const n=new Set(prev); n.add(pid); return n; });
-        setLikeCounts(prev=>({...prev, [pid]: (prev[pid]||0)+1}));
-      }
-    }catch(err){ console.log(err); }
+
+    // optimistic update - rang taka lang nghal
+    if(liked.has(pid)){
+      setLiked(prev=>{ const n=new Set(prev); n.delete(pid); return n; });
+      setLikeCounts(prev=>({...prev, [pid]: Math.max(0,(prev[pid]||1)-1)}));
+      try{ await deleteDoc(likeRef); await updateDoc(prodRef,{ likeCount: increment(-1), likesCount: increment(-1) }); }catch{}
+    }else{
+      setLiked(prev=>{ const n=new Set(prev); n.add(pid); return n; });
+      setLikeCounts(prev=>({...prev, [pid]: (prev[pid]||0)+1}));
+      try{ await setDoc(likeRef,{userId:u.uid, createdAt:serverTimestamp()}); await updateDoc(prodRef,{ likeCount: increment(1), likesCount: increment(1) }); }catch{ try{ await setDoc(prodRef,{ likeCount: (likeCounts[pid]||0)+1 }, {merge:true}); }catch{} }
+    }
   };
 
   const handleReport=async()=>{
@@ -231,15 +219,15 @@ export default function SellerProfile(){
         </div>
       </div>
 
-      <div className="mx-3 mt-1 bg-[#111111] rounded-[32px] p-6 text-white relative overflow-hidden">
-        <div className="flex items-center gap-5 relative z-10">
-          <button onClick={()=> photoURL && setShowPic(true)} className="w-[92px] h-[92px] rounded-full bg-white flex items-center justify-center font-black text-3xl overflow-hidden flex-shrink-0 border-[3px] border-white/20 shadow-xl active:scale-95 transition">
+      <div className="mx-3 mt-1 bg-[#111111] rounded-[32px] p-6 text-white">
+        <div className="flex items-center gap-5">
+          <button onClick={()=> photoURL && setShowPic(true)} className="w-[92px] h-[92px] rounded-full bg-white flex items-center justify-center font-black text-3xl overflow-hidden flex-shrink-0 border-[3px] border-white/20">
             {photoURL? <img src={photoURL} className="w-full h-full object-cover"/> : displayName?.[0]?.toUpperCase()}
           </button>
           <div className="flex-1 min-w-0">
             <p className="font-black text-[22px] leading-6 capitalize truncate">{displayName}</p>
             <p className="text-[13px] text-white/60 mt-1.5">{posts.length} Ads</p>
-            <div className="mt-3"><span className="bg-white/15 backdrop-blur px-3 py-1.5 rounded-full text-[11px] font-bold border border-white/10">✅ Verified Seller</span></div>
+            <div className="mt-3"><span className="bg-white/15 px-3 py-1.5 rounded-full text-[11px] font-bold border border-white/10">✅ Verified Seller</span></div>
           </div>
         </div>
       </div>
@@ -247,76 +235,65 @@ export default function SellerProfile(){
       <div className="p-3 flex flex-col gap-3">
         <div className="bg-white rounded-[26px] p-2 border border-gray-100 shadow-sm">
           <p className="text-[11px] font-black px-4 pt-2 pb-1 text-gray-400 tracking-widest">PERSONAL INFO</p>
-          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📧</div><div className="flex-1 min-w-0"><p className="text-[11px] text-gray-400">Email</p><p className="text-[13px] font-bold truncate">{seller?.email || seller?.userEmail || "Private"}</p></div></div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center">📧</div><div className="flex-1 min-w-0"><p className="text-[11px] text-gray-400">Email</p><p className="text-[13px] font-bold truncate">{seller?.email || seller?.userEmail || "Private"}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📱</div><div className="flex-1"><p className="text-[11px] text-gray-400">Phone</p><p className="text-[13px] font-bold">{seller?.phone || "Set ve loh"}</p></div></div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center">📱</div><div className="flex-1"><p className="text-[11px] text-gray-400">Phone</p><p className="text-[13px] font-bold">{seller?.phone || "Set ve loh"}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📍</div><div className="flex-1"><p className="text-[11px] text-gray-400">Khua / Location</p><p className="text-[13px] font-bold">{seller?.khua || seller?.village || seller?.location || "Aizawl, Mizoram"}</p></div></div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center">📍</div><div className="flex-1"><p className="text-[11px] text-gray-400">Khua</p><p className="text-[13px] font-bold">{seller?.khua || seller?.village || seller?.location || "Aizawl, Mizoram"}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">🎂</div><div className="flex-1"><p className="text-[11px] text-gray-400">Date of Birth</p><p className="text-[13px] font-bold">{seller?.dob? new Date(seller.dob).toLocaleDateString('en-GB',{day:'2-digit', month:'short', year:'numeric'}) : "Set ve loh"}</p></div></div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center">🎂</div><div className="flex-1"><p className="text-[11px] text-gray-400">Date of Birth</p><p className="text-[13px] font-bold">{seller?.dob? new Date(seller.dob).toLocaleDateString('en-GB') : "Set ve loh"}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📦</div><div className="flex-1"><p className="text-[11px] text-gray-400">Total Ads</p><p className="text-[13px] font-bold">{posts.length} Active Ads</p></div><span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full font-black">{posts.length}</span></div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center">📦</div><div className="flex-1"><p className="text-[11px] text-gray-400">Total Ads</p><p className="text-[13px] font-bold">{posts.length} Active Ads</p></div><span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full font-black">{posts.length}</span></div>
         </div>
 
         <div className="bg-white rounded-[26px] p-4 border border-gray-100 shadow-sm">
           <h2 className="font-black text-[16px] mb-3 flex items-center gap-2">{displayName} Ads <span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full">{posts.length}</span></h2>
 
-          {posts.length===0? (
-            <p className="text-center text-gray-400 text-[13px] py-10 bg-gray-50 rounded-2xl">Ads a la awm lo</p>
-          ):(
-            <div className="flex flex-col gap-3">
-              {posts.map((p:any)=>(
-                <div key={p.id} className="bg-[#fafafa] border border-gray-100 rounded-[20px] overflow-hidden flex gap-3 p-2.5 relative">
-                  <Link href={`/marketplace/${p.id}`} className="w-[108px] h-[108px] flex-shrink-0">
-                    <img src={p.image || p.images?.[0]} className="w-full h-full object-cover rounded-[16px]"/>
-                  </Link>
-                  <div className="flex-1 py-1 pr-12 min-w-0 flex flex-col justify-between">
-                    <div>
-                      <Link href={`/marketplace/${p.id}`}>
-                        <p className="font-bold text-[14px] leading-4 line-clamp-2">{p.title}</p>
-                        <p className="font-black text-[18px] mt-2">₹{Number(p.price).toLocaleString("en-IN")}</p>
-                        <p className="text-[11px] text-gray-500 mt-1 truncate">{p.village || p.location?.split(",")[0] || "Aizawl"} • {timeAgo(p.createdAt)}</p>
-                      </Link>
-                    </div>
-                    {/* ✅ LIKE & COMMENT CLICK THEIH + HOME NEN SYNC */}
-                    <div className="flex items-center gap-2.5 mt-2.5">
-                      <button onClick={(e)=>toggleLike(e,p.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-sm border active:scale-90 transition ${liked.has(p.id)? "bg-black text-white border-black" : "bg-white border-gray-100 text-black"}`}>
-                        <span className="text-[14px]">{liked.has(p.id)? "❤️":"🤍"}</span>
-                        <span className="text-[12px] font-black">{likeCounts[p.id]?? 0}</span>
-                      </button>
-                      <Link href={`/marketplace/${p.id}`} className="flex items-center gap-1.5 bg-white border border-gray-100 px-3 py-1.5 rounded-full shadow-sm active:scale-90 transition">
-                        <span className="text-[14px]">💬</span>
-                        <span className="text-[12px] font-black">{commentCounts[p.id]?? 0}</span>
-                      </Link>
-                    </div>
+          <div className="flex flex-col gap-3">
+            {posts.map((p:any)=>(
+              <div key={p.id} className="bg-[#fafafa] border border-gray-100 rounded-[20px] p-2.5 flex gap-3 relative overflow-hidden">
+                {/* IMAGE & TITLE ONLY LINK */}
+                <Link href={`/marketplace/${p.id}`} className="w-[108px] h-[108px] flex-shrink-0">
+                  <img src={p.image || p.images?.[0]} className="w-full h-full object-cover rounded-[16px]"/>
+                </Link>
+                <div className="flex-1 min-w-0 flex flex-col justify-between">
+                  <div>
+                    <Link href={`/marketplace/${p.id}`}>
+                      <p className="font-bold text-[14px] leading-4 line-clamp-2">{p.title}</p>
+                      <p className="font-black text-[18px] mt-2">₹{Number(p.price).toLocaleString("en-IN")}</p>
+                      <p className="text-[11px] text-gray-500 mt-1 truncate">{p.village || p.location?.split(",")[0] || "Aizawl"} • {timeAgo(p.createdAt)}</p>
+                    </Link>
                   </div>
-                  <button onClick={(e)=>toggleWish(e,p.id)} className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 text-[18px] active:scale-90 transition">
-                    {wished.has(p.id)? "❤️":"🤍"}
-                  </button>
+
+                  {/* ✅ LIKE & COMMENT - TUN AH POST DETAILS AH A KAL LO ANG */}
+                  <div className="flex items-center gap-2.5 mt-2.5 relative z-10">
+                    <button type="button" onClick={(e)=>toggleLike(e,p.id)} className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full shadow-sm border-2 active:scale-90 transition z-10 ${liked.has(p.id)? "bg-black text-white border-black" : "bg-white border-gray-200 text-black"}`}>
+                      <span className="text-[15px]">{liked.has(p.id)? "❤️":"🤍"}</span>
+                      <span className="text-[13px] font-black">{likeCounts[p.id]?? 0}</span>
+                    </button>
+                    <button type="button" onClick={(e)=>{
+                      e.preventDefault(); e.stopPropagation();
+                      router.push(`/marketplace/${p.id}#comments`);
+                    }} className="flex items-center gap-1.5 bg-white border-2 border-gray-200 px-3.5 py-1.5 rounded-full shadow-sm active:scale-90 transition z-10">
+                      <span className="text-[15px]">💬</span>
+                      <span className="text-[13px] font-black">{commentCounts[p.id]?? 0}</span>
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
+
+                <button type="button" onClick={(e)=>toggleWish(e,p.id)} className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 text-[18px] z-10 active:scale-90">
+                  {wished.has(p.id)? "❤️":"🤍"}
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {showReport && (
-        <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
-          <div className="bg-white rounded-[22px] p-6 w-full max-w-[340px] shadow-2xl">
-            <h3 className="font-black text-[18px]">Report {displayName}</h3>
-            <textarea value={reportMsg} onChange={e=>setReportMsg(e.target.value)} placeholder="Report chhan ziak rawh..." className="w-full mt-4 border-2 border-gray-200 p-3 rounded-xl outline-none focus:border-black h-28 text-[14px] resize-none"/>
-            {errorMsg && <p className="text-red-500 text-[12px] mt-2 font-bold">{errorMsg}</p>}
-            <div className="flex gap-2 mt-5">
-              <button onClick={()=>{setShowReport(false); setErrorMsg("");}} className="flex-1 bg-gray-100 font-bold py-3 rounded-xl">Cancel</button>
-              <button onClick={handleReport} disabled={reporting} className="flex-1 bg-black text-white font-bold py-3 rounded-xl">{reporting?"...":"Report"}</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showSuccess && (<div className="fixed inset-0 bg-black/70 z-[1100] flex items-center justify-center p-6 backdrop-blur-sm"><div className="bg-white rounded-[26px] p-7 w-full max-w-[340px] shadow-2xl text-center"><div className="w-14 h-14 bg-black rounded-full flex items-center justify-center mx-auto"><span className="text-white text-2xl">✓</span></div><h3 className="font-black text-[18px] mt-4">Report i thawn ta e</h3><button onClick={()=>setShowSuccess(false)} className="w-full bg-black text-white font-black py-3.5 rounded-xl mt-6">OK</button></div></div>)}
-      {showLoginAlert && (<div className="fixed inset-0 bg-black/60 z-[1200] flex items-center justify-center p-6 backdrop-blur-sm"><div className="bg-white rounded-[20px] w-full max-w-[300px] p-6 text-center"><p className="font-bold">Login hmasa phawt rawh</p><button onClick={()=> setShowLoginAlert(false)} className="w-full mt-5 bg-black text-white font-black py-3 rounded-xl">OK</button></div></div>)}
-      {showPic && (<div onClick={()=>setShowPic(false)} className="fixed inset-0 bg-black/90 z-[1300] flex items-center justify-center p-4"><img src={photoURL || ""} className="max-w-full max-h-[85vh] object-contain rounded-[22px]"/></div>)}
+      {showReport && (<div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm"><div className="bg-white rounded-[22px] p-6 w-full max-w-[340px]"><h3 className="font-black">Report {displayName}</h3><textarea value={reportMsg} onChange={e=>setReportMsg(e.target.value)} placeholder="Report chhan..." className="w-full mt-4 border-2 p-3 rounded-xl h-28"/><div className="flex gap-2 mt-5"><button onClick={()=>setShowReport(false)} className="flex-1 bg-gray-100 font-bold py-3 rounded-xl">Cancel</button><button onClick={handleReport} className="flex-1 bg-black text-white font-bold py-3 rounded-xl">Report</button></div></div></div>)}
+      {showSuccess && (<div className="fixed inset-0 bg-black/70 z-[1100] flex items-center justify-center p-6"><div className="bg-white rounded-[26px] p-7 w-full max-w-[340px] text-center"><h3 className="font-black mt-4">Report i thawn ta e</h3><button onClick={()=>setShowSuccess(false)} className="w-full bg-black text-white font-black py-3.5 rounded-xl mt-6">OK</button></div></div>)}
+      {showPic && (<div onClick={()=>setShowPic(false)} className="fixed inset-0 bg-black/90 z-[1300] flex items-center justify-center p-4"><img src={photoURL || ""} className="max-w-full max-h-[85vh] rounded-[22px]"/></div>)}
       {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
     </main>
   )
-          }
+                   }
