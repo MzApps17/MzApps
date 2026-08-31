@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc, addDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc, addDoc, serverTimestamp, updateDoc, increment } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase/config";
 import Link from "next/link";
 import { onAuthStateChanged } from "firebase/auth";
@@ -19,7 +19,6 @@ function timeAgo(ts:any){
     return d.toLocaleDateString();
   }catch{ return ""; }
 }
-
 function getDisplayName(seller:any, fallbackPost:any = null){
   if(seller?.displayName && seller.displayName.trim()!=="") return seller.displayName.trim();
   if(seller?.fullName && seller.fullName.trim()!=="") return seller.fullName.trim();
@@ -37,7 +36,6 @@ function getDisplayName(seller:any, fallbackPost:any = null){
   }
   return "Mizo User";
 }
-
 function getPhotoURL(seller:any){
   if(!seller) return null;
   return seller.photoURL || seller.profilePic || seller.avatar || seller.image || seller.profileImage || seller.photo || null;
@@ -92,26 +90,48 @@ export default function SellerProfile(){
       const allPosts = Array.from(allMap.values());
       setPosts(allPosts);
 
-      // ✅ LIKE & COMMENT COUNT - HOME PAGE NEN INTHLUN ZAWM
+      // ✅ FIX - HOME PAGE NEN A IN-ANG CHIAH A COUNT LAK - FRESH DOC ATANG
       const lCounts:Record<string,number>={};
       const cCounts:Record<string,number>={};
       const likedSet=new Set<string>();
       for(const p of allPosts){
         try{
-          const likeSnap=await getDocs(collection(db,"products",p.id,"likes"));
-          lCounts[p.id]=likeSnap.size;
-          if(auth.currentUser){
-            likeSnap.forEach(ld=>{ if(ld.id===auth.currentUser?.uid) likedSet.add(p.id); });
-          }
-          // product doc ah likeCount a awm chuan chu pawh la tel
-          if(p.likes?.length) lCounts[p.id]=p.likes.length;
-          if(p.likeCount) lCounts[p.id]=p.likeCount;
-          if(p.likesCount) lCounts[p.id]=p.likesCount;
+          // 1. Fresh product doc la - Home page in a chhiar ang chiah
+          const freshSnap = await getDoc(doc(db,"products", p.id));
+          const freshData = freshSnap.exists()? freshSnap.data() as any : p;
 
-          const commentSnap=await getDocs(collection(db,"products",p.id,"comments"));
-          cCounts[p.id]=commentSnap.size;
-          if(p.commentCount) cCounts[p.id]=p.commentCount;
-          if(p.commentsCount) cCounts[p.id]=p.commentsCount;
+          // LIKE COUNT - Home ah a hman dan ang zawng zawng check
+          let lc = 0;
+          if(typeof freshData.likeCount === 'number') lc = freshData.likeCount;
+          else if(typeof freshData.likesCount === 'number') lc = freshData.likesCount;
+          else if(typeof freshData.likes === 'number') lc = freshData.likes;
+          else if(Array.isArray(freshData.likes)) lc = freshData.likes.length;
+          else if(Array.isArray(freshData.likedBy)) lc = freshData.likedBy.length;
+          else if(Array.isArray(freshData.likedUsers)) lc = freshData.likedUsers.length;
+          else {
+            // subcollection fallback
+            try{ const ls = await getDocs(collection(db,"products",p.id,"likes")); lc = ls.size;
+              ls.forEach(d=>{ if(auth.currentUser && d.id===auth.currentUser.uid) likedSet.add(p.id); });
+            }catch{}
+          }
+          // like ve tawh em check - array field atang pawh
+          if(auth.currentUser){
+            if(Array.isArray(freshData.likes) && freshData.likes.includes(auth.currentUser.uid)) likedSet.add(p.id);
+            if(Array.isArray(freshData.likedBy) && freshData.likedBy.includes(auth.currentUser.uid)) likedSet.add(p.id);
+          }
+          lCounts[p.id]=lc;
+
+          // COMMENT COUNT - Home ah 8 a in tih ang kha
+          let cc = 0;
+          if(typeof freshData.commentCount === 'number') cc = freshData.commentCount;
+          else if(typeof freshData.commentsCount === 'number') cc = freshData.commentsCount;
+          else if(typeof freshData.comments === 'number') cc = freshData.comments;
+          else if(Array.isArray(freshData.comments)) cc = freshData.comments.length;
+          else {
+            try{ const cs = await getDocs(collection(db,"products",p.id,"comments")); cc = cs.size; }catch{}
+          }
+          cCounts[p.id]=cc;
+
         }catch{}
       }
       setLikeCounts(lCounts);
@@ -126,7 +146,7 @@ export default function SellerProfile(){
       }
     };
     if(id) load();
-  },[id]);
+  },[id, currentUser]);
 
   const toggleWish=async(e:any, pid:string)=>{
     e.preventDefault(); e.stopPropagation();
@@ -141,20 +161,28 @@ export default function SellerProfile(){
     }
   };
 
-  // ✅ LIKE - HOME PAGE NEN INTHLUN ZAWM
+  // ✅ FIX - LIKE THEIH TAWH, HOME NEN SYNC 100%
   const toggleLike=async(e:any, pid:string)=>{
     e.preventDefault(); e.stopPropagation();
-    if(!currentUser) return router.push("/login");
+    if(!currentUser){ router.push("/login"); return; }
     const likeRef=doc(db,"products",pid,"likes",currentUser.uid);
-    if(liked.has(pid)){
-      await deleteDoc(likeRef);
-      setLiked(prev=>{ const n=new Set(prev); n.delete(pid); return n; });
-      setLikeCounts(prev=>({...prev, [pid]: Math.max(0,(prev[pid]||1)-1)}));
-    }else{
-      await setDoc(likeRef,{userId:currentUser.uid, createdAt:serverTimestamp()});
-      setLiked(prev=>{ const n=new Set(prev); n.add(pid); return n; });
-      setLikeCounts(prev=>({...prev, [pid]: (prev[pid]||0)+1}));
-    }
+    const prodRef=doc(db,"products",pid);
+    try{
+      if(liked.has(pid)){
+        await deleteDoc(likeRef);
+        try{ await updateDoc(prodRef,{ likeCount: increment(-1), likesCount: increment(-1), commentCount: increment(0) }); }catch{}
+        setLiked(prev=>{ const n=new Set(prev); n.delete(pid); return n; });
+        setLikeCounts(prev=>({...prev, [pid]: Math.max(0,(prev[pid]||1)-1)}));
+      }else{
+        await setDoc(likeRef,{userId:currentUser.uid, createdAt:serverTimestamp()});
+        try{ await updateDoc(prodRef,{ likeCount: increment(1), likesCount: increment(1) }); }catch{
+          // field a la awm loh chuan siam
+          try{ await setDoc(prodRef,{ likeCount: (likeCounts[pid]||0)+1 }, {merge:true}); }catch{}
+        }
+        setLiked(prev=>{ const n=new Set(prev); n.add(pid); return n; });
+        setLikeCounts(prev=>({...prev, [pid]: (prev[pid]||0)+1}));
+      }
+    }catch(err){ console.log(err); }
   };
 
   const handleReport=async()=>{
@@ -204,17 +232,14 @@ export default function SellerProfile(){
       </div>
 
       <div className="mx-3 mt-1 bg-[#111111] rounded-[32px] p-6 text-white relative overflow-hidden">
-        <div className="absolute -top-16 -right-16 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
         <div className="flex items-center gap-5 relative z-10">
           <button onClick={()=> photoURL && setShowPic(true)} className="w-[92px] h-[92px] rounded-full bg-white flex items-center justify-center font-black text-3xl overflow-hidden flex-shrink-0 border-[3px] border-white/20 shadow-xl active:scale-95 transition">
             {photoURL? <img src={photoURL} className="w-full h-full object-cover"/> : displayName?.[0]?.toUpperCase()}
           </button>
           <div className="flex-1 min-w-0">
             <p className="font-black text-[22px] leading-6 capitalize truncate">{displayName}</p>
-            <p className="text-[13px] text-white/60 mt-1.5">{posts.length} Ads • Joined {seller?.createdAt? timeAgo(seller.createdAt) : "2026"}</p>
-            <div className="mt-3 flex items-center gap-2">
-              <span className="bg-white/15 backdrop-blur px-3 py-1.5 rounded-full text-[11px] font-bold border border-white/10">✅ Verified Seller</span>
-            </div>
+            <p className="text-[13px] text-white/60 mt-1.5">{posts.length} Ads</p>
+            <div className="mt-3"><span className="bg-white/15 backdrop-blur px-3 py-1.5 rounded-full text-[11px] font-bold border border-white/10">✅ Verified Seller</span></div>
           </div>
         </div>
       </div>
@@ -222,34 +247,17 @@ export default function SellerProfile(){
       <div className="p-3 flex flex-col gap-3">
         <div className="bg-white rounded-[26px] p-2 border border-gray-100 shadow-sm">
           <p className="text-[11px] font-black px-4 pt-2 pb-1 text-gray-400 tracking-widest">PERSONAL INFO</p>
-          <div className="flex items-center gap-3 px-3 py-3.5">
-            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📧</div>
-            <div className="flex-1 min-w-0"><p className="text-[11px] text-gray-400">Email</p><p className="text-[13px] font-bold truncate">{seller?.email || seller?.userEmail || "Private"}</p></div>
-          </div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📧</div><div className="flex-1 min-w-0"><p className="text-[11px] text-gray-400">Email</p><p className="text-[13px] font-bold truncate">{seller?.email || seller?.userEmail || "Private"}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-          <div className="flex items-center gap-3 px-3 py-3.5">
-            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📱</div>
-            <div className="flex-1"><p className="text-[11px] text-gray-400">Phone</p><p className="text-[13px] font-bold">{seller?.phone || "Set ve loh"}</p></div>
-          </div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📱</div><div className="flex-1"><p className="text-[11px] text-gray-400">Phone</p><p className="text-[13px] font-bold">{seller?.phone || "Set ve loh"}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-          <div className="flex items-center gap-3 px-3 py-3.5">
-            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📍</div>
-            <div className="flex-1"><p className="text-[11px] text-gray-400">Khua / Location</p><p className="text-[13px] font-bold">{seller?.khua || seller?.village || seller?.location || "Aizawl, Mizoram"}</p></div>
-          </div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📍</div><div className="flex-1"><p className="text-[11px] text-gray-400">Khua / Location</p><p className="text-[13px] font-bold">{seller?.khua || seller?.village || seller?.location || "Aizawl, Mizoram"}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-          <div className="flex items-center gap-3 px-3 py-3.5">
-            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">🎂</div>
-            <div className="flex-1"><p className="text-[11px] text-gray-400">Date of Birth</p><p className="text-[13px] font-bold">{seller?.dob? new Date(seller.dob).toLocaleDateString('en-GB',{day:'2-digit', month:'short', year:'numeric'}) : "Set ve loh"}</p></div>
-          </div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">🎂</div><div className="flex-1"><p className="text-[11px] text-gray-400">Date of Birth</p><p className="text-[13px] font-bold">{seller?.dob? new Date(seller.dob).toLocaleDateString('en-GB',{day:'2-digit', month:'short', year:'numeric'}) : "Set ve loh"}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-          <div className="flex items-center gap-3 px-3 py-3.5">
-            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📦</div>
-            <div className="flex-1"><p className="text-[11px] text-gray-400">Total Ads</p><p className="text-[13px] font-bold">{posts.length} Active Ads</p></div>
-            <span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full font-black">{posts.length}</span>
-          </div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📦</div><div className="flex-1"><p className="text-[11px] text-gray-400">Total Ads</p><p className="text-[13px] font-bold">{posts.length} Active Ads</p></div><span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full font-black">{posts.length}</span></div>
         </div>
 
-        {/* ADS - LIKE & COMMENT */}
         <div className="bg-white rounded-[26px] p-4 border border-gray-100 shadow-sm">
           <h2 className="font-black text-[16px] mb-3 flex items-center gap-2">{displayName} Ads <span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full">{posts.length}</span></h2>
 
@@ -258,7 +266,7 @@ export default function SellerProfile(){
           ):(
             <div className="flex flex-col gap-3">
               {posts.map((p:any)=>(
-                <div key={p.id} className="bg-[#fafafa] border border-gray-100 rounded-[20px] overflow-hidden flex gap-3 p-2.5 relative active:scale-[0.98] transition">
+                <div key={p.id} className="bg-[#fafafa] border border-gray-100 rounded-[20px] overflow-hidden flex gap-3 p-2.5 relative">
                   <Link href={`/marketplace/${p.id}`} className="w-[108px] h-[108px] flex-shrink-0">
                     <img src={p.image || p.images?.[0]} className="w-full h-full object-cover rounded-[16px]"/>
                   </Link>
@@ -270,15 +278,15 @@ export default function SellerProfile(){
                         <p className="text-[11px] text-gray-500 mt-1 truncate">{p.village || p.location?.split(",")[0] || "Aizawl"} • {timeAgo(p.createdAt)}</p>
                       </Link>
                     </div>
-                    {/* ✅ LIKE & COMMENT - HOME PAGE ANG */}
-                    <div className="flex items-center gap-3 mt-2">
-                      <button onClick={(e)=>toggleLike(e,p.id)} className="flex items-center gap-1.5 bg-white border border-gray-100 px-2.5 py-1 rounded-full shadow-sm active:scale-90 transition">
-                        <span className={`text-[14px] ${liked.has(p.id)? "" : "grayscale opacity-60"}`}>❤️</span>
-                        <span className="text-[12px] font-black">{likeCounts[p.id]||0}</span>
+                    {/* ✅ LIKE & COMMENT CLICK THEIH + HOME NEN SYNC */}
+                    <div className="flex items-center gap-2.5 mt-2.5">
+                      <button onClick={(e)=>toggleLike(e,p.id)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full shadow-sm border active:scale-90 transition ${liked.has(p.id)? "bg-black text-white border-black" : "bg-white border-gray-100 text-black"}`}>
+                        <span className="text-[14px]">{liked.has(p.id)? "❤️":"🤍"}</span>
+                        <span className="text-[12px] font-black">{likeCounts[p.id]?? 0}</span>
                       </button>
-                      <Link href={`/marketplace/${p.id}`} className="flex items-center gap-1.5 bg-white border border-gray-100 px-2.5 py-1 rounded-full shadow-sm active:scale-90 transition">
+                      <Link href={`/marketplace/${p.id}`} className="flex items-center gap-1.5 bg-white border border-gray-100 px-3 py-1.5 rounded-full shadow-sm active:scale-90 transition">
                         <span className="text-[14px]">💬</span>
-                        <span className="text-[12px] font-black">{commentCounts[p.id]||0}</span>
+                        <span className="text-[12px] font-black">{commentCounts[p.id]?? 0}</span>
                       </Link>
                     </div>
                   </div>
@@ -305,29 +313,10 @@ export default function SellerProfile(){
           </div>
         </div>
       )}
-      {showSuccess && (
-        <div className="fixed inset-0 bg-black/70 z-[1100] flex items-center justify-center p-6 backdrop-blur-sm">
-          <div className="bg-white rounded-[26px] p-7 w-full max-w-[340px] shadow-2xl text-center">
-            <div className="w-14 h-14 bg-black rounded-full flex items-center justify-center mx-auto"><span className="text-white text-2xl">✓</span></div>
-            <h3 className="font-black text-[18px] mt-4">Report i thawn ta e</h3>
-            <button onClick={()=>setShowSuccess(false)} className="w-full bg-black text-white font-black py-3.5 rounded-xl mt-6">OK</button>
-          </div>
-        </div>
-      )}
-      {showLoginAlert && (
-        <div className="fixed inset-0 bg-black/60 z-[1200] flex items-center justify-center p-6 backdrop-blur-sm">
-          <div className="bg-white rounded-[20px] w-full max-w-[300px] p-6 text-center">
-            <p className="font-bold">Login hmasa phawt rawh</p>
-            <button onClick={()=> setShowLoginAlert(false)} className="w-full mt-5 bg-black text-white font-black py-3 rounded-xl">OK</button>
-          </div>
-        </div>
-      )}
-      {showPic && (
-        <div onClick={()=>setShowPic(false)} className="fixed inset-0 bg-black/90 z-[1300] flex items-center justify-center p-4">
-          <img src={photoURL || ""} className="max-w-full max-h-[85vh] object-contain rounded-[22px]"/>
-        </div>
-      )}
+      {showSuccess && (<div className="fixed inset-0 bg-black/70 z-[1100] flex items-center justify-center p-6 backdrop-blur-sm"><div className="bg-white rounded-[26px] p-7 w-full max-w-[340px] shadow-2xl text-center"><div className="w-14 h-14 bg-black rounded-full flex items-center justify-center mx-auto"><span className="text-white text-2xl">✓</span></div><h3 className="font-black text-[18px] mt-4">Report i thawn ta e</h3><button onClick={()=>setShowSuccess(false)} className="w-full bg-black text-white font-black py-3.5 rounded-xl mt-6">OK</button></div></div>)}
+      {showLoginAlert && (<div className="fixed inset-0 bg-black/60 z-[1200] flex items-center justify-center p-6 backdrop-blur-sm"><div className="bg-white rounded-[20px] w-full max-w-[300px] p-6 text-center"><p className="font-bold">Login hmasa phawt rawh</p><button onClick={()=> setShowLoginAlert(false)} className="w-full mt-5 bg-black text-white font-black py-3 rounded-xl">OK</button></div></div>)}
+      {showPic && (<div onClick={()=>setShowPic(false)} className="fixed inset-0 bg-black/90 z-[1300] flex items-center justify-center p-4"><img src={photoURL || ""} className="max-w-full max-h-[85vh] object-contain rounded-[22px]"/></div>)}
       {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
     </main>
   )
-        }
+          }
