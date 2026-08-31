@@ -30,7 +30,6 @@ function getDisplayName(seller:any, fallbackPost:any){
   if(fallbackPost){
     if(fallbackPost.sellerName) return fallbackPost.sellerName;
     if(fallbackPost.userName) return fallbackPost.userName;
-    if(fallbackPost.displayName) return fallbackPost.displayName;
   }
   return "Mizo User";
 }
@@ -41,46 +40,46 @@ function getPhotoURL(seller:any){
 
 export default function SellerProfile(){
   const params = useParams();
-  const id = params.id as string;
+  const sid = params.id as string;
   const router = useRouter();
-  const [seller,setSeller] = useState<any>(null);
-  const [posts,setPosts] = useState<any[]>([]);
-  const [currentUser,setCurrentUser] = useState<any>(null);
-  const [wished,setWished] = useState<Set<string>>(new Set());
-  const [liked,setLiked] = useState<Set<string>>(new Set());
-  const [likeCounts,setLikeCounts] = useState<Record<string,number>>({});
-  const [commentCounts,setCommentCounts] = useState<Record<string,number>>({});
-  const [showMenu,setShowMenu] = useState(false);
-  const [showReport,setShowReport] = useState(false);
-  const [reportMsg,setReportMsg] = useState("");
-  const [reporting,setReporting] = useState(false);
-  const [showSuccess,setShowSuccess] = useState(false);
-  const [errorMsg,setErrorMsg] = useState("");
-  const [showPic,setShowPic] = useState(false);
-  const [commentPostId,setCommentPostId] = useState<string|null>(null);
-  const [comments,setComments] = useState<any[]>([]);
-  const [commentText,setCommentText] = useState("");
-  const [commenting,setCommenting] = useState(false);
-  const [loadingComments,setLoadingComments] = useState(false);
+  const [seller,setSeller]=useState<any>(null);
+  const [posts,setPosts]=useState<any[]>([]);
+  const [currentUser,setCurrentUser]=useState<any>(null);
+  const [wished,setWished]=useState<Set<string>>(new Set());
+  const [liked,setLiked]=useState<Set<string>>(new Set());
+  const [likeCounts,setLikeCounts]=useState<Record<string,number>>({});
+  const [commentCounts,setCommentCounts]=useState<Record<string,number>>({});
+  const [showMenu,setShowMenu]=useState(false);
+  const [showReport,setShowReport]=useState(false);
+  const [reportMsg,setReportMsg]=useState("");
+  const [reporting,setReporting]=useState(false);
+  const [showSuccess,setShowSuccess]=useState(false);
+  const [errorMsg,setErrorMsg]=useState("");
+  const [showPic,setShowPic]=useState(false);
+  const [commentPostId,setCommentPostId]=useState<string|null>(null);
+  const [comments,setComments]=useState<any[]>([]);
+  const [commentText,setCommentText]=useState("");
+  const [commenting,setCommenting]=useState(false);
+  const [loadingComments,setLoadingComments]=useState(false);
 
   useEffect(()=>{
-    const unsub = onAuthStateChanged(auth,(u)=>setCurrentUser(u));
+    const unsub=onAuthStateChanged(auth,(u)=>setCurrentUser(u));
     return ()=>unsub();
   },[]);
 
   useEffect(()=>{
-    const run = async()=>{
+    const fetchComments=async()=>{
       if(!commentPostId) return;
       setLoadingComments(true);
       try{
-        const q = query(collection(db,"products",commentPostId,"comments"), orderBy("createdAt","asc"));
-        const snap = await getDocs(q);
+        const q=query(collection(db,"products",commentPostId,"comments"), orderBy("createdAt","asc"));
+        const snap=await getDocs(q);
         const list:any[]=[];
         snap.forEach(d=>{ list.push({id:d.id,...d.data()}); });
         setComments(list);
       }catch{
         try{
-          const snap = await getDocs(collection(db,"products",commentPostId,"comments"));
+          const snap=await getDocs(collection(db,"products",commentPostId,"comments"));
           const list:any[]=[];
           snap.forEach(d=>{ list.push({id:d.id,...d.data()}); });
           setComments(list);
@@ -88,66 +87,66 @@ export default function SellerProfile(){
       }
       setLoadingComments(false);
     };
-    run();
+    fetchComments();
   },[commentPostId]);
 
   useEffect(()=>{
-    const load = async()=>{
-      if(!id) return;
-      const sSnap = await getDoc(doc(db,"users",id));
+    const load=async()=>{
+      if(!sid) return;
+      const sSnap=await getDoc(doc(db,"users",sid));
       let sellerData:any=null;
       if(sSnap.exists()){ sellerData=sSnap.data(); setSeller(sellerData); }
-      const allMap = new Map();
-      const tryQuery = async(field:string,value:any)=>{
-        if(!value) return;
+      const allMap=new Map();
+      const tryQ=async(f:string,v:any)=>{
+        if(!v) return;
         try{
-          const q = query(collection(db,"products"), where(field,"==",value));
-          const snap = await getDocs(q);
+          const q=query(collection(db,"products"), where(f,"==",v));
+          const snap=await getDocs(q);
           snap.docs.forEach(d=>{ allMap.set(d.id,{id:d.id,...d.data()}); });
         }catch{}
       };
-      await tryQuery("userId",id);
-      await tryQuery("uid",id);
-      await tryQuery("userUid",id);
-      await tryQuery("sellerId",id);
-      if(sellerData?.email) await tryQuery("userEmail",sellerData.email);
-      if(sellerData?.email) await tryQuery("email",sellerData.email);
-      const allPosts = Array.from(allMap.values());
+      await tryQ("userId",sid);
+      await tryQ("uid",sid);
+      await tryQ("userUid",sid);
+      await tryQ("sellerId",sid);
+      if(sellerData?.email) await tryQ("userEmail",sellerData.email);
+      if(sellerData?.email) await tryQ("email",sellerData.email);
+      const allPosts=Array.from(allMap.values());
       setPosts(allPosts);
-      const lCounts:Record<string,number>={};
-      const cCounts:Record<string,number>={};
-      const likedSet = new Set<string>();
+      const lC:Record<string,number>={};
+      const cC:Record<string,number>={};
+      const lSet=new Set<string>();
       for(const p of allPosts){
         try{
-          const freshSnap = await getDoc(doc(db,"products",p.id));
-          const freshData = freshSnap.exists()? freshSnap.data() as any : p;
-          let lc = 0;
-          if(typeof freshData.likeCount==='number') lc=freshData.likeCount;
-          else if(typeof freshData.likesCount==='number') lc=freshData.likesCount;
-          else if(Array.isArray(freshData.likes)) lc=freshData.likes.length;
-          else if(Array.isArray(freshData.likedBy)) lc=freshData.likedBy.length;
+          const fSnap=await getDoc(doc(db,"products",p.id));
+          const fData=fSnap.exists()? fSnap.data() as any : p;
+          let lc=0;
+          if(typeof fData.likeCount==='number') lc=fData.likeCount;
+          else if(typeof fData.likesCount==='number') lc=fData.likesCount;
+          else if(Array.isArray(fData.likes)) lc=fData.likes.length;
+          else if(Array.isArray(fData.likedBy)) lc=fData.likedBy.length;
           else{
             try{ const ls=await getDocs(collection(db,"products",p.id,"likes")); lc=ls.size; }catch{}
           }
           if(auth.currentUser){
-            const uid = auth.currentUser.uid;
-            if(Array.isArray(freshData.likes)&&freshData.likes.includes(uid)) likedSet.add(p.id);
-            if(Array.isArray(freshData.likedBy)&&freshData.likedBy.includes(uid)) likedSet.add(p.id);
-            try{ const ld=await getDoc(doc(db,"products",p.id,"likes",uid)); if(ld.exists()) likedSet.add(p.id); }catch{}
+            const uid=auth.currentUser.uid;
+            if(Array.isArray(fData.likes)&&fData.likes.includes(uid)) lSet.add(p.id);
+            if(Array.isArray(fData.likedBy)&&fData.likedBy.includes(uid)) lSet.add(p.id);
+            try{ const ld=await getDoc(doc(db,"products",p.id,"likes",uid)); if(ld.exists()) lSet.add(p.id); }catch{}
           }
-          lCounts[p.id]=lc;
+          lC[p.id]=lc;
           let cc=0;
-          if(typeof freshData.commentCount==='number') cc=freshData.commentCount;
-          else if(typeof freshData.commentsCount==='number') cc=freshData.commentsCount;
+          if(typeof fData.commentCount==='number') cc=fData.commentCount;
+          else if(typeof fData.commentsCount==='number') cc=fData.commentsCount;
           else{
             try{ const cs=await getDocs(collection(db,"products",p.id,"comments")); cc=cs.size; }catch{}
           }
-          cCounts[p.id]=cc;
+          cC[p.id]=cc;
         }catch{}
       }
-      setLikeCounts(lCounts);
-      setCommentCounts(cCounts);
-      setLiked(likedSet);
+      setLikeCounts(lC);
+      setCommentCounts(cC);
+      setLiked(lSet);
       if(auth.currentUser){
         const ws=await getDocs(collection(db,"users",auth.currentUser.uid,"wishlist"));
         const s=new Set<string>();
@@ -156,42 +155,42 @@ export default function SellerProfile(){
       }
     };
     load();
-  },[id,currentUser]);
+  },[sid, currentUser]);
 
-  const toggleWish = async(e:any,pid:string)=>{
+  const toggleWish=async(e:any,pid:string)=>{
     e.preventDefault(); e.stopPropagation();
     const u=auth.currentUser||currentUser;
     if(!u){ router.push("/login"); return; }
-    const wishRef=doc(db,"users",u.uid,"wishlist",pid);
+    const ref=doc(db,"users",u.uid,"wishlist",pid);
     if(wished.has(pid)){
-      await deleteDoc(wishRef);
-      setWished(prev=>{ const n=new Set(prev); n.delete(pid); return n; });
+      await deleteDoc(ref);
+      setWished(p=>{ const n=new Set(p); n.delete(pid); return n; });
     }else{
-      await setDoc(wishRef,{productId:pid,createdAt:serverTimestamp()});
-      setWished(prev=>{ const n=new Set(prev); n.add(pid); return n; });
+      await setDoc(ref,{productId:pid,createdAt:serverTimestamp()});
+      setWished(p=>{ const n=new Set(p); n.add(pid); return n; });
     }
   };
 
-  const toggleLike = async(e:any,pid:string)=>{
+  const toggleLike=async(e:any,pid:string)=>{
     e.preventDefault(); e.stopPropagation();
     const u=auth.currentUser||currentUser;
     if(!u){ router.push("/login"); return; }
     const prodRef=doc(db,"products",pid);
     const likeRef=doc(db,"products",pid,"likes",u.uid);
     if(liked.has(pid)){
-      setLiked(prev=>{ const n=new Set(prev); n.delete(pid); return n; });
-      setLikeCounts(prev=>{ const c={...prev}; c[pid]=Math.max(0,(c[pid]||1)-1); return c; });
+      setLiked(p=>{ const n=new Set(p); n.delete(pid); return n; });
+      setLikeCounts(p=>{ const c={...p}; c[pid]=Math.max(0,(c[pid]||1)-1); return c; });
       try{ await deleteDoc(likeRef); await updateDoc(prodRef,{likes:arrayRemove(u.uid),likedBy:arrayRemove(u.uid),likeCount:increment(-1),likesCount:increment(-1)}); }catch{}
     }else{
-      setLiked(prev=>{ const n=new Set(prev); n.add(pid); return n; });
-      setLikeCounts(prev=>{ const c={...prev}; c[pid]=(c[pid]||0)+1; return c; });
+      setLiked(p=>{ const n=new Set(p); n.add(pid); return n; });
+      setLikeCounts(p=>{ const c={...p}; c[pid]=(c[pid]||0)+1; return c; });
       try{ await setDoc(likeRef,{userId:u.uid,createdAt:serverTimestamp()}); await updateDoc(prodRef,{likes:arrayUnion(u.uid),likedBy:arrayUnion(u.uid),likeCount:increment(1),likesCount:increment(1)}); }catch{
-        try{ await setDoc(prodRef,{likes:arrayUnion(u.uid),likeCount:increment(1)}, {merge:true}); }catch{}
+        try{ await setDoc(prodRef,{likes:arrayUnion(u.uid),likeCount:increment(1)},{merge:true}); }catch{}
       }
     }
   };
 
-  const handleCommentSubmit = async()=>{
+  const submitComment=async()=>{
     if(!commentPostId) return;
     if(!commentText.trim()) return;
     const u=auth.currentUser||currentUser;
@@ -200,7 +199,7 @@ export default function SellerProfile(){
     try{
       await addDoc(collection(db,"products",commentPostId,"comments"),{text:commentText.trim(),userId:u.uid,userName:u.displayName||u.email?.split('@')[0]||"User",userPhoto:u.photoURL||"",createdAt:serverTimestamp()});
       await updateDoc(doc(db,"products",commentPostId),{commentCount:increment(1),commentsCount:increment(1)});
-      setCommentCounts(prev=>{ const c={...prev}; c[commentPostId]=(c[commentPostId]||0)+1; return c; });
+      setCommentCounts(p=>{ const c={...p}; c[commentPostId]=(c[commentPostId]||0)+1; return c; });
       setCommentText("");
       try{
         const q=query(collection(db,"products",commentPostId,"comments"), orderBy("createdAt","asc"));
@@ -217,13 +216,13 @@ export default function SellerProfile(){
     }catch{} finally{ setCommenting(false); }
   };
 
-  const handleReport = async()=>{
+  const doReport=async()=>{
     if(!reportMsg.trim()){ setErrorMsg("Chhan ziak rawh"); return; }
     setReporting(true);
     try{
-      const firstPost=posts.length>0?posts[0]:null;
-      const nameForReport=getDisplayName(seller,firstPost);
-      await addDoc(collection(db,"reports"),{reportedUserId:id,reporterId:currentUser?.uid||"anonymous",message:reportMsg.trim(),sellerName:nameForReport||"",createdAt:serverTimestamp()});
+      const fp=posts.length>0?posts[0]:null;
+      const nm=getDisplayName(seller,fp);
+      await addDoc(collection(db,"reports"),{reportedUserId:sid,reporterId:currentUser?.uid||"anonymous",message:reportMsg.trim(),sellerName:nm||"",createdAt:serverTimestamp()});
       setShowReport(false); setReportMsg(""); setShowMenu(false); setShowSuccess(true);
     }catch(e:any){ setErrorMsg(e.message); } finally{ setReporting(false); }
   };
@@ -232,9 +231,9 @@ export default function SellerProfile(){
     return <div className="p-10 text-center font-black">Loading...</div>;
   }
 
-  const firstPost = posts.length>0? posts[0] : null;
-  const displayName = getDisplayName(seller,firstPost);
-  const photoURL = getPhotoURL(seller);
+  const fp = posts.length>0? posts[0] : null;
+  const dName = getDisplayName(seller, fp);
+  const pURL = getPhotoURL(seller);
 
   return (
     <main className="min-h-screen bg-[#f5f5f7] pb-24">
@@ -242,7 +241,7 @@ export default function SellerProfile(){
         <button onClick={()=>{ if(window.history.length>1) router.back(); else router.push("/"); }} className="w-11 h-11 bg-white rounded-full flex items-center justify-center shadow-sm border">←</button>
         <div className="relative">
           <button onClick={()=>setShowMenu(!showMenu)} className="w-11 h-11 rounded-full flex items-center justify-center bg-white shadow-sm border">⋮</button>
-          {showMenu&&(
+          {showMenu && (
             <div className="absolute right-0 top-12 bg-white border rounded-2xl shadow-xl w-44 z-50 overflow-hidden">
               <button onClick={()=>{ setShowReport(true); setShowMenu(false); }} className="w-full text-left px-4 py-3.5 text-[13px] font-bold">🚩 Report User</button>
             </div>
@@ -252,11 +251,11 @@ export default function SellerProfile(){
 
       <div className="mx-3 mt-1 bg-[#111111] rounded-[32px] p-6 text-white">
         <div className="flex items-center gap-5">
-          <button onClick={()=>{ if(photoURL) setShowPic(true); }} className="w-[92px] h-[92px] rounded-full bg-white flex items-center justify-center font-black text-3xl overflow-hidden border-[3px] border-white/20">
-            {photoURL? <img src={photoURL} className="w-full h-full object-cover" alt=""/> : displayName?.[0]?.toUpperCase()}
+          <button onClick={()=>{ if(pURL) setShowPic(true); }} className="w-[92px] h-[92px] rounded-full bg-white flex items-center justify-center font-black text-3xl overflow-hidden border-[3px] border-white/20">
+            {pURL? <img src={pURL} className="w-full h-full object-cover" alt="" /> : dName?.[0]?.toUpperCase()}
           </button>
           <div className="flex-1 min-w-0">
-            <p className="font-black text-[22px] capitalize truncate">{displayName}</p>
+            <p className="font-black text-[22px] capitalize truncate">{dName}</p>
             <p className="text-[13px] text-white/60 mt-1.5">{posts.length} Ads</p>
           </div>
         </div>
@@ -277,7 +276,7 @@ export default function SellerProfile(){
         </div>
 
         <div className="bg-white rounded-[26px] p-4 border border-gray-100 shadow-sm">
-          <h2 className="font-black text-[16px] mb-3 flex items-center gap-2">{displayName} Ads <span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full">{posts.length}</span></h2>
+          <h2 className="font-black text-[16px] mb-3 flex items-center gap-2">{dName} Ads <span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full">{posts.length}</span></h2>
           <div className="flex flex-col gap-3">
             {posts.map((p:any)=>(
               <div key={p.id} className="bg-[#fafafa] border border-gray-100 rounded-[20px] p-2.5 flex gap-3 relative">
@@ -298,7 +297,7 @@ export default function SellerProfile(){
         </div>
       </div>
 
-      {commentPostId&&(
+      {commentPostId && (
         <div className="fixed inset-0 bg-black/50 z-[1500] flex flex-col justify-end sm:justify-center sm:items-center sm:p-6">
           <div className="bg-[#f5f5f5] w-full sm:max-w-[500px] h-[85vh] sm:h-[75vh] rounded-t-[24px] sm:rounded-[24px] flex flex-col overflow-hidden">
             <div className="bg-white p-4 flex items-center justify-between border-b">
@@ -306,7 +305,7 @@ export default function SellerProfile(){
               <button onClick={()=>{ setCommentPostId(null); setComments([]); setCommentText(""); }} className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center font-bold">✕</button>
             </div>
             <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 bg-[#f5f5f5]">
-              {loadingComments?<p className="text-center text-gray-400 mt-10">Loading...</p>:comments.length===0?<p className="text-center text-gray-400 mt-10 text-[13px]">Comment la awm lo</p>:comments.map((c:any)=>(
+              {loadingComments? <p className="text-center text-gray-400 mt-10">Loading...</p> : comments.length===0? <p className="text-center text-gray-400 mt-10 text-[13px]">Comment la awm lo</p> : comments.map((c:any)=>(
                 <div key={c.id} className="flex gap-2.5">
                   <img src={c.userPhoto||"/default-avatar.png"} className="w-9 h-9 rounded-full bg-gray-200 object-cover flex-shrink-0" alt=""/>
                   <div className="bg-white rounded-[18px] px-4 py-2.5 flex-1 shadow-sm">
@@ -321,15 +320,21 @@ export default function SellerProfile(){
               <div className="flex-1 bg-[#f0f0f0] rounded-full flex items-center px-4 py-1">
                 <input value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Comment ziak rawh..." className="flex-1 bg-transparent outline-none text-[14px] py-2.5"/>
               </div>
-              <button onClick={handleCommentSubmit} disabled={commenting||!commentText.trim()} className="bg-black text-white px-5 py-2.5 rounded-full font-bold text-[14px] disabled:opacity-40 active:scale-95 transition">Post</button>
+              <button onClick={submitComment} disabled={commenting||!commentText.trim()} className="bg-black text-white px-5 py-2.5 rounded-full font-bold text-[14px] disabled:opacity-40 active:scale-95 transition">Post</button>
             </div>
           </div>
         </div>
       )}
 
-      {showReport&&(
+      {showReport && (
         <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[22px] p-6 w-full max-w-[340px]">
-            <h3 className="font-black">Report {displayName}</h3>
+            <h3 className="font-black">Report {dName}</h3>
             <textarea value={reportMsg} onChange={e=>setReportMsg(e.target.value)} placeholder="Report chhan..." className="w-full mt-4 border-2 p-3 rounded-xl h-28"/>
-            {er
+            {errorMsg && <p className="text-red-500 text-[12px] mt-2">{errorMsg}</p>}
+            <div className="flex gap-2 mt-5">
+              <button onClick={()=>setShowReport(false)} className="flex-1 bg-gray-100 font-bold py-3 rounded-xl">Cancel</button>
+              <button onClick={doReport} disabled={reporting} className="flex-1 bg-black text-white font-bold py-3 rounded-xl">{reporting?"...":"Report"}</button>
+            </div>
+          </div>
+ 
