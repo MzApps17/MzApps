@@ -50,6 +50,9 @@ export default function SellerProfile(){
   const [posts,setPosts]=useState<any[]>([]);
   const [currentUser,setCurrentUser]=useState<any>(null);
   const [wished,setWished]=useState<Set<string>>(new Set());
+  const [liked,setLiked]=useState<Set<string>>(new Set());
+  const [likeCounts,setLikeCounts]=useState<Record<string,number>>({});
+  const [commentCounts,setCommentCounts]=useState<Record<string,number>>({});
   const [showMenu,setShowMenu]=useState(false);
   const [showReport,setShowReport]=useState(false);
   const [reportMsg,setReportMsg]=useState("");
@@ -86,7 +89,34 @@ export default function SellerProfile(){
       if(sellerData?.email) await tryQuery("userEmail", sellerData.email);
       if(sellerData?.email) await tryQuery("email", sellerData.email);
 
-      setPosts(Array.from(allMap.values()));
+      const allPosts = Array.from(allMap.values());
+      setPosts(allPosts);
+
+      // ✅ LIKE & COMMENT COUNT - HOME PAGE NEN INTHLUN ZAWM
+      const lCounts:Record<string,number>={};
+      const cCounts:Record<string,number>={};
+      const likedSet=new Set<string>();
+      for(const p of allPosts){
+        try{
+          const likeSnap=await getDocs(collection(db,"products",p.id,"likes"));
+          lCounts[p.id]=likeSnap.size;
+          if(auth.currentUser){
+            likeSnap.forEach(ld=>{ if(ld.id===auth.currentUser?.uid) likedSet.add(p.id); });
+          }
+          // product doc ah likeCount a awm chuan chu pawh la tel
+          if(p.likes?.length) lCounts[p.id]=p.likes.length;
+          if(p.likeCount) lCounts[p.id]=p.likeCount;
+          if(p.likesCount) lCounts[p.id]=p.likesCount;
+
+          const commentSnap=await getDocs(collection(db,"products",p.id,"comments"));
+          cCounts[p.id]=commentSnap.size;
+          if(p.commentCount) cCounts[p.id]=p.commentCount;
+          if(p.commentsCount) cCounts[p.id]=p.commentsCount;
+        }catch{}
+      }
+      setLikeCounts(lCounts);
+      setCommentCounts(cCounts);
+      setLiked(likedSet);
 
       if(auth.currentUser){
         const ws=await getDocs(collection(db,"users",auth.currentUser.uid,"wishlist"));
@@ -108,6 +138,22 @@ export default function SellerProfile(){
     }else{
       await setDoc(wishRef,{productId:pid, createdAt:serverTimestamp()});
       setWished(prev=>{ const n=new Set(prev); n.add(pid); return n; });
+    }
+  };
+
+  // ✅ LIKE - HOME PAGE NEN INTHLUN ZAWM
+  const toggleLike=async(e:any, pid:string)=>{
+    e.preventDefault(); e.stopPropagation();
+    if(!currentUser) return router.push("/login");
+    const likeRef=doc(db,"products",pid,"likes",currentUser.uid);
+    if(liked.has(pid)){
+      await deleteDoc(likeRef);
+      setLiked(prev=>{ const n=new Set(prev); n.delete(pid); return n; });
+      setLikeCounts(prev=>({...prev, [pid]: Math.max(0,(prev[pid]||1)-1)}));
+    }else{
+      await setDoc(likeRef,{userId:currentUser.uid, createdAt:serverTimestamp()});
+      setLiked(prev=>{ const n=new Set(prev); n.add(pid); return n; });
+      setLikeCounts(prev=>({...prev, [pid]: (prev[pid]||0)+1}));
     }
   };
 
@@ -138,7 +184,6 @@ export default function SellerProfile(){
 
   return (
     <main className="min-h-screen bg-[#f5f5f7] pb-24">
-      {/* HEADER */}
       <div className="flex items-center justify-between p-3 pt-4 bg-[#f5f5f7] sticky top-0 z-50">
         <button onClick={()=>{ if(window.history.length>1) router.back(); else router.push("/"); }} className="w-11 h-11 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
@@ -158,7 +203,6 @@ export default function SellerProfile(){
         </div>
       </div>
 
-      {/* PROFILE CARD - NALH TAK */}
       <div className="mx-3 mt-1 bg-[#111111] rounded-[32px] p-6 text-white relative overflow-hidden">
         <div className="absolute -top-16 -right-16 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
         <div className="flex items-center gap-5 relative z-10">
@@ -175,36 +219,29 @@ export default function SellerProfile(){
         </div>
       </div>
 
-      {/* ✅ PERSONAL INFO - ACCOUNT PAGE ANG KHAN */}
       <div className="p-3 flex flex-col gap-3">
         <div className="bg-white rounded-[26px] p-2 border border-gray-100 shadow-sm">
           <p className="text-[11px] font-black px-4 pt-2 pb-1 text-gray-400 tracking-widest">PERSONAL INFO</p>
-
           <div className="flex items-center gap-3 px-3 py-3.5">
             <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📧</div>
             <div className="flex-1 min-w-0"><p className="text-[11px] text-gray-400">Email</p><p className="text-[13px] font-bold truncate">{seller?.email || seller?.userEmail || "Private"}</p></div>
-            <span className="text-[10px] bg-green-50 text-green-600 px-2.5 py-1 rounded-full font-black">Verified</span>
           </div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
           <div className="flex items-center gap-3 px-3 py-3.5">
             <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📱</div>
             <div className="flex-1"><p className="text-[11px] text-gray-400">Phone</p><p className="text-[13px] font-bold">{seller?.phone || "Set ve loh"}</p></div>
           </div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
           <div className="flex items-center gap-3 px-3 py-3.5">
             <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📍</div>
             <div className="flex-1"><p className="text-[11px] text-gray-400">Khua / Location</p><p className="text-[13px] font-bold">{seller?.khua || seller?.village || seller?.location || "Aizawl, Mizoram"}</p></div>
           </div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
           <div className="flex items-center gap-3 px-3 py-3.5">
             <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">🎂</div>
             <div className="flex-1"><p className="text-[11px] text-gray-400">Date of Birth</p><p className="text-[13px] font-bold">{seller?.dob? new Date(seller.dob).toLocaleDateString('en-GB',{day:'2-digit', month:'short', year:'numeric'}) : "Set ve loh"}</p></div>
           </div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
           <div className="flex items-center gap-3 px-3 py-3.5">
             <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📦</div>
             <div className="flex-1"><p className="text-[11px] text-gray-400">Total Ads</p><p className="text-[13px] font-bold">{posts.length} Active Ads</p></div>
@@ -212,7 +249,7 @@ export default function SellerProfile(){
           </div>
         </div>
 
-        {/* ADS LIST - DESIGN THAR */}
+        {/* ADS - LIKE & COMMENT */}
         <div className="bg-white rounded-[26px] p-4 border border-gray-100 shadow-sm">
           <h2 className="font-black text-[16px] mb-3 flex items-center gap-2">{displayName} Ads <span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full">{posts.length}</span></h2>
 
@@ -225,13 +262,25 @@ export default function SellerProfile(){
                   <Link href={`/marketplace/${p.id}`} className="w-[108px] h-[108px] flex-shrink-0">
                     <img src={p.image || p.images?.[0]} className="w-full h-full object-cover rounded-[16px]"/>
                   </Link>
-                  <div className="flex-1 py-1 pr-12 min-w-0">
-                    <Link href={`/marketplace/${p.id}`}>
-                      <p className="font-bold text-[14px] leading-4 line-clamp-2">{p.title}</p>
-                      <p className="font-black text-[18px] mt-2">₹{Number(p.price).toLocaleString("en-IN")}</p>
-                      <p className="text-[11px] text-gray-500 mt-1.5 truncate">{p.village || p.location?.split(",")[0] || "Aizawl"} {p.district? `• ${p.district}`:""} • {p.category || "General"}</p>
-                      <p className="text-[10px] text-gray-400 font-bold mt-1">{timeAgo(p.createdAt)}</p>
-                    </Link>
+                  <div className="flex-1 py-1 pr-12 min-w-0 flex flex-col justify-between">
+                    <div>
+                      <Link href={`/marketplace/${p.id}`}>
+                        <p className="font-bold text-[14px] leading-4 line-clamp-2">{p.title}</p>
+                        <p className="font-black text-[18px] mt-2">₹{Number(p.price).toLocaleString("en-IN")}</p>
+                        <p className="text-[11px] text-gray-500 mt-1 truncate">{p.village || p.location?.split(",")[0] || "Aizawl"} • {timeAgo(p.createdAt)}</p>
+                      </Link>
+                    </div>
+                    {/* ✅ LIKE & COMMENT - HOME PAGE ANG */}
+                    <div className="flex items-center gap-3 mt-2">
+                      <button onClick={(e)=>toggleLike(e,p.id)} className="flex items-center gap-1.5 bg-white border border-gray-100 px-2.5 py-1 rounded-full shadow-sm active:scale-90 transition">
+                        <span className={`text-[14px] ${liked.has(p.id)? "" : "grayscale opacity-60"}`}>❤️</span>
+                        <span className="text-[12px] font-black">{likeCounts[p.id]||0}</span>
+                      </button>
+                      <Link href={`/marketplace/${p.id}`} className="flex items-center gap-1.5 bg-white border border-gray-100 px-2.5 py-1 rounded-full shadow-sm active:scale-90 transition">
+                        <span className="text-[14px]">💬</span>
+                        <span className="text-[12px] font-black">{commentCounts[p.id]||0}</span>
+                      </Link>
+                    </div>
                   </div>
                   <button onClick={(e)=>toggleWish(e,p.id)} className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 text-[18px] active:scale-90 transition">
                     {wished.has(p.id)? "❤️":"🤍"}
@@ -247,47 +296,38 @@ export default function SellerProfile(){
         <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[22px] p-6 w-full max-w-[340px] shadow-2xl">
             <h3 className="font-black text-[18px]">Report {displayName}</h3>
-            <p className="text-[12px] text-gray-400 mt-1">Eng vangin?</p>
             <textarea value={reportMsg} onChange={e=>setReportMsg(e.target.value)} placeholder="Report chhan ziak rawh..." className="w-full mt-4 border-2 border-gray-200 p-3 rounded-xl outline-none focus:border-black h-28 text-[14px] resize-none"/>
             {errorMsg && <p className="text-red-500 text-[12px] mt-2 font-bold">{errorMsg}</p>}
             <div className="flex gap-2 mt-5">
-              <button onClick={()=>{setShowReport(false); setErrorMsg("");}} className="flex-1 bg-gray-100 text-black font-bold py-3 rounded-xl">Cancel</button>
+              <button onClick={()=>{setShowReport(false); setErrorMsg("");}} className="flex-1 bg-gray-100 font-bold py-3 rounded-xl">Cancel</button>
               <button onClick={handleReport} disabled={reporting} className="flex-1 bg-black text-white font-bold py-3 rounded-xl">{reporting?"...":"Report"}</button>
             </div>
           </div>
         </div>
       )}
-
       {showSuccess && (
         <div className="fixed inset-0 bg-black/70 z-[1100] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[26px] p-7 w-full max-w-[340px] shadow-2xl text-center">
-            <div className="w-14 h-14 bg-black rounded-full flex items-center justify-center mx-auto">
-              <span className="text-white text-2xl">✓</span>
-            </div>
+            <div className="w-14 h-14 bg-black rounded-full flex items-center justify-center mx-auto"><span className="text-white text-2xl">✓</span></div>
             <h3 className="font-black text-[18px] mt-4">Report i thawn ta e</h3>
-            <p className="text-[13px] text-gray-500 mt-2 leading-5">Kan lo en ho ang a, a dik loh chuan action kan la ang.</p>
-            <button onClick={()=>setShowSuccess(false)} className="w-full bg-black text-white font-black py-3.5 rounded-xl mt-6 text-[15px]">OK</button>
+            <button onClick={()=>setShowSuccess(false)} className="w-full bg-black text-white font-black py-3.5 rounded-xl mt-6">OK</button>
           </div>
         </div>
       )}
-
       {showLoginAlert && (
         <div className="fixed inset-0 bg-black/60 z-[1200] flex items-center justify-center p-6 backdrop-blur-sm">
-          <div className="bg-white rounded-[20px] w-full max-w-[300px] p-6 shadow-2xl text-center">
-            <p className="font-bold text-[16px]">Login hmasa phawt rawh</p>
-            <button onClick={()=> setShowLoginAlert(false)} className="w-full mt-5 bg-black text-white font-black py-3 rounded-xl text-[14px]">OK</button>
+          <div className="bg-white rounded-[20px] w-full max-w-[300px] p-6 text-center">
+            <p className="font-bold">Login hmasa phawt rawh</p>
+            <button onClick={()=> setShowLoginAlert(false)} className="w-full mt-5 bg-black text-white font-black py-3 rounded-xl">OK</button>
           </div>
         </div>
       )}
-
       {showPic && (
         <div onClick={()=>setShowPic(false)} className="fixed inset-0 bg-black/90 z-[1300] flex items-center justify-center p-4">
           <img src={photoURL || ""} className="max-w-full max-h-[85vh] object-contain rounded-[22px]"/>
-          <button className="absolute top-5 right-5 w-10 h-10 bg-white/20 backdrop-blur rounded-full text-white font-black">✕</button>
         </div>
       )}
-
       {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
     </main>
   )
-}
+        }
