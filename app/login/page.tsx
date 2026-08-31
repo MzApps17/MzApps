@@ -93,7 +93,7 @@ export default function Login(){
         </button>
       </div>
 
-      <div className="flex-1 flex items-start justify-center p-4 pt-3">
+      <div className="flex-1 flex items-start justify-center p-4 pt-8">
         <form onSubmit={submit} className="bg-white w-full max-w-sm rounded-[28px] p-7 border shadow-sm">
           <p className="text-[15px] text-gray-500">{isSignup? "Please Signup to Continue" : "Please login to continue"}</p>
 
