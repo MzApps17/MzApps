@@ -5,6 +5,7 @@ import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc, addD
 import { db, auth } from "@/lib/firebase/config";
 import Link from "next/link";
 import { onAuthStateChanged } from "firebase/auth";
+import CommentPopup from "@/components/CommentPopup";
 
 function timeAgo(ts:any){
   if(!ts) return "";
@@ -335,40 +336,17 @@ export default function SellerProfile(){
       </div>
 
             {commentPostId && (
-        <div className="fixed inset-0 bg-black/50 z-[1500] flex flex-col justify-end sm:justify-center sm:items-center sm:p-6">
-          <div className="bg-[#f5f5f5] w-full sm:max-w-[500px] h-[85vh] sm:h-[75vh] rounded-t-[24px] sm:rounded-[24px] flex flex-col overflow-hidden">
-            <div className="bg-white p-4 flex items-center justify-between border-b">
-              <h3 className="font-black text-[18px]">{comments.length} Comments</h3>
-              <button onClick={()=>{ setCommentPostId(null); setComments([]); setCommentText(""); }} className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center font-bold">✕</button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 bg-[#f5f5f5]">
-              {loadingComments? <p className="text-center text-gray-400 mt-10">Loading...</p> : comments.length===0? <p className="text-center text-gray-400 mt-10 text-[13px]">Comment la awm lo</p> : comments.map((c:any)=>(
-                <div key={c.id} className="flex gap-2.5">
-                  <div className="w-9 h-9 rounded-full bg-white border shadow-sm flex items-center justify-center font-black text-[12px] flex-shrink-0 overflow-hidden">
-                    {c.userPhoto && c.userPhoto.startsWith('http')? (
-                      <img src={c.userPhoto} className="w-full h-full object-cover" alt="" onError={(e:any)=>{ e.currentTarget.style.display='none'; }} />
-                    ) : (
-                      <span>{(c.userName?.[0] || "U").toUpperCase()}</span>
-                    )}
-                  </div>
-                  <div className="bg-white rounded-[18px] px-4 py-2.5 flex-1 shadow-sm">
-                    <p className="font-black text-[13px]">{c.userName||"User"}</p>
-                    <p className="text-[14px] mt-0.5 leading-5">{c.text}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="bg-white p-3 border-t flex items-center gap-2">
-              <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center font-black overflow-hidden flex-shrink-0">
-                {currentUser?.photoURL? <img src={currentUser.photoURL} className="w-full h-full object-cover" alt="" /> : (currentUser?.displayName?.[0]?.toUpperCase() || currentUser?.email?.[0]?.toUpperCase() || "U")}
-              </div>
-              <div className="flex-1 bg-[#f0f0f0] rounded-full flex items-center px-4 py-1">
-                <input value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Comment ziak rawh..." className="flex-1 bg-transparent outline-none text-[14px] py-2.5" />
-              </div>
-              <button onClick={submitComment} disabled={commenting||!commentText.trim()} className="bg-black text-white px-5 py-2.5 rounded-full font-bold text-[14px] disabled:opacity-40">Post</button>
-            </div>
-          </div>
-        </div>
+        <CommentPopup
+          postId={commentPostId}
+          currentUser={currentUser}
+          comments={comments}
+          loadingComments={loadingComments}
+          commentText={commentText}
+          setCommentText={setCommentText}
+          commenting={commenting}
+          onClose={() => { setCommentPostId(null); setComments([]); setCommentText(""); }}
+          onSubmit={submitComment}
+        />
       )}
 
       {showReport && (
