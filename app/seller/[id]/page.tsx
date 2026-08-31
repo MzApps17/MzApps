@@ -12,27 +12,25 @@ function timeAgo(ts:any){
     const d = ts.toDate? ts.toDate() : new Date(ts.seconds? ts.seconds*1000 : ts);
     const diff = Math.floor((Date.now() - d.getTime())/1000);
     if(diff < 60) return "just now";
-    if(diff < 3600) return `${Math.floor(diff/60)}m ago`;
-    if(diff < 86400) return `${Math.floor(diff/3600)} hrs ago`;
+    if(diff < 3600) return Math.floor(diff/60)+"m ago";
+    if(diff < 86400) return Math.floor(diff/3600)+" hrs ago";
     if(diff < 172800) return "yesterday";
-    if(diff < 604800) return `${Math.floor(diff/86400)}d ago`;
+    if(diff < 604800) return Math.floor(diff/86400)+"d ago";
     return d.toLocaleDateString();
   }catch{ return ""; }
 }
-function getDisplayName(seller:any, fallbackPost:any=null){
-  if(seller?.displayName?.trim()) return seller.displayName.trim();
-  if(seller?.fullName?.trim()) return seller.fullName.trim();
-  if(seller?.name?.trim()) return seller.name.trim();
-  if(seller?.userName?.trim()) return seller.userName.trim();
-  if(seller?.username?.trim()) return seller.username.trim();
+function getDisplayName(seller:any, fallbackPost:any){
+  if(seller?.displayName && seller.displayName.trim()!=="") return seller.displayName.trim();
+  if(seller?.fullName && seller.fullName.trim()!=="") return seller.fullName.trim();
+  if(seller?.name && seller.name.trim()!=="") return seller.name.trim();
+  if(seller?.userName && seller.userName.trim()!=="") return seller.userName.trim();
+  if(seller?.username && seller.username.trim()!=="") return seller.username.trim();
   if(seller?.email) return seller.email.split('@')[0];
   if(seller?.userEmail) return seller.userEmail.split('@')[0];
   if(fallbackPost){
     if(fallbackPost.sellerName) return fallbackPost.sellerName;
     if(fallbackPost.userName) return fallbackPost.userName;
     if(fallbackPost.displayName) return fallbackPost.displayName;
-    if(fallbackPost.userEmail) return fallbackPost.userEmail.split('@')[0];
-    if(fallbackPost.email) return fallbackPost.email.split('@')[0];
   }
   return "Mizo User";
 }
@@ -40,17 +38,10 @@ function getPhotoURL(seller:any){
   if(!seller) return null;
   return seller.photoURL || seller.profilePic || seller.avatar || seller.image || seller.profileImage || seller.photo || null;
 }
-function getLikeCount(ad:any){
-  if(Array.isArray(ad.likes)) return ad.likes.length;
-  if(Array.isArray(ad.likedBy)) return ad.likedBy.length;
-  if(typeof ad.likeCount==='number') return ad.likeCount;
-  if(typeof ad.likesCount==='number') return ad.likesCount;
-  if(typeof ad.likes==='number') return ad.likes;
-  return 0;
-}
 
 export default function SellerProfile(){
-  const {id}=useParams();
+  const params = useParams();
+  const id = params.id as string;
   const router=useRouter();
   const [seller,setSeller]=useState<any>(null);
   const [posts,setPosts]=useState<any[]>([]);
@@ -78,31 +69,32 @@ export default function SellerProfile(){
   },[]);
 
   useEffect(()=>{
-    const fetchComments=async()=>{
+    const fetchC=async()=>{
       if(!commentPostId) return;
       setLoadingComments(true);
       try{
         const q=query(collection(db,"products",commentPostId,"comments"), orderBy("createdAt","asc"));
         const snap=await getDocs(q);
         const list:any[]=[];
-        snap.forEach(d=>list.push({id:d.id,...d.data()}));
+        snap.forEach(d=>{ list.push({id:d.id,...d.data()}); });
         setComments(list);
       }catch{
         try{
           const snap=await getDocs(collection(db,"products",commentPostId,"comments"));
           const list:any[]=[];
-          snap.forEach(d=>list.push({id:d.id,...d.data()}));
+          snap.forEach(d=>{ list.push({id:d.id,...d.data()}); });
           setComments(list);
         }catch{ setComments([]); }
       }
       setLoadingComments(false);
     };
-    fetchComments();
+    fetchC();
   },[commentPostId]);
 
   useEffect(()=>{
     const load=async()=>{
-      const sSnap=await getDoc(doc(db,"users",id as string));
+      if(!id) return;
+      const sSnap=await getDoc(doc(db,"users",id));
       let sellerData:any=null;
       if(sSnap.exists()){ sellerData=sSnap.data(); setSeller(sellerData); }
       let allMap=new Map();
@@ -111,7 +103,7 @@ export default function SellerProfile(){
         try{
           const q=query(collection(db,"products"), where(field,"==",value));
           const snap=await getDocs(q);
-          snap.docs.forEach(d=>allMap.set(d.id,{id:d.id,...d.data()}));
+          snap.docs.forEach(d=>{ allMap.set(d.id,{id:d.id,...d.data()}); });
         }catch{}
       };
       await tryQuery("userId",id);
@@ -129,8 +121,14 @@ export default function SellerProfile(){
         try{
           const freshSnap=await getDoc(doc(db,"products",p.id));
           const freshData=freshSnap.exists()? freshSnap.data() as any : p;
-          let lc=getLikeCount(freshData);
-          if(lc===0){ try{ const ls=await getDocs(collection(db,"products",p.id,"likes")); lc=ls.size; }catch{} }
+          let lc=0;
+          if(typeof freshData.likeCount==='number') lc=freshData.likeCount;
+          else if(typeof freshData.likesCount==='number') lc=freshData.likesCount;
+          else if(Array.isArray(freshData.likes)) lc=freshData.likes.length;
+          else if(Array.isArray(freshData.likedBy)) lc=freshData.likedBy.length;
+          else{
+            try{ const ls=await getDocs(collection(db,"products",p.id,"likes")); lc=ls.size; }catch{}
+          }
           if(auth.currentUser){
             const uid=auth.currentUser.uid;
             if(Array.isArray(freshData.likes)&&freshData.likes.includes(uid)) likedSet.add(p.id);
@@ -138,8 +136,12 @@ export default function SellerProfile(){
             try{ const ld=await getDoc(doc(db,"products",p.id,"likes",uid)); if(ld.exists()) likedSet.add(p.id); }catch{}
           }
           lCounts[p.id]=lc;
-          let cc=typeof freshData.commentCount==='number'?freshData.commentCount: typeof freshData.commentsCount==='number'?freshData.commentsCount:0;
-          if(cc===0){ try{ const cs=await getDocs(collection(db,"products",p.id,"comments")); cc=cs.size; }catch{} }
+          let cc=0;
+          if(typeof freshData.commentCount==='number') cc=freshData.commentCount;
+          else if(typeof freshData.commentsCount==='number') cc=freshData.commentsCount;
+          else{
+            try{ const cs=await getDocs(collection(db,"products",p.id,"comments")); cc=cs.size; }catch{}
+          }
           cCounts[p.id]=cc;
         }catch{}
       }
@@ -153,7 +155,7 @@ export default function SellerProfile(){
         setWished(s);
       }
     };
-    if(id) load();
+    load();
   },[id,currentUser]);
 
   const toggleWish=async(e:any,pid:string)=>{
@@ -178,29 +180,40 @@ export default function SellerProfile(){
     const likeRef=doc(db,"products",pid,"likes",u.uid);
     if(liked.has(pid)){
       setLiked(prev=>{ const n=new Set(prev); n.delete(pid); return n; });
-      setLikeCounts(prev=>({...prev,[pid]:Math.max(0,(prev[pid]||1)-1)}));
+      setLikeCounts(prev=>{ const c={...prev}; c[pid]=Math.max(0,(c[pid]||1)-1); return c; });
       try{ await deleteDoc(likeRef); await updateDoc(prodRef,{likes:arrayRemove(u.uid),likedBy:arrayRemove(u.uid),likeCount:increment(-1),likesCount:increment(-1)}); }catch{}
     }else{
       setLiked(prev=>{ const n=new Set(prev); n.add(pid); return n; });
-      setLikeCounts(prev=>({...prev,[pid]:(prev[pid]||0)+1}));
-      try{ await setDoc(likeRef,{userId:u.uid,createdAt:serverTimestamp()}); await updateDoc(prodRef,{likes:arrayUnion(u.uid),likedBy:arrayUnion(u.uid),likeCount:increment(1),likesCount:increment(1)}); }catch{ try{ await setDoc(prodRef,{likes:arrayUnion(u.uid),likeCount:increment(1)}, {merge:true}); }catch{} }
+      setLikeCounts(prev=>{ const c={...prev}; c[pid]=(c[pid]||0)+1; return c; });
+      try{ await setDoc(likeRef,{userId:u.uid,createdAt:serverTimestamp()}); await updateDoc(prodRef,{likes:arrayUnion(u.uid),likedBy:arrayUnion(u.uid),likeCount:increment(1),likesCount:increment(1)}); }catch{
+        try{ await setDoc(prodRef,{likes:arrayUnion(u.uid),likeCount:increment(1)}, {merge:true}); }catch{}
+      }
     }
   };
 
   const handleCommentSubmit=async()=>{
-    if(!commentPostId||!commentText.trim()) return;
+    if(!commentPostId) return;
+    if(!commentText.trim()) return;
     const u=auth.currentUser||currentUser;
     if(!u){ router.push("/login"); return; }
     setCommenting(true);
     try{
       await addDoc(collection(db,"products",commentPostId,"comments"),{text:commentText.trim(),userId:u.uid,userName:u.displayName||u.email?.split('@')[0]||"User",userPhoto:u.photoURL||"",createdAt:serverTimestamp()});
       await updateDoc(doc(db,"products",commentPostId),{commentCount:increment(1),commentsCount:increment(1)});
-      setCommentCounts(prev=>({...prev,[commentPostId]:(prev[commentPostId]||0)+1}));
+      setCommentCounts(prev=>{ const c={...prev}; c[commentPostId]=(c[commentPostId]||0)+1; return c; });
       setCommentText("");
-      const snap=await getDocs(query(collection(db,"products",commentPostId,"comments"),orderBy("createdAt","asc"))).catch(async()=>await getDocs(collection(db,"products",commentPostId,"comments"))));
-      const list:any[]=[];
-      snap.forEach(d=>list.push({id:d.id,...d.data()}));
-      setComments(list);
+      try{
+        const q=query(collection(db,"products",commentPostId,"comments"), orderBy("createdAt","asc"));
+        const snap=await getDocs(q);
+        const list:any[]=[];
+        snap.forEach(d=>{ list.push({id:d.id,...d.data()}); });
+        setComments(list);
+      }catch{
+        const snap=await getDocs(collection(db,"products",commentPostId,"comments"));
+        const list:any[]=[];
+        snap.forEach(d=>{ list.push({id:d.id,...d.data()}); });
+        setComments(list);
+      }
     }catch{} finally{ setCommenting(false); }
   };
 
@@ -215,7 +228,9 @@ export default function SellerProfile(){
     }catch(e:any){ setErrorMsg(e.message); } finally{ setReporting(false); }
   };
 
-  if(!seller&&posts.length===0) return <div className="p-10 text-center font-black">Loading...</div>;
+  if(!seller&&posts.length===0){
+    return <div className="p-10 text-center font-black">Loading...</div>;
+  }
 
   const firstPost=posts.length>0?posts[0]:null;
   const displayName=getDisplayName(seller,firstPost);
@@ -227,14 +242,23 @@ export default function SellerProfile(){
         <button onClick={()=>{ if(window.history.length>1) router.back(); else router.push("/"); }} className="w-11 h-11 bg-white rounded-full flex items-center justify-center shadow-sm border">←</button>
         <div className="relative">
           <button onClick={()=>setShowMenu(!showMenu)} className="w-11 h-11 rounded-full flex items-center justify-center bg-white shadow-sm border">⋮</button>
-          {showMenu&&(<div className="absolute right-0 top-12 bg-white border rounded-2xl shadow-xl w-44 z-50 overflow-hidden"><button onClick={()=>{ if(!currentUser){ setShowMenu(false); return; } setShowReport(true); setShowMenu(false); }} className="w-full text-left px-4 py-3.5 text-[13px] font-bold">🚩 Report User</button></div>)}
+          {showMenu&&(
+            <div className="absolute right-0 top-12 bg-white border rounded-2xl shadow-xl w-44 z-50 overflow-hidden">
+              <button onClick={()=>{ setShowReport(true); setShowMenu(false); }} className="w-full text-left px-4 py-3.5 text-[13px] font-bold">🚩 Report User</button>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="mx-3 mt-1 bg-[#111111] rounded-[32px] p-6 text-white">
         <div className="flex items-center gap-5">
-          <button onClick={()=>photoURL&&setShowPic(true)} className="w-[92px] h-[92px] rounded-full bg-white flex items-center justify-center font-black text-3xl overflow-hidden border-[3px] border-white/20">{photoURL?<img src={photoURL} className="w-full h-full object-cover"/>:displayName?.[0]?.toUpperCase()}</button>
-          <div className="flex-1 min-w-0"><p className="font-black text-[22px] capitalize truncate">{displayName}</p><p className="text-[13px] text-white/60 mt-1.5">{posts.length} Ads</p></div>
+          <button onClick={()=>{ if(photoURL) setShowPic(true); }} className="w-[92px] h-[92px] rounded-full bg-white flex items-center justify-center font-black text-3xl overflow-hidden border-[3px] border-white/20">
+            {photoURL?<img src={photoURL} className="w-full h-full object-cover" alt=""/>:displayName?.[0]?.toUpperCase()}
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="font-black text-[22px] capitalize truncate">{displayName}</p>
+            <p className="text-[13px] text-white/60 mt-1.5">{posts.length} Ads</p>
+          </div>
         </div>
       </div>
 
@@ -257,11 +281,13 @@ export default function SellerProfile(){
           <div className="flex flex-col gap-3">
             {posts.map((p:any)=>(
               <div key={p.id} className="bg-[#fafafa] border border-gray-100 rounded-[20px] p-2.5 flex gap-3 relative">
-                <Link href={`/marketplace/${p.id}`} className="w-[108px] h-[108px] flex-shrink-0"><img src={p.image||p.images?.[0]} className="w-full h-full object-cover rounded-[16px]"/></Link>
+                <Link href={`/marketplace/${p.id}`} className="w-[108px] h-[108px] flex-shrink-0"><img src={p.image||p.images?.[0]} className="w-full h-full object-cover rounded-[16px]" alt=""/></Link>
                 <div className="flex-1 min-w-0 flex flex-col justify-between">
-                  <div><Link href={`/marketplace/${p.id}`}><p className="font-bold text-[14px] line-clamp-2">{p.title}</p><p className="font-black text-[18px] mt-2">₹{Number(p.price).toLocaleString("en-IN")}</p><p className="text-[11px] text-gray-500 mt-1 truncate">{p.village||p.location?.split(",")[0]||"Aizawl"} • {timeAgo(p.createdAt)}</p></Link></div>
+                  <div>
+                    <Link href={`/marketplace/${p.id}`}><p className="font-bold text-[14px] line-clamp-2">{p.title}</p><p className="font-black text-[18px] mt-2">₹{Number(p.price).toLocaleString("en-IN")}</p><p className="text-[11px] text-gray-500 mt-1 truncate">{p.village||p.location?.split(",")[0]||"Aizawl"} • {timeAgo(p.createdAt)}</p></Link>
+                  </div>
                   <div className="flex items-center gap-2.5 mt-2.5">
-                    <button type="button" onClick={(e)=>toggleLike(e,p.id)} className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full shadow-sm border-2 active:scale-90 transition ${liked.has(p.id)?"bg-black text-white border-black":"bg-white border-gray-200"}`}><span>{liked.has(p.id)?"❤️":"🤍"}</span><span className="text-[13px] font-black">{likeCounts[p.id]??getLikeCount(p)}</span></button>
+                    <button type="button" onClick={(e)=>toggleLike(e,p.id)} className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full shadow-sm border-2 active:scale-90 transition ${liked.has(p.id)?"bg-black text-white border-black":"bg-white border-gray-200"}`}><span>{liked.has(p.id)?"❤️":"🤍"}</span><span className="text-[13px] font-black">{likeCounts[p.id]??0}</span></button>
                     <button type="button" onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setCommentPostId(p.id); }} className="flex items-center gap-1.5 bg-white border-2 border-gray-200 px-3.5 py-1.5 rounded-full shadow-sm active:scale-90 transition"><span>💬</span><span className="text-[13px] font-black">{commentCounts[p.id]??0}</span></button>
                   </div>
                 </div>
@@ -274,7 +300,7 @@ export default function SellerProfile(){
 
       {commentPostId&&(
         <div className="fixed inset-0 bg-black/50 z-[1500] flex flex-col justify-end sm:justify-center sm:items-center sm:p-6">
-          <div className="bg-[#f5f5f5] sm:bg-white w-full sm:max-w-[500px] h-[85vh] sm:h-[75vh] rounded-t-[24px] sm:rounded-[24px] flex flex-col overflow-hidden">
+          <div className="bg-[#f5f5f5] w-full sm:max-w-[500px] h-[85vh] sm:h-[75vh] rounded-t-[24px] sm:rounded-[24px] flex flex-col overflow-hidden">
             <div className="bg-white p-4 flex items-center justify-between border-b">
               <h3 className="font-black text-[18px]">{commentCounts[commentPostId]||comments.length} Comments</h3>
               <button onClick={()=>{ setCommentPostId(null); setComments([]); setCommentText(""); }} className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center font-bold">✕</button>
@@ -282,7 +308,7 @@ export default function SellerProfile(){
             <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 bg-[#f5f5f5]">
               {loadingComments?<p className="text-center text-gray-400 mt-10">Loading...</p>:comments.length===0?<p className="text-center text-gray-400 mt-10 text-[13px]">Comment la awm lo</p>:comments.map((c:any)=>(
                 <div key={c.id} className="flex gap-2.5">
-                  <img src={c.userPhoto||"/default-avatar.png"} className="w-9 h-9 rounded-full bg-gray-200 object-cover flex-shrink-0"/>
+                  <img src={c.userPhoto||"/default-avatar.png"} className="w-9 h-9 rounded-full bg-gray-200 object-cover flex-shrink-0" alt=""/>
                   <div className="bg-white rounded-[18px] px-4 py-2.5 flex-1 shadow-sm">
                     <p className="font-black text-[13px]">{c.userName||"User"}</p>
                     <p className="text-[14px] mt-0.5 leading-5">{c.text}</p>
@@ -291,7 +317,7 @@ export default function SellerProfile(){
               ))}
             </div>
             <div className="bg-white p-3 border-t flex items-center gap-2">
-              <img src={currentUser?.photoURL||"/default-avatar.png"} className="w-9 h-9 rounded-full bg-gray-200 object-cover"/>
+              <img src={currentUser?.photoURL||"/default-avatar.png"} className="w-9 h-9 rounded-full bg-gray-200 object-cover" alt=""/>
               <div className="flex-1 bg-[#f0f0f0] rounded-full flex items-center px-4 py-1">
                 <input value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Comment ziak rawh..." className="flex-1 bg-transparent outline-none text-[14px] py-2.5"/>
               </div>
@@ -301,5 +327,10 @@ export default function SellerProfile(){
         </div>
       )}
 
-      {showReport&&(<div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm"><div className="bg-white rounded-[22px] p-6 w-full max-w-[340px]"><h3 className="font-black">Report {displayName}</h3><textarea value={reportMsg} onChange={e=>setReportMsg(e.target.value)} placeholder="Report chhan..." className="w-full mt-4 border-2 p-3 rounded-xl h-28"/>{errorMsg&&<p className="text-red-500 text-[12px] mt-2">{errorMsg}</p>}<div className="flex gap-2 mt-5"><button onClick={()=>setShowReport(false)} className="flex-1 bg-gray-100 font-bold py-3 rounded-xl">Cancel</button><button onClick={handleReport} disabled={reporting} className="flex-1 bg-black text-white font-bold py-3 rounded-xl">{reporting?"...":"Report"}</button></div></div></div>)}
-      {showSuccess&&(<div className="fixed inset-0 bg-black/70 z-[1100] flex items-center justify-center p-6"><div className="bg-white rounded-[26px] p-7 w-full max-w-[340px] text-center"><h3 className="font-b
+      {showReport&&(
+        <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
+          <div className="bg-white rounded-[22px] p-6 w-full max-w-[340px]">
+            <h3 className="font-black">Report {displayName}</h3>
+            <textarea value={reportMsg} onChange={e=>setReportMsg(e.target.value)} placeholder="Report chhan..." className="w-full mt-4 border-2 p-3 rounded-xl h-28"/>
+            {errorMsg&&<p className="text-red-500 text-[12px] mt-2">{errorMsg}</p>}
+            <div classN
