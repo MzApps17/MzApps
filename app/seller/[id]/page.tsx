@@ -42,45 +42,45 @@ function getPhotoURL(seller:any){
 export default function SellerProfile(){
   const params = useParams();
   const id = params.id as string;
-  const router=useRouter();
-  const [seller,setSeller]=useState<any>(null);
-  const [posts,setPosts]=useState<any[]>([]);
-  const [currentUser,setCurrentUser]=useState<any>(null);
-  const [wished,setWished]=useState<Set<string>>(new Set());
-  const [liked,setLiked]=useState<Set<string>>(new Set());
-  const [likeCounts,setLikeCounts]=useState<Record<string,number>>({});
-  const [commentCounts,setCommentCounts]=useState<Record<string,number>>({});
-  const [showMenu,setShowMenu]=useState(false);
-  const [showReport,setShowReport]=useState(false);
-  const [reportMsg,setReportMsg]=useState("");
-  const [reporting,setReporting]=useState(false);
-  const [showSuccess,setShowSuccess]=useState(false);
-  const [errorMsg,setErrorMsg]=useState("");
-  const [showPic,setShowPic]=useState(false);
-  const [commentPostId,setCommentPostId]=useState<string|null>(null);
-  const [comments,setComments]=useState<any[]>([]);
-  const [commentText,setCommentText]=useState("");
-  const [commenting,setCommenting]=useState(false);
-  const [loadingComments,setLoadingComments]=useState(false);
+  const router = useRouter();
+  const [seller,setSeller] = useState<any>(null);
+  const [posts,setPosts] = useState<any[]>([]);
+  const [currentUser,setCurrentUser] = useState<any>(null);
+  const [wished,setWished] = useState<Set<string>>(new Set());
+  const [liked,setLiked] = useState<Set<string>>(new Set());
+  const [likeCounts,setLikeCounts] = useState<Record<string,number>>({});
+  const [commentCounts,setCommentCounts] = useState<Record<string,number>>({});
+  const [showMenu,setShowMenu] = useState(false);
+  const [showReport,setShowReport] = useState(false);
+  const [reportMsg,setReportMsg] = useState("");
+  const [reporting,setReporting] = useState(false);
+  const [showSuccess,setShowSuccess] = useState(false);
+  const [errorMsg,setErrorMsg] = useState("");
+  const [showPic,setShowPic] = useState(false);
+  const [commentPostId,setCommentPostId] = useState<string|null>(null);
+  const [comments,setComments] = useState<any[]>([]);
+  const [commentText,setCommentText] = useState("");
+  const [commenting,setCommenting] = useState(false);
+  const [loadingComments,setLoadingComments] = useState(false);
 
   useEffect(()=>{
-    const unsub=onAuthStateChanged(auth,(u)=>setCurrentUser(u));
+    const unsub = onAuthStateChanged(auth,(u)=>setCurrentUser(u));
     return ()=>unsub();
   },[]);
 
   useEffect(()=>{
-    const fetchC=async()=>{
+    const run = async()=>{
       if(!commentPostId) return;
       setLoadingComments(true);
       try{
-        const q=query(collection(db,"products",commentPostId,"comments"), orderBy("createdAt","asc"));
-        const snap=await getDocs(q);
+        const q = query(collection(db,"products",commentPostId,"comments"), orderBy("createdAt","asc"));
+        const snap = await getDocs(q);
         const list:any[]=[];
         snap.forEach(d=>{ list.push({id:d.id,...d.data()}); });
         setComments(list);
       }catch{
         try{
-          const snap=await getDocs(collection(db,"products",commentPostId,"comments"));
+          const snap = await getDocs(collection(db,"products",commentPostId,"comments"));
           const list:any[]=[];
           snap.forEach(d=>{ list.push({id:d.id,...d.data()}); });
           setComments(list);
@@ -88,21 +88,21 @@ export default function SellerProfile(){
       }
       setLoadingComments(false);
     };
-    fetchC();
+    run();
   },[commentPostId]);
 
   useEffect(()=>{
-    const load=async()=>{
+    const load = async()=>{
       if(!id) return;
-      const sSnap=await getDoc(doc(db,"users",id));
+      const sSnap = await getDoc(doc(db,"users",id));
       let sellerData:any=null;
       if(sSnap.exists()){ sellerData=sSnap.data(); setSeller(sellerData); }
-      let allMap=new Map();
-      const tryQuery=async(field:string,value:any)=>{
+      const allMap = new Map();
+      const tryQuery = async(field:string,value:any)=>{
         if(!value) return;
         try{
-          const q=query(collection(db,"products"), where(field,"==",value));
-          const snap=await getDocs(q);
+          const q = query(collection(db,"products"), where(field,"==",value));
+          const snap = await getDocs(q);
           snap.docs.forEach(d=>{ allMap.set(d.id,{id:d.id,...d.data()}); });
         }catch{}
       };
@@ -112,16 +112,16 @@ export default function SellerProfile(){
       await tryQuery("sellerId",id);
       if(sellerData?.email) await tryQuery("userEmail",sellerData.email);
       if(sellerData?.email) await tryQuery("email",sellerData.email);
-      const allPosts=Array.from(allMap.values());
+      const allPosts = Array.from(allMap.values());
       setPosts(allPosts);
       const lCounts:Record<string,number>={};
       const cCounts:Record<string,number>={};
-      const likedSet=new Set<string>();
+      const likedSet = new Set<string>();
       for(const p of allPosts){
         try{
-          const freshSnap=await getDoc(doc(db,"products",p.id));
-          const freshData=freshSnap.exists()? freshSnap.data() as any : p;
-          let lc=0;
+          const freshSnap = await getDoc(doc(db,"products",p.id));
+          const freshData = freshSnap.exists()? freshSnap.data() as any : p;
+          let lc = 0;
           if(typeof freshData.likeCount==='number') lc=freshData.likeCount;
           else if(typeof freshData.likesCount==='number') lc=freshData.likesCount;
           else if(Array.isArray(freshData.likes)) lc=freshData.likes.length;
@@ -130,7 +130,7 @@ export default function SellerProfile(){
             try{ const ls=await getDocs(collection(db,"products",p.id,"likes")); lc=ls.size; }catch{}
           }
           if(auth.currentUser){
-            const uid=auth.currentUser.uid;
+            const uid = auth.currentUser.uid;
             if(Array.isArray(freshData.likes)&&freshData.likes.includes(uid)) likedSet.add(p.id);
             if(Array.isArray(freshData.likedBy)&&freshData.likedBy.includes(uid)) likedSet.add(p.id);
             try{ const ld=await getDoc(doc(db,"products",p.id,"likes",uid)); if(ld.exists()) likedSet.add(p.id); }catch{}
@@ -158,7 +158,7 @@ export default function SellerProfile(){
     load();
   },[id,currentUser]);
 
-  const toggleWish=async(e:any,pid:string)=>{
+  const toggleWish = async(e:any,pid:string)=>{
     e.preventDefault(); e.stopPropagation();
     const u=auth.currentUser||currentUser;
     if(!u){ router.push("/login"); return; }
@@ -172,7 +172,7 @@ export default function SellerProfile(){
     }
   };
 
-  const toggleLike=async(e:any,pid:string)=>{
+  const toggleLike = async(e:any,pid:string)=>{
     e.preventDefault(); e.stopPropagation();
     const u=auth.currentUser||currentUser;
     if(!u){ router.push("/login"); return; }
@@ -191,7 +191,7 @@ export default function SellerProfile(){
     }
   };
 
-  const handleCommentSubmit=async()=>{
+  const handleCommentSubmit = async()=>{
     if(!commentPostId) return;
     if(!commentText.trim()) return;
     const u=auth.currentUser||currentUser;
@@ -217,7 +217,7 @@ export default function SellerProfile(){
     }catch{} finally{ setCommenting(false); }
   };
 
-  const handleReport=async()=>{
+  const handleReport = async()=>{
     if(!reportMsg.trim()){ setErrorMsg("Chhan ziak rawh"); return; }
     setReporting(true);
     try{
@@ -228,13 +228,13 @@ export default function SellerProfile(){
     }catch(e:any){ setErrorMsg(e.message); } finally{ setReporting(false); }
   };
 
-  if(!seller&&posts.length===0){
+  if(!seller && posts.length===0){
     return <div className="p-10 text-center font-black">Loading...</div>;
   }
 
-  const firstPost=posts.length>0?posts[0]:null;
-  const displayName=getDisplayName(seller,firstPost);
-  const photoURL=getPhotoURL(seller);
+  const firstPost = posts.length>0? posts[0] : null;
+  const displayName = getDisplayName(seller,firstPost);
+  const photoURL = getPhotoURL(seller);
 
   return (
     <main className="min-h-screen bg-[#f5f5f7] pb-24">
@@ -253,7 +253,7 @@ export default function SellerProfile(){
       <div className="mx-3 mt-1 bg-[#111111] rounded-[32px] p-6 text-white">
         <div className="flex items-center gap-5">
           <button onClick={()=>{ if(photoURL) setShowPic(true); }} className="w-[92px] h-[92px] rounded-full bg-white flex items-center justify-center font-black text-3xl overflow-hidden border-[3px] border-white/20">
-            {photoURL?<img src={photoURL} className="w-full h-full object-cover" alt=""/>:displayName?.[0]?.toUpperCase()}
+            {photoURL? <img src={photoURL} className="w-full h-full object-cover" alt=""/> : displayName?.[0]?.toUpperCase()}
           </button>
           <div className="flex-1 min-w-0">
             <p className="font-black text-[22px] capitalize truncate">{displayName}</p>
@@ -332,5 +332,4 @@ export default function SellerProfile(){
           <div className="bg-white rounded-[22px] p-6 w-full max-w-[340px]">
             <h3 className="font-black">Report {displayName}</h3>
             <textarea value={reportMsg} onChange={e=>setReportMsg(e.target.value)} placeholder="Report chhan..." className="w-full mt-4 border-2 p-3 rounded-xl h-28"/>
-            {errorMsg&&<p className="text-red-500 text-[12px] mt-2">{errorMsg}</p>}
-            <div classN
+            {er
