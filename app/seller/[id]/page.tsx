@@ -20,15 +20,21 @@ function timeAgo(ts:any){
   }catch{ return ""; }
 }
 
-// ✅ I DUH DAN CHIAH - Email atanga hming lak chhuahna
-function getDisplayName(seller:any){
-  if(!seller) return "Mizo User";
-  // 1. An thlak tawh chuan an thlak ang kha
-  if(seller.displayName && seller.displayName.trim()!== "") return seller.displayName;
-  if(seller.fullName && seller.fullName.trim()!== "") return seller.fullName;
-  if(seller.name && seller.name.trim()!== "") return seller.name;
-  // 2. An thlak loh chuan Email atangin
-  if(seller.email) return seller.email.split('@')[0];
+// ✅ FINAL - Email + Post atangin hming la chhuak tu
+function getDisplayName(seller:any, fallbackPost:any = null){
+  if(seller?.displayName && seller.displayName.trim()!=="") return seller.displayName;
+  if(seller?.fullName && seller.fullName.trim()!=="") return seller.fullName;
+  if(seller?.name && seller.name.trim()!=="") return seller.name;
+  if(seller?.email) return seller.email.split('@')[0];
+  if(seller?.userEmail) return seller.userEmail.split('@')[0];
+
+  if(fallbackPost){
+    if(fallbackPost.sellerName) return fallbackPost.sellerName;
+    if(fallbackPost.userName) return fallbackPost.userName;
+    if(fallbackPost.displayName) return fallbackPost.displayName;
+    if(fallbackPost.userEmail) return fallbackPost.userEmail.split('@')[0];
+    if(fallbackPost.email) return fallbackPost.email.split('@')[0];
+  }
   return "Mizo User";
 }
 
@@ -104,11 +110,13 @@ export default function SellerProfile(){
     if(!reportMsg.trim()){ setErrorMsg("Chhan ziak rawh"); return; }
     setReporting(true);
     try{
+      const firstPost = posts.length > 0? posts[0] : null;
+      const nameForReport = getDisplayName(seller, firstPost);
       await addDoc(collection(db,"reports"),{
         reportedUserId:id,
         reporterId: currentUser?.uid || "anonymous",
         message: reportMsg.trim(),
-        sellerName: getDisplayName(seller) || "",
+        sellerName: nameForReport || "",
         createdAt: serverTimestamp()
       });
       setShowReport(false); setReportMsg(""); setShowMenu(false);
@@ -117,9 +125,10 @@ export default function SellerProfile(){
     finally{ setReporting(false); }
   };
 
-  if(!seller) return <div className="p-10 text-center font-black">Loading...</div>;
+  if(!seller && posts.length===0) return <div className="p-10 text-center font-black">Loading...</div>;
 
-  const displayName = getDisplayName(seller);
+  const firstPost = posts.length > 0? posts[0] : null;
+  const displayName = getDisplayName(seller, firstPost);
 
   return (
     <main className="min-h-screen bg-white pb-10">
@@ -149,8 +158,8 @@ export default function SellerProfile(){
       </div>
 
       <div className="flex items-center gap-5 p-5">
-        <button onClick={()=> seller.photoURL && setShowPic(true)} className="w-24 h-24 rounded-full bg-black text-white flex items-center justify-center font-black text-3xl overflow-hidden flex-shrink-0 active:scale-95 transition-transform">
-          {seller.photoURL? <img src={seller.photoURL} className="w-full h-full object-cover"/> : displayName?.[0]?.toUpperCase()}
+        <button onClick={()=> seller?.photoURL && setShowPic(true)} className="w-24 h-24 rounded-full bg-black text-white flex items-center justify-center font-black text-3xl overflow-hidden flex-shrink-0 active:scale-95 transition-transform">
+          {seller?.photoURL? <img src={seller.photoURL} className="w-full h-full object-cover"/> : displayName?.[0]?.toUpperCase()}
         </button>
         <div>
           <p className="font-black text-[24px] capitalize">{displayName}</p>
@@ -161,7 +170,7 @@ export default function SellerProfile(){
       <h2 className="font-black text-[18px] px-5 mt-6">{displayName} Ads</h2>
 
       {posts.length===0? (
-        <p className="text-center text-gray-400 text-[13px] mt-10 bg-gray-50 mx-5 p-6 rounded-2xl">Ads a la awm lo - field name i product ah `userId` a nilo maithei, tun ah ka fix tawh</p>
+        <p className="text-center text-gray-400 text-[13px] mt-10 bg-gray-50 mx-5 p-6 rounded-2xl">Ads a la awm lo</p>
       ):(
         <div className="p-3 grid grid-cols-1 gap-3">
           {posts.map((p:any)=>(
@@ -224,7 +233,7 @@ export default function SellerProfile(){
 
       {showPic && (
         <div onClick={()=>setShowPic(false)} className="fixed inset-0 bg-black/90 z-[1300] flex items-center justify-center p-4">
-          <img src={seller.photoURL} className="max-w-full max-h-[85vh] object-contain rounded-2xl"/>
+          <img src={seller?.photoURL} className="max-w-full max-h-[85vh] object-contain rounded-2xl"/>
           <button className="absolute top-5 right-5 w-10 h-10 bg-white/20 rounded-full text-white font-black">✕</button>
         </div>
       )}
