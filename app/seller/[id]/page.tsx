@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc, addDoc, serverTimestamp, updateDoc, increment } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc, addDoc, serverTimestamp, updateDoc, increment, arrayUnion, arrayRemove } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase/config";
 import Link from "next/link";
 import { onAuthStateChanged } from "firebase/auth";
@@ -59,6 +59,10 @@ export default function SellerProfile(){
   const [errorMsg,setErrorMsg]=useState("");
   const [showLoginAlert,setShowLoginAlert]=useState(false);
   const [showPic,setShowPic]=useState(false);
+  // comment modal
+  const [commentPostId,setCommentPostId]=useState<string|null>(null);
+  const [commentText,setCommentText]=useState("");
+  const [commenting,setCommenting]=useState(false);
 
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth,(u)=>setCurrentUser(u));
@@ -101,21 +105,22 @@ export default function SellerProfile(){
           let lc = 0;
           if(typeof freshData.likeCount === 'number') lc = freshData.likeCount;
           else if(typeof freshData.likesCount === 'number') lc = freshData.likesCount;
-          else if(typeof freshData.likes === 'number') lc = freshData.likes;
           else if(Array.isArray(freshData.likes)) lc = freshData.likes.length;
           else if(Array.isArray(freshData.likedBy)) lc = freshData.likedBy.length;
-          else { try{ const ls = await getDocs(collection(db,"products",p.id,"likes")); lc = ls.size; ls.forEach(d=>{ if(auth.currentUser && d.id===auth.currentUser.uid) likedSet.add(p.id); }); }catch{} }
+          else { try{ const ls = await getDocs(collection(db,"products",p.id,"likes")); lc = ls.size; }catch{} }
 
           if(auth.currentUser){
-            if(Array.isArray(freshData.likes) && freshData.likes.includes(auth.currentUser.uid)) likedSet.add(p.id);
-            if(Array.isArray(freshData.likedBy) && freshData.likedBy.includes(auth.currentUser.uid)) likedSet.add(p.id);
+            const uid = auth.currentUser.uid;
+            if(Array.isArray(freshData.likes) && freshData.likes.includes(uid)) likedSet.add(p.id);
+            if(Array.isArray(freshData.likedBy) && freshData.likedBy.includes(uid)) likedSet.add(p.id);
+            if(Array.isArray(freshData.likedUsers) && freshData.likedUsers.includes(uid)) likedSet.add(p.id);
+            try{ const ld = await getDoc(doc(db,"products",p.id,"likes",uid)); if(ld.exists()) likedSet.add(p.id); }catch{}
           }
           lCounts[p.id]=lc;
 
           let cc = 0;
           if(typeof freshData.commentCount === 'number') cc = freshData.commentCount;
           else if(typeof freshData.commentsCount === 'number') cc = freshData.commentsCount;
-          else if(typeof freshData.comments === 'number') cc = freshData.comments;
           else if(Array.isArray(freshData.comments)) cc = freshData.comments.length;
           else { try{ const cs = await getDocs(collection(db,"products",p.id,"comments")); cc = cs.size; }catch{} }
           cCounts[p.id]=cc;
@@ -137,9 +142,9 @@ export default function SellerProfile(){
 
   const toggleWish=async(e:any, pid:string)=>{
     e.preventDefault(); e.stopPropagation();
-    if(!auth.currentUser){ router.push("/login"); return; }
-    const uid = auth.currentUser.uid;
-    const wishRef=doc(db,"users",uid,"wishlist",pid);
+    const u = auth.currentUser || currentUser;
+    if(!u){ router.push("/login"); return; }
+    const wishRef=doc(db,"users",u.uid,"wishlist",pid);
     if(wished.has(pid)){
       await deleteDoc(wishRef);
       setWished(prev=>{ const n=new Set(prev); n.delete(pid); return n; });
@@ -149,28 +154,70 @@ export default function SellerProfile(){
     }
   };
 
-  // ✅ FIX 100% - LIKE DIRECT A THAWK TAWH
+  // ✅ HOME LEH PROFILE SYNC 100% - FIELD ZAWNG ZAWNG UPDATE
   const toggleLike=async(e:any, pid:string)=>{
-    e.preventDefault();
-    e.stopPropagation();
+    e.preventDefault(); e.stopPropagation();
     // @ts-ignore
     if(e.nativeEvent) e.nativeEvent.stopImmediatePropagation();
     const u = auth.currentUser || currentUser;
     if(!u){ router.push("/login"); return; }
 
-    const likeRef=doc(db,"products",pid,"likes",u.uid);
     const prodRef=doc(db,"products",pid);
+    const likeRef=doc(db,"products",pid,"likes",u.uid);
 
-    // optimistic update - rang taka lang nghal
     if(liked.has(pid)){
       setLiked(prev=>{ const n=new Set(prev); n.delete(pid); return n; });
       setLikeCounts(prev=>({...prev, [pid]: Math.max(0,(prev[pid]||1)-1)}));
-      try{ await deleteDoc(likeRef); await updateDoc(prodRef,{ likeCount: increment(-1), likesCount: increment(-1) }); }catch{}
+      try{
+        await deleteDoc(likeRef);
+        await updateDoc(prodRef,{
+          likes: arrayRemove(u.uid),
+          likedBy: arrayRemove(u.uid),
+          likedUsers: arrayRemove(u.uid),
+          likeCount: increment(-1),
+          likesCount: increment(-1)
+        });
+      }catch{ try{ await updateDoc(prodRef,{ likeCount: increment(-1) }); }catch{} }
     }else{
       setLiked(prev=>{ const n=new Set(prev); n.add(pid); return n; });
       setLikeCounts(prev=>({...prev, [pid]: (prev[pid]||0)+1}));
-      try{ await setDoc(likeRef,{userId:u.uid, createdAt:serverTimestamp()}); await updateDoc(prodRef,{ likeCount: increment(1), likesCount: increment(1) }); }catch{ try{ await setDoc(prodRef,{ likeCount: (likeCounts[pid]||0)+1 }, {merge:true}); }catch{} }
+      try{
+        await setDoc(likeRef,{userId:u.uid, createdAt:serverTimestamp()});
+        await updateDoc(prodRef,{
+          likes: arrayUnion(u.uid),
+          likedBy: arrayUnion(u.uid),
+          likedUsers: arrayUnion(u.uid),
+          likeCount: increment(1),
+          likesCount: increment(1)
+        });
+      }catch{
+        try{ await setDoc(prodRef,{ likes: arrayUnion(u.uid), likeCount: increment(1), likesCount: increment(1) }, {merge:true}); await setDoc(likeRef,{userId:u.uid, createdAt:serverTimestamp()}); }catch{}
+      }
     }
+  };
+
+  const handleCommentSubmit=async()=>{
+    if(!commentPostId ||!commentText.trim()) return;
+    const u = auth.currentUser || currentUser;
+    if(!u){ router.push("/login"); return; }
+    setCommenting(true);
+    try{
+      await addDoc(collection(db,"products",commentPostId,"comments"),{
+        text: commentText.trim(),
+        userId: u.uid,
+        userName: u.displayName || u.email?.split('@')[0] || "User",
+        userPhoto: u.photoURL || "",
+        createdAt: serverTimestamp()
+      });
+      await updateDoc(doc(db,"products",commentPostId),{
+        commentCount: increment(1),
+        commentsCount: increment(1)
+      });
+      setCommentCounts(prev=>({...prev, [commentPostId]: (prev[commentPostId]||0)+1}));
+      setCommentText("");
+      setCommentPostId(null);
+    }catch(err){ console.log(err); }
+    finally{ setCommenting(false); }
   };
 
   const handleReport=async()=>{
@@ -201,19 +248,12 @@ export default function SellerProfile(){
   return (
     <main className="min-h-screen bg-[#f5f5f7] pb-24">
       <div className="flex items-center justify-between p-3 pt-4 bg-[#f5f5f7] sticky top-0 z-50">
-        <button onClick={()=>{ if(window.history.length>1) router.back(); else router.push("/"); }} className="w-11 h-11 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-        </button>
+        <button onClick={()=>{ if(window.history.length>1) router.back(); else router.push("/"); }} className="w-11 h-11 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100">←</button>
         <div className="relative">
-          <button onClick={()=>setShowMenu(!showMenu)} className="w-11 h-11 rounded-full flex items-center justify-center bg-white shadow-sm border border-gray-100">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="black"><circle cx="12" cy="5" r="2.8"/><circle cx="12" cy="12" r="2.8"/><circle cx="12" cy="19" r="2.8"/></svg>
-          </button>
+          <button onClick={()=>setShowMenu(!showMenu)} className="w-11 h-11 rounded-full flex items-center justify-center bg-white shadow-sm border border-gray-100">⋮</button>
           {showMenu && (
-            <div className="absolute right-0 top-12 bg-white border border-gray-100 rounded-2xl shadow-xl w-44 z-50 overflow-hidden">
-              <button onClick={()=>{
-                if(!currentUser){ setShowMenu(false); setShowLoginAlert(true); return; }
-                setShowReport(true); setShowMenu(false);
-              }} className="w-full text-left px-4 py-3.5 text-[13px] font-bold hover:bg-gray-50">🚩 Report User</button>
+            <div className="absolute right-0 top-12 bg-white border rounded-2xl shadow-xl w-44 z-50 overflow-hidden">
+              <button onClick={()=>{ if(!currentUser){ setShowMenu(false); setShowLoginAlert(true); return; } setShowReport(true); setShowMenu(false); }} className="w-full text-left px-4 py-3.5 text-[13px] font-bold">🚩 Report User</button>
             </div>
           )}
         </div>
@@ -221,14 +261,8 @@ export default function SellerProfile(){
 
       <div className="mx-3 mt-1 bg-[#111111] rounded-[32px] p-6 text-white">
         <div className="flex items-center gap-5">
-          <button onClick={()=> photoURL && setShowPic(true)} className="w-[92px] h-[92px] rounded-full bg-white flex items-center justify-center font-black text-3xl overflow-hidden flex-shrink-0 border-[3px] border-white/20">
-            {photoURL? <img src={photoURL} className="w-full h-full object-cover"/> : displayName?.[0]?.toUpperCase()}
-          </button>
-          <div className="flex-1 min-w-0">
-            <p className="font-black text-[22px] leading-6 capitalize truncate">{displayName}</p>
-            <p className="text-[13px] text-white/60 mt-1.5">{posts.length} Ads</p>
-            <div className="mt-3"><span className="bg-white/15 px-3 py-1.5 rounded-full text-[11px] font-bold border border-white/10">✅ Verified Seller</span></div>
-          </div>
+          <button onClick={()=> photoURL && setShowPic(true)} className="w-[92px] h-[92px] rounded-full bg-white flex items-center justify-center font-black text-3xl overflow-hidden border-[3px] border-white/20">{photoURL? <img src={photoURL} className="w-full h-full object-cover"/> : displayName?.[0]?.toUpperCase()}</button>
+          <div className="flex-1 min-w-0"><p className="font-black text-[22px] capitalize truncate">{displayName}</p><p className="text-[13px] text-white/60 mt-1.5">{posts.length} Ads</p></div>
         </div>
       </div>
 
@@ -251,44 +285,44 @@ export default function SellerProfile(){
 
           <div className="flex flex-col gap-3">
             {posts.map((p:any)=>(
-              <div key={p.id} className="bg-[#fafafa] border border-gray-100 rounded-[20px] p-2.5 flex gap-3 relative overflow-hidden">
-                {/* IMAGE & TITLE ONLY LINK */}
-                <Link href={`/marketplace/${p.id}`} className="w-[108px] h-[108px] flex-shrink-0">
-                  <img src={p.image || p.images?.[0]} className="w-full h-full object-cover rounded-[16px]"/>
-                </Link>
+              <div key={p.id} className="bg-[#fafafa] border border-gray-100 rounded-[20px] p-2.5 flex gap-3 relative">
+                <Link href={`/marketplace/${p.id}`} className="w-[108px] h-[108px] flex-shrink-0"><img src={p.image || p.images?.[0]} className="w-full h-full object-cover rounded-[16px]"/></Link>
                 <div className="flex-1 min-w-0 flex flex-col justify-between">
                   <div>
-                    <Link href={`/marketplace/${p.id}`}>
-                      <p className="font-bold text-[14px] leading-4 line-clamp-2">{p.title}</p>
-                      <p className="font-black text-[18px] mt-2">₹{Number(p.price).toLocaleString("en-IN")}</p>
-                      <p className="text-[11px] text-gray-500 mt-1 truncate">{p.village || p.location?.split(",")[0] || "Aizawl"} • {timeAgo(p.createdAt)}</p>
-                    </Link>
+                    <Link href={`/marketplace/${p.id}`}><p className="font-bold text-[14px] line-clamp-2">{p.title}</p><p className="font-black text-[18px] mt-2">₹{Number(p.price).toLocaleString("en-IN")}</p><p className="text-[11px] text-gray-500 mt-1 truncate">{p.village || p.location?.split(",")[0] || "Aizawl"} • {timeAgo(p.createdAt)}</p></Link>
                   </div>
-
-                  {/* ✅ LIKE & COMMENT - TUN AH POST DETAILS AH A KAL LO ANG */}
-                  <div className="flex items-center gap-2.5 mt-2.5 relative z-10">
-                    <button type="button" onClick={(e)=>toggleLike(e,p.id)} className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full shadow-sm border-2 active:scale-90 transition z-10 ${liked.has(p.id)? "bg-black text-white border-black" : "bg-white border-gray-200 text-black"}`}>
-                      <span className="text-[15px]">{liked.has(p.id)? "❤️":"🤍"}</span>
-                      <span className="text-[13px] font-black">{likeCounts[p.id]?? 0}</span>
+                  <div className="flex items-center gap-2.5 mt-2.5">
+                    <button type="button" onClick={(e)=>toggleLike(e,p.id)} className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full shadow-sm border-2 active:scale-90 transition ${liked.has(p.id)? "bg-black text-white border-black" : "bg-white border-gray-200"}`}>
+                      <span>{liked.has(p.id)? "❤️":"🤍"}</span><span className="text-[13px] font-black">{likeCounts[p.id]?? 0}</span>
                     </button>
-                    <button type="button" onClick={(e)=>{
-                      e.preventDefault(); e.stopPropagation();
-                      router.push(`/marketplace/${p.id}#comments`);
-                    }} className="flex items-center gap-1.5 bg-white border-2 border-gray-200 px-3.5 py-1.5 rounded-full shadow-sm active:scale-90 transition z-10">
-                      <span className="text-[15px]">💬</span>
-                      <span className="text-[13px] font-black">{commentCounts[p.id]?? 0}</span>
+                    {/* ✅ COMMENT - POST DETAILS AH A KAL LO, HELAI AH NGEI COMMENT THEIH */}
+                    <button type="button" onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setCommentPostId(p.id); }} className="flex items-center gap-1.5 bg-white border-2 border-gray-200 px-3.5 py-1.5 rounded-full shadow-sm active:scale-90 transition">
+                      <span>💬</span><span className="text-[13px] font-black">{commentCounts[p.id]?? 0}</span>
                     </button>
                   </div>
                 </div>
-
-                <button type="button" onClick={(e)=>toggleWish(e,p.id)} className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 text-[18px] z-10 active:scale-90">
-                  {wished.has(p.id)? "❤️":"🤍"}
-                </button>
+                <button type="button" onClick={(e)=>toggleWish(e,p.id)} className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 text-[18px]">{wished.has(p.id)? "❤️":"🤍"}</button>
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* ✅ COMMENT MODAL - HELAI VEK AH COMMENT THEIH */}
+      {commentPostId && (
+        <div className="fixed inset-0 bg-black/60 z-[1500] flex items-end sm:items-center justify-center p-0 sm:p-6 backdrop-blur-sm">
+          <div className="bg-white rounded-t-[28px] sm:rounded-[26px] w-full sm:max-w-[420px] p-5 pb-8 shadow-2xl">
+            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden"></div>
+            <h3 className="font-black text-[16px]">Comment ziak rawh</h3>
+            <p className="text-[12px] text-gray-400 mt-1">Home leh Profile ah a inthlun zawm vek ang</p>
+            <textarea value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Comment tha tak ziak rawh..." autoFocus className="w-full mt-4 border-2 border-gray-200 p-3 rounded-2xl outline-none focus:border-black h-24 text-[14px] resize-none"/>
+            <div className="flex gap-2 mt-4">
+              <button onClick={()=>{ setCommentPostId(null); setCommentText(""); }} className="flex-1 bg-gray-100 font-bold py-3.5 rounded-xl">Cancel</button>
+              <button onClick={handleCommentSubmit} disabled={commenting ||!commentText.trim()} className="flex-1 bg-black text-white font-black py-3.5 rounded-xl disabled:opacity-50">{commenting? "Posting...":"Post Comment"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showReport && (<div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm"><div className="bg-white rounded-[22px] p-6 w-full max-w-[340px]"><h3 className="font-black">Report {displayName}</h3><textarea value={reportMsg} onChange={e=>setReportMsg(e.target.value)} placeholder="Report chhan..." className="w-full mt-4 border-2 p-3 rounded-xl h-28"/><div className="flex gap-2 mt-5"><button onClick={()=>setShowReport(false)} className="flex-1 bg-gray-100 font-bold py-3 rounded-xl">Cancel</button><button onClick={handleReport} className="flex-1 bg-black text-white font-bold py-3 rounded-xl">Report</button></div></div></div>)}
       {showSuccess && (<div className="fixed inset-0 bg-black/70 z-[1100] flex items-center justify-center p-6"><div className="bg-white rounded-[26px] p-7 w-full max-w-[340px] text-center"><h3 className="font-black mt-4">Report i thawn ta e</h3><button onClick={()=>setShowSuccess(false)} className="w-full bg-black text-white font-black py-3.5 rounded-xl mt-6">OK</button></div></div>)}
@@ -296,4 +330,4 @@ export default function SellerProfile(){
       {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
     </main>
   )
-                   }
+    }
