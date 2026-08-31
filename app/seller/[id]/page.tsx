@@ -142,9 +142,12 @@ export default function SellerProfile(){
           if(Array.isArray(fd.likedBy)&&fd.likedBy.includes(uid)) lSet.add(p.id);
         }
         lc[p.id]=likeNum;
-        let cNum = typeof fd.commentCount==='number'? fd.commentCount : typeof fd.commentsCount==='number'? fd.commentsCount : 0;
-        if(cNum===0){
-          try{ const cs=await getDocs(collection(db,"products",p.id,"comments")); cNum=cs.size; }catch{}
+        let cNum = 0;
+        try{
+          const cs=await getDocs(collection(db,"products",p.id,"comments"));
+          cNum=cs.size;
+        }catch{
+          cNum = typeof fd.commentCount==='number'? fd.commentCount : typeof fd.commentsCount==='number'? fd.commentsCount : 0;
         }
         cc[p.id]=cNum;
       }
@@ -293,8 +296,13 @@ export default function SellerProfile(){
         <CommentPopup
           postId={commentPostId}
           onClose={() => setCommentPostId(null)}
-          onCommentAdded={(id:string)=>{
-            setCommentCounts(prev=>{ const c={...prev}; c[id]=(c[id]||0)+1; return c; });
+          onCommentAdded={async (id:string)=>{
+            try{
+              const cs=await getDocs(collection(db,"products",id,"comments"));
+              setCommentCounts(prev=>{ const c={...prev}; c[id]=cs.size; return c; });
+            }catch{
+              setCommentCounts(prev=>{ const c={...prev}; c[id]=(c[id]||0)+1; return c; });
+            }
           }}
         />
       )}
@@ -317,4 +325,4 @@ export default function SellerProfile(){
       {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
     </main>
   );
-}
+                                             }
