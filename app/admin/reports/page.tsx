@@ -1,28 +1,10 @@
-// app/admin/reports/page.tsx - FINAL FIXED BUILD
+// app/admin/reports/page.tsx - SIMPLE - New users dik vek tawh ang
 "use client";
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, orderBy, doc, deleteDoc, getDoc, where, updateDoc, limit } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, deleteDoc, getDoc, where, updateDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
-
-function getName(data:any){
-  if(!data) return "";
-  if(data.displayName && data.displayName.trim()) return data.displayName;
-  if(data.name && data.name.trim()) return data.name;
-  if(data.fullName && data.fullName.trim()) return data.fullName;
-  if(data.userName && data.userName.trim()) return data.userName;
-  if(data.sellerName && data.sellerName.trim()) return data.sellerName;
-  if(data.email && data.email.trim()) return data.email.split('@')[0];
-  if(data.userEmail && data.userEmail.trim()) return data.userEmail.split('@')[0];
-  return "";
-}
-function getEmail(data:any){
-  if(!data) return "";
-  if(data.email && data.email.trim()) return data.email;
-  if(data.userEmail && data.userEmail.trim()) return data.userEmail;
-  return "";
-}
 
 export default function ReportsPage(){
   const [reports,setReports]=useState<any[]>([]);
@@ -52,21 +34,10 @@ export default function ReportsPage(){
         const list:any[]=[];
         for(const d of snap.docs){
           const data=d.data();
-          let reportedUser:any=null; let reporterUser:any=null;
+          let reportedUser:any=null;
+          let reporterUser:any=null;
           try{ const uSnap=await getDoc(doc(db,"users",data.reportedUserId)); if(uSnap.exists()) reportedUser=uSnap.data(); }catch{}
           try{ if(data.reporterId && data.reporterId!=="anonymous"){ const rSnap=await getDoc(doc(db,"users",data.reporterId)); if(rSnap.exists()) reporterUser=rSnap.data(); } }catch{}
-          if(!reportedUser ||!reportedUser.email){
-            try{
-              const pq = query(collection(db,"products"), where("userId","==", data.reportedUserId), limit(1));
-              const psnap = await getDocs(pq);
-              if(!psnap.empty){
-                const pd = psnap.docs[0].data() as any;
-                if(!reportedUser) reportedUser={};
-                if(!reportedUser.displayName) reportedUser.displayName = getName(pd) || data.sellerName || "";
-                if(!reportedUser.email) reportedUser.email = getEmail(pd) || "";
-              }
-            }catch{}
-          }
           list.push({id:d.id,...data, reportedUser, reporterUser});
         }
         setReports(list);
@@ -75,8 +46,7 @@ export default function ReportsPage(){
       fetchAllUsers();
       try{ const twoMinAgo = new Date(Date.now() - 2*60*1000); const onlineQ = query(collection(db,"presence"), where("lastSeen",">", twoMinAgo)); const onlineSnap = await getDocs(onlineQ); setOnlineCount(onlineSnap.size); }catch{ setOnlineCount(0); }
     });
-    const iv = setInterval(async()=>{ try{ const twoMinAgo = new Date(Date.now() - 2*60*1000); const onlineQ = query(collection(db,"presence"), where("lastSeen",">", twoMinAgo)); const onlineSnap = await getDocs(onlineQ); setOnlineCount(onlineSnap.size); }catch{} }, 30000);
-    return ()=>{ unsub(); clearInterval(iv); };
+    return ()=>{ unsub(); };
   },[]);
 
   const fetchAllPosts = async () => {
@@ -84,60 +54,32 @@ export default function ReportsPage(){
     const cols = ["products", "jobs"];
     for(const colName of cols){
       try{
-        const q1 = query(collection(db, colName), orderBy("createdAt","desc"));
-        const snap = await getDocs(q1);
+        const snap = await getDocs(collection(db, colName));
         snap.docs.forEach(d=> all.push({id:d.id, col:colName,...d.data()}));
-      }catch{
-        try{
-          const snap = await getDocs(collection(db, colName));
-          snap.docs.forEach(d=> all.push({id:d.id, col:colName,...d.data()}));
-        }catch{}
-      }
+      }catch{}
     }
-    all.sort((a,b)=> (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0));
     setAllPosts(all);
   };
 
   const fetchAllUsers = async () => {
     try{
       const snap = await getDocs(collection(db,"users"));
-      let list:any[] = snap.docs.map(d=>{
-        const data = d.data() as any;
-        const email = getEmail(data);
-        const name = getName(data);
+      const list = snap.docs.map(d=>{
+        const data:any = d.data();
+        const email = data.email || "";
+        let name = data.displayName || data.name || "";
+        if(!name && email) name = email.split('@')[0];
+        if(!name) name = "User";
         return {
           id: d.id,
-          displayName: name || (email? email.split('@')[0] : "User"),
+          displayName: name,
           email: email,
           photoURL: data.photoURL || "",
          ...data
         };
       });
-      for(let i=0;i<list.length;i++){
-        const u = list[i];
-        if(!u.email || u.displayName==="User"){
-          try{
-            const pq = query(collection(db,"products"), where("userId","==", u.id), limit(1));
-            const psnap = await getDocs(pq);
-            if(!psnap.empty){
-              const pd = psnap.docs[0].data() as any;
-              if(!u.email && getEmail(pd)) u.email = getEmail(pd);
-              if(u.displayName==="User"){
-                const n = getName(pd);
-                if(n) u.displayName = n;
-              }
-            }
-          }catch{}
-          if(u.displayName==="User" && u.email){
-            u.displayName = u.email.split('@')[0];
-          }
-          if(!u.displayName){
-            u.displayName = "User " + u.id.slice(0,5);
-          }
-        }
-      }
       setAllUsers(list);
-    } catch(e){ console.log(e); }
+    }catch(e){ console.log(e); }
   };
 
   const confirmDelete=async()=>{
@@ -153,21 +95,16 @@ export default function ReportsPage(){
   const executePostDelete = async () => {
     if(!confirmModal) return;
     setActionId(confirmModal.reportId);
-    const reportedUserId = confirmModal.userId;
     try{
-      const cols = ["posts", "products", "ads", "listings", "jobs"];
-      let totalDeleted = 0;
+      const cols = ["products", "jobs"];
       for(const colName of cols){
         try{
-          const pq = query(collection(db, colName), where("uid","==", reportedUserId));
+          const pq = query(collection(db, colName), where("userId","==", confirmModal.userId));
           const psnap = await getDocs(pq);
-          for(const pd of psnap.docs){ await deleteDoc(doc(db, colName, pd.id)); totalDeleted++; }
-          const pq2 = query(collection(db, colName), where("userId","==", reportedUserId));
-          const psnap2 = await getDocs(pq2);
-          for(const pd of psnap2.docs){ await deleteDoc(doc(db, colName, pd.id)); totalDeleted++; }
+          for(const pd of psnap.docs) await deleteDoc(doc(db, colName, pd.id));
         }catch{}
       }
-      setSuccessModal(totalDeleted + " post delete a ni e!");
+      setSuccessModal("Post delete a ni e!");
       fetchAllPosts();
     }catch(e:any){ setSuccessModal("Error: "+e.message); }
     setActionId(null);
@@ -177,28 +114,13 @@ export default function ReportsPage(){
   const executeBan = async () => {
     if(!confirmModal) return;
     setActionId(confirmModal.reportId);
-    const reportedUserId = confirmModal.userId;
-    const reportId = confirmModal.reportId;
     try{
-      await deleteDoc(doc(db,"users",reportedUserId));
-      try{ await deleteDoc(doc(db,"presence",reportedUserId)); }catch{}
-      const cols = ["posts", "products", "ads", "listings", "jobs"];
-      for(const colName of cols){
-        try{
-          const pq = query(collection(db, colName), where("uid","==", reportedUserId));
-          const psnap = await getDocs(pq);
-          for(const pd of psnap.docs) await deleteDoc(doc(db, colName, pd.id));
-          const pq2 = query(collection(db, colName), where("userId","==", reportedUserId));
-          const psnap2 = await getDocs(pq2);
-          for(const pd of psnap2.docs) await deleteDoc(doc(db, colName, pd.id));
-        }catch{}
-      }
-      await deleteDoc(doc(db,"reports",reportId));
-      setReports(r=>r.filter(x=>x.id!==reportId));
-      setSuccessModal("User " + confirmModal.userName + " BAN a ni e!");
-      fetchAllPosts();
+      await deleteDoc(doc(db,"users",confirmModal.userId));
+      await deleteDoc(doc(db,"reports",confirmModal.reportId));
+      setReports(r=>r.filter(x=>x.id!==confirmModal.reportId));
+      setSuccessModal("BAN a ni e!");
       fetchAllUsers();
-    }catch(e:any){ setSuccessModal("Error ban: "+e.message); }
+    }catch(e:any){ setSuccessModal("Error: "+e.message); }
     setActionId(null);
     setConfirmModal(null);
   };
@@ -207,7 +129,6 @@ export default function ReportsPage(){
     if(!confirm("Delete duh em?")) return;
     await deleteDoc(doc(db, post.col, post.id));
     setAllPosts(p=>p.filter(x=>x.id!==post.id));
-    setSuccessModal("Post delete a ni e!");
   };
 
   const saveEdit = async () => {
@@ -217,11 +138,11 @@ export default function ReportsPage(){
       await updateDoc(doc(db, editPost.col, editPost.id), {
         title: editPost.title,
         price: editPost.price,
-        description: editPost.description || editPost.desc || "",
+        description: editPost.description || "",
       });
       setAllPosts(p=>p.map(x=> x.id===editPost.id? editPost : x));
       setEditPost(null);
-      setSuccessModal("Edit save a ni e!");
+      setSuccessModal("Save a ni e!");
     }catch(e:any){ setSuccessModal("Error: "+e.message); }
     setSaving(false);
   };
@@ -230,77 +151,54 @@ export default function ReportsPage(){
     if(!confirmDeleteUser) return;
     setDeleting(true);
     try{
-      const uid = confirmDeleteUser.id;
-      await deleteDoc(doc(db,"users",uid));
-      try{ await deleteDoc(doc(db,"presence",uid)); }catch{}
-      const cols = ["products","jobs","posts","ads","listings"];
-      for(const colName of cols){
-        try{
-          const pq = query(collection(db,colName), where("userId","==",uid));
-          const snap = await getDocs(pq);
-          for(const d of snap.docs) await deleteDoc(doc(db,colName,d.id));
-          const pq2 = query(collection(db,colName), where("uid","==",uid));
-          const snap2 = await getDocs(pq2);
-          for(const d of snap2.docs) await deleteDoc(doc(db,colName,d.id));
-        }catch{}
-      }
-      setAllUsers(u=>u.filter(x=>x.id!==uid));
-      setSuccessModal(confirmDeleteUser.name + " delete fel!");
-      fetchAllPosts();
+      await deleteDoc(doc(db,"users",confirmDeleteUser.id));
+      setAllUsers(u=>u.filter(x=>x.id!==confirmDeleteUser.id));
+      setSuccessModal("Delete fel!");
     }catch(e:any){ setSuccessModal("Error: "+e.message); }
     setDeleting(false);
     setConfirmDeleteUser(null);
   };
 
   const filteredPosts = allPosts.filter(p => {
-    const t = (p.title || "").toLowerCase();
-    const n = (p.name || "").toLowerCase();
     const s = search.toLowerCase();
-    return t.includes(s) || n.includes(s);
+    const t = (p.title || "").toLowerCase();
+    return t.includes(s);
   });
 
   const filteredUsers = allUsers.filter(u => {
-    const dn = (u.displayName || "").toLowerCase();
-    const nm = (u.name || "").toLowerCase();
-    const em = (u.email || "").toLowerCase();
     const s = userSearch.toLowerCase();
-    return dn.includes(s) || nm.includes(s) || em.includes(s);
+    const dn = (u.displayName || "").toLowerCase();
+    const em = (u.email || "").toLowerCase();
+    return dn.includes(s) || em.includes(s);
   });
 
   return (
     <main className="min-h-screen bg-white pb-10">
-      <div className="sticky top-0 z-50 bg-white border-b border-gray-100 px-3 py-3 flex items-center justify-between">
+      <div className="sticky top-0 z-50 bg-white border-b px-3 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={()=>router.back()} className="w-12 h-12 bg-white rounded-full flex items-center justify-center border shadow-sm">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-          </button>
-          <h1 className="font-black text-[19px] text-[#002f34]">Reports ({reports.length})</h1>
+          <button onClick={()=>router.back()} className="w-12 h-12 border rounded-full flex items-center justify-center">Back</button>
+          <h1 className="font-black text-[19px]">Reports ({reports.length})</h1>
         </div>
-        <div className="bg-black text-white px-3 py-1.5 rounded-full text-[11px] font-black">Users Online ({onlineCount})</div>
+        <div className="bg-black text-white px-3 py-1.5 rounded-full text-[11px]">Online ({onlineCount})</div>
       </div>
 
       <div className="p-3 max-w-md mx-auto">
-        {reports.length===0 && <p className="text-gray-400 text-center mt-10 font-bold">Report a awm lo</p>}
-
         <div className="flex flex-col gap-3 mt-2">
           {reports.map((r:any)=>{
-            const rName = getName(r.reportedUser) || r.sellerName || r.reportedUserId.slice(0,8);
-            const rEmail = getEmail(r.reportedUser);
+            let rName = "Unknown";
+            if(r.reportedUser?.displayName) rName = r.reportedUser.displayName;
+            else if(r.reportedUser?.name) rName = r.reportedUser.name;
+            else if(r.sellerName) rName = r.sellerName;
+            else if(r.reportedUser?.email) rName = r.reportedUser.email.split('@')[0];
+
             return (
               <div key={r.id} className="border-2 rounded-2xl p-4 bg-white">
-                <div className="flex justify-between">
-                  <p className="font-black text-[16px]">{rName}</p>
-                  <p className="text-[11px] bg-red-50 text-red-600 px-2 py-1 rounded-full h-fit">{r.createdAt?.toDate? r.createdAt.toDate().toLocaleDateString() : "new"}</p>
-                </div>
+                <p className="font-black">{rName}</p>
                 <p className="text-[13px] mt-2 bg-gray-50 p-3 rounded-xl">{r.message}</p>
-                <div className="mt-3 bg-gray-50 p-2.5 rounded-xl">
-                  <p className="text-[12px]">Reported: <span className="font-black">{rName}</span> {rEmail? "(" + rEmail + ")" : ""}</p>
-                  <p className="text-[12px]">Reporter: <span className="font-black">{r.reporterUser?.displayName || "Anonymous"}</span></p>
-                </div>
                 <div className="grid grid-cols-3 gap-2 mt-3">
-                  <button onClick={()=>setConfirmModal({type:'post', reportId:r.id, userId:r.reportedUserId, userName: rName})} disabled={actionId===r.id} className="bg-orange-500 text-white py-2.5 rounded-xl text-[11px] font-black">{actionId===r.id? "..." : "POST DELETE"}</button>
-                  <button onClick={()=>setConfirmModal({type:'ban', reportId:r.id, userId:r.reportedUserId, userName: rName})} disabled={actionId===r.id} className="bg-red-600 text-white py-2.5 rounded-xl text-[11px] font-black">{actionId===r.id? "..." : "BAN USER"}</button>
-                  <button onClick={()=>setShowDeleteId(r.id)} className="bg-gray-200 py-2.5 rounded-xl text-[11px] font-bold">Delete Report</button>
+                  <button onClick={()=>setConfirmModal({reportId:r.id, userId:r.reportedUserId, userName:rName, type:'post'})} className="bg-orange-500 text-white py-2.5 rounded-xl text-[11px] font-black">POST DELETE</button>
+                  <button onClick={()=>setConfirmModal({reportId:r.id, userId:r.reportedUserId, userName:rName, type:'ban'})} className="bg-red-600 text-white py-2.5 rounded-xl text-[11px] font-black">BAN USER</button>
+                  <button onClick={()=>setShowDeleteId(r.id)} className="bg-gray-200 py-2.5 rounded-xl text-[11px] font-bold">Delete</button>
                 </div>
               </div>
             );
@@ -308,18 +206,16 @@ export default function ReportsPage(){
         </div>
 
         <div className="mt-10 border-t-4 border-black pt-6">
-          <h2 className="font-black text-[20px]">Users Post Zawng Zawng ({filteredPosts.length})</h2>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search title..." className="w-full border-2 rounded-xl px-4 py-3 text-[14px] font-bold mt-2" />
+          <h2 className="font-black text-[20px]">Posts ({filteredPosts.length})</h2>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." className="w-full border-2 rounded-xl px-4 py-3 mt-2" />
           <div className="flex flex-col gap-2 mt-4">
             {filteredPosts.map((p:any)=>(
               <div key={p.id} className="border rounded-2xl p-3 flex gap-3 bg-gray-50">
-                <img src={p.imageUrl || p.images?.[0] || "/no-image.png"} className="w-16 h-16 rounded-xl object-cover bg-white border" alt="" />
                 <div className="flex-1">
-                  <p className="font-black text-[13px] truncate">{p.title || p.name || "No title"}</p>
-                  <p className="text-[12px] font-bold text-green-600">Rs {p.price || 0} - {p.col}</p>
+                  <p className="font-black text-[13px]">{p.title || "No title"}</p>
                   <div className="flex gap-2 mt-2">
-                    <button onClick={()=>setEditPost(p)} className="bg-black text-white px-3 py-1.5 rounded-full text-[10px] font-black">EDIT</button>
-                    <button onClick={()=>deleteSinglePost(p)} className="bg-red-600 text-white px-3 py-1.5 rounded-full text-[10px] font-black">DELETE</button>
+                    <button onClick={()=>setEditPost(p)} className="bg-black text-white px-3 py-1 rounded-full text-[10px]">EDIT</button>
+                    <button onClick={()=>deleteSinglePost(p)} className="bg-red-600 text-white px-3 py-1 rounded-full text-[10px]">DELETE</button>
                   </div>
                 </div>
               </div>
@@ -328,68 +224,79 @@ export default function ReportsPage(){
         </div>
 
         <div className="mt-10 border-t-4 border-black pt-6">
-          <h2 className="font-black text-[20px]">Users Account Zawng Zawng ({filteredUsers.length} / {allUsers.length})</h2>
-          <input value={userSearch} onChange={e=>setUserSearch(e.target.value)} placeholder="Search name / email..." className="w-full border-2 rounded-xl px-4 py-3 text-[14px] font-bold mt-2" />
-          <div className="flex flex-col gap-2 mt-4 max-h-[600px] overflow-y-auto">
-            {filteredUsers.map((u:any)=>{
-              const dName = u.displayName || getName(u) || u.id.slice(0,8);
-              const dEmail = u.email || getEmail(u) || "Email awm lo";
-              return (
-                <div key={u.id} className="border rounded-2xl p-3 flex gap-3 bg-white">
-                  <img src={u.photoURL || "/no-image.png"} className="w-12 h-12 rounded-full object-cover bg-gray-100 border" alt="" />
-                  <div className="flex-1">
-                    <p className="font-black text-[13px] truncate">{dName}</p>
-                    <p className="text-[11px] text-gray-600 truncate">{dEmail}</p>
-                    <p className="text-[10px] text-gray-400">ID: {u.id.slice(0,12)}</p>
-                  </div>
-                  <button onClick={()=>setConfirmDeleteUser({id:u.id, name:dName})} className="bg-red-600 text-white px-4 h-fit py-2 rounded-full text-[10px] font-black">DELETE</button>
+          <h2 className="font-black text-[20px]">Users ({filteredUsers.length})</h2>
+          <input value={userSearch} onChange={e=>setUserSearch(e.target.value)} placeholder="Search name/email..." className="w-full border-2 rounded-xl px-4 py-3 mt-2" />
+          <div className="flex flex-col gap-2 mt-4">
+            {filteredUsers.map((u:any)=>(
+              <div key={u.id} className="border rounded-2xl p-3 flex gap-3 bg-white">
+                <div className="flex-1">
+                  <p className="font-black text-[13px]">{u.displayName}</p>
+                  <p className="text-[11px] text-gray-600">{u.email}</p>
                 </div>
-              );
-            })}
+                <button onClick={()=>setConfirmDeleteUser({id:u.id, name:u.displayName})} className="bg-red-600 text-white px-4 h-fit py-2 rounded-full text-[10px]">DELETE</button>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
       {showDeleteId && (
-        <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6">
-          <div className="bg-white rounded-[28px] p-6 w-full max-w-[320px] text-center">
-            <p className="font-black text-[18px]">Delete report?</p>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-[320px] text-center">
+            <p className="font-black">Delete report?</p>
             <div className="flex gap-2 mt-6">
-              <button onClick={()=>setShowDeleteId(null)} className="flex-1 bg-gray-100 font-bold py-3.5 rounded-2xl">Cancel</button>
-              <button onClick={confirmDelete} disabled={deleting} className="flex-1 bg-black text-white font-black py-3.5 rounded-2xl">{deleting?"...":"OK"}</button>
+              <button onClick={()=>setShowDeleteId(null)} className="flex-1 bg-gray-100 py-3 rounded-2xl">Cancel</button>
+              <button onClick={confirmDelete} className="flex-1 bg-black text-white py-3 rounded-2xl">OK</button>
             </div>
           </div>
         </div>
       )}
 
       {confirmModal && (
-        <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6">
-          <div className="bg-white rounded-[28px] p-6 w-full max-w-[340px] text-center">
-            <p className="font-black text-[18px]">{confirmModal.type==='ban'? "Ban " + confirmModal.userName + "?" : "Delete " + confirmModal.userName + " posts?"}</p>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-[340px] text-center">
+            <p className="font-black">{confirmModal.type==="ban"? "Ban " + confirmModal.userName + "?" : "Delete posts?"}</p>
             <div className="flex gap-2 mt-6">
-              <button onClick={()=>setConfirmModal(null)} className="flex-1 bg-gray-100 font-bold py-3.5 rounded-2xl">Cancel</button>
-              <button onClick={confirmModal.type==='ban'? executeBan : executePostDelete} disabled={!!actionId} className={"flex-1 text-white font-black py-3.5 rounded-2xl " + (confirmModal.type==='ban'? "bg-red-600" : "bg-orange-500")}>{actionId? "..." : confirmModal.type==='ban'? "BAN" : "DELETE"}</button>
+              <button onClick={()=>setConfirmModal(null)} className="flex-1 bg-gray-100 py-3 rounded-2xl">Cancel</button>
+              <button onClick={confirmModal.type==="ban"? executeBan : executePostDelete} className="flex-1 bg-red-600 text-white py-3 rounded-2xl">OK</button>
             </div>
           </div>
         </div>
       )}
 
       {confirmDeleteUser && (
-        <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6">
-          <div className="bg-white rounded-[28px] p-6 w-full max-w-[340px] text-center">
-            <p className="font-black text-[18px]">Delete {confirmDeleteUser.name}?</p>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-[340px] text-center">
+            <p className="font-black">Delete {confirmDeleteUser.name}?</p>
             <div className="flex gap-2 mt-6">
-              <button onClick={()=>setConfirmDeleteUser(null)} className="flex-1 bg-gray-100 font-bold py-3.5 rounded-2xl">Cancel</button>
-              <button onClick={executeDeleteUserAccount} disabled={deleting} className="flex-1 bg-red-600 text-white font-black py-3.5 rounded-2xl">{deleting?"...":"DELETE"}</button>
+              <button onClick={()=>setConfirmDeleteUser(null)} className="flex-1 bg-gray-100 py-3 rounded-2xl">Cancel</button>
+              <button onClick={executeDeleteUserAccount} className="flex-1 bg-red-600 text-white py-3 rounded-2xl">DELETE</button>
             </div>
           </div>
         </div>
       )}
 
       {editPost && (
-        <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[28px] p-6 w-full max-w-[360px]">
-            <p className="font-black text-[18px]">Edit Post</p>
-            <div className="flex flex-col gap-3 mt-3">
-              <input value={editPost.title || ""} onChange={e=>setEditPost({...editPost, title:e.target.value})} placeholder="Title" className="border-2 rounded-xl px-4 py-3 text-[14px] font-bold" />
-              <input value={editPost.price || ""} onChange={e=>setEditPost({...editPost, price:e.target.value})} placeholder="Price" type="number" className="border-2 rounded-xl px-4 py-3 t
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-[360px]">
+            <p className="font-black">Edit Post</p>
+            <input value={editPost.title || ""} onChange={e=>setEditPost({...editPost, title:e.target.value})} className="border-2 rounded-xl px-4 py-3 w-full mt-3" />
+            <div className="flex gap-2 mt-5">
+              <button onClick={()=>setEditPost(null)} className="flex-1 bg-gray-100 py-3 rounded-2xl">Cancel</button>
+              <button onClick={saveEdit} className="flex-1 bg-black text-white py-3 rounded-2xl">SAVE</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {successModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-6">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-[320px] text-center">
+            <p className="font-black">{successModal}</p>
+            <button onClick={()=>setSuccessModal(null)} className="w-full mt-5 bg-black text-white py-3 rounded-2xl">OK</button>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}
