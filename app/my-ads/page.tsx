@@ -4,6 +4,7 @@ import { collection, query, where, onSnapshot, deleteDoc, doc } from "firebase/f
 import { db } from "@/lib/firebase/config";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
+import CommentPopup from "@/components/CommentPopup";
 
 export default function MyAdsPage(){
   const {user}=useAuth();
@@ -12,6 +13,7 @@ export default function MyAdsPage(){
   const [filter,setFilter]=useState<"all"|"products"|"jobs">("all");
   const [deleteItem,setDeleteItem]=useState<{id:string,type:string}|null>(null);
   const [loadingDelete,setLoadingDelete]=useState(false);
+  const [selectedPostId,setSelectedPostId]=useState<string|null>(null);
 
   const formatDate = (ts:any)=>{
     if(!ts) return "";
@@ -116,6 +118,11 @@ export default function MyAdsPage(){
                   <span className="bg-[#eeeeee] text-black px-2.5 py-[2px] rounded-full text-[10px] font-black border">{ad.type==="job"?"JOB":"PRODUCT"}</span>
                 </div>
                 <p className="text-[11px] text-gray-400 mt-[2px] font-medium">{formatDate(ad.createdAt)}</p>
+                {/* ✅ BELH CHIAH - LIKE & COMMENT */}
+                <div className="flex items-center gap-4 mt-1.5">
+                  <span className="text-[11px] font-black text-black">❤️ {ad.likes||0} likes</span>
+                  <button onClick={()=>setSelectedPostId(ad.id)} className="text-[11px] font-black text-black active:opacity-60">💬 {ad.commentsCount||0} comments</button>
+                </div>
               </div>
               <div className="flex gap-2 mt-2 justify-end">
                 <button onClick={()=>handleEdit(ad)} className="px-5 py-2 bg-[#f0f0f0] text-black font-black text-[11px] rounded-full border border-gray-200 active:scale-95">EDIT</button>
@@ -142,6 +149,9 @@ export default function MyAdsPage(){
           </div>
         </div>
       )}
+      {selectedPostId && <CommentPopup postId={selectedPostId} onClose={()=>setSelectedPostId(null)} onCommentAdded={(pid)=>{
+        setAds(prev=> prev.map(p=> p.id===pid? {...p, commentsCount: (p.commentsCount||0)+1} : p));
+      }} />}
     </main>
   );
 }
