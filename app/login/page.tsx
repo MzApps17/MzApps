@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { auth } from "@/lib/firebase/config";
+import { auth, db } from "@/lib/firebase/config";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail } from "firebase/auth";
+import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 export default function Login(){
@@ -18,11 +19,45 @@ export default function Login(){
     else{ setAlertMsg(msg); }
   };
 
+  // ✅ DATABASE AH SAVE NA FUNCTION
+  const saveUserToDB = async (user:any, customDisplayName?:string) => {
+    const userRef = doc(db, "users", user.uid);
+    const userSnap = await getDoc(userRef);
+
+    // A awm tawh chuan over-write lo, a awm loh chuan siam
+    if (!userSnap.exists()) {
+      const nameFromEmail = user.email? user.email.split('@')[0] : "Mizo User";
+      await setDoc(userRef, {
+        uid: user.uid,
+        email: user.email || "",
+        displayName: customDisplayName || user.displayName || nameFromEmail,
+        photoURL: user.photoURL || "",
+        createdAt: serverTimestamp()
+      });
+    } else {
+      // A lo awm tawh anih pawn displayName a ruak anih chuan email atangin fill rawh
+      const data = userSnap.data();
+      if (!data.displayName || data.displayName.trim() === "") {
+        const nameFromEmail = user.email? user.email.split('@')[0] : "Mizo User";
+        await setDoc(userRef, {
+          displayName: customDisplayName || user.displayName || nameFromEmail,
+          email: user.email || data.email || "",
+        }, { merge: true });
+      }
+    }
+  };
+
   const submit=async(e:any)=>{
     e.preventDefault(); setLoading(true);
     try{
-      if(isSignup){ await createUserWithEmailAndPassword(auth,email,pass); }
-      else { await signInWithEmailAndPassword(auth,email,pass); }
+      if(isSignup){
+        const cred = await createUserWithEmailAndPassword(auth,email,pass);
+        await saveUserToDB(cred.user, email.split('@')[0]);
+      }
+      else {
+        const cred = await signInWithEmailAndPassword(auth,email,pass);
+        await saveUserToDB(cred.user);
+      }
       router.push("/");
     }catch(err:any){ showAlert(err.message); } finally{ setLoading(false); }
   }
@@ -30,7 +65,8 @@ export default function Login(){
   const googleLogin=async()=>{
     try{
       const provider=new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      await saveUserToDB(result.user);
       router.push("/");
     }catch(err:any){ showAlert("Google Error: "+err.message); }
   }
@@ -50,7 +86,6 @@ export default function Login(){
 
   return (
     <main className="h-[100dvh] w-full overflow-hidden fixed inset-0 bg-[#f5f5f5] flex flex-col">
-      {/* Back leh card inkar zim */}
       <div className="w-full px-4 pt-3 pb-1">
         <button onClick={handleBack} className="flex items-center gap-1 font-bold text-[16px]">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.8" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -60,7 +95,6 @@ export default function Login(){
 
       <div className="flex-1 flex items-center justify-center p-4 pt-1">
         <form onSubmit={submit} className="bg-white w-full max-w-sm rounded-[28px] p-7 border shadow-sm">
-          {/* Lo lut rawh paih - hei chiah awm */}
           <p className="text-[15px] text-gray-500">Please login to continue</p>
 
           <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email" className="w-full mt-6 border-2 border-gray-200 p-4 rounded-2xl outline-none focus:border-black focus:ring-1 focus:ring-black" required />
@@ -94,4 +128,4 @@ export default function Login(){
       )}
     </main>
   );
-              }
+}
