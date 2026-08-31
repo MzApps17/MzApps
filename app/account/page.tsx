@@ -84,33 +84,20 @@ export default function Account(){
       const finalName = newName.trim();
       await updateProfile(user,{displayName:finalName});
       await setDoc(doc(db,"users",user.uid),{ displayName:finalName, name:finalName, nameChanged:true, email:user.email, photoURL: profile?.photoURL || user.photoURL || "" },{merge:true});
-
-      // ✅ FIX - A Post hlui zawng zawng ah pawh Hming thar update nghal
       try{
         const pq = query(collection(db,"products"), where("userId","==", user.uid));
         const psnap = await getDocs(pq);
         for(const pd of psnap.docs){
-          await updateDoc(doc(db,"products",pd.id), {
-            sellerName: finalName,
-            userName: finalName,
-            displayName: finalName,
-            userDisplayName: finalName
-          });
+          await updateDoc(doc(db,"products",pd.id), { sellerName: finalName, userName: finalName, displayName: finalName, userDisplayName: finalName });
         }
       }catch{}
       try{
         const jq = query(collection(db,"jobs"), where("userId","==", user.uid));
         const jsnap = await getDocs(jq);
         for(const jd of jsnap.docs){
-          await updateDoc(doc(db,"jobs",jd.id), {
-            sellerName: finalName,
-            userName: finalName,
-            displayName: finalName,
-            userDisplayName: finalName
-          });
+          await updateDoc(doc(db,"jobs",jd.id), { sellerName: finalName, userName: finalName, displayName: finalName, userDisplayName: finalName });
         }
       }catch{}
-
       setProfile((p:any)=>({...p, displayName:finalName, name:finalName, nameChanged:true}));
       setUser({...user, displayName:finalName}); setShowNameEdit(false);
       if(window.history.state?.nameModal) window.history.back();
@@ -129,55 +116,116 @@ export default function Account(){
   const isAdmin = adminEmails.includes(user.email);
 
   return (
-    <main className="min-h-screen bg-white pb-10">
-      <div className="bg-black text-white m-3 rounded-[30px] p-7">
-        <div className="flex items-center gap-5">
+    <main className="min-h-screen bg-[#f7f7f8] pb-24">
+      {/* HEADER - NALH TAK */}
+      <div className="bg-[#0e0e0e] text-white mx-3 mt-3 rounded-[32px] p-6 relative overflow-hidden">
+        <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+        <div className="flex items-center gap-5 relative z-10">
           <div className="relative">
-            <div onClick={openPic} className="w-28 h-28 bg-white rounded-full flex items-center justify-center overflow-hidden cursor-pointer border-4 border-white/20">
-              {displayPic? <img src={displayPic} className="w-full h-full object-cover"/> : <span className="text-black text-4xl font-black">{user.email[0].toUpperCase()}</span>}
+            <div onClick={openPic} className="w-[88px] h-[88px] bg-white rounded-full flex items-center justify-center overflow-hidden cursor-pointer border-[3px] border-white/20 shadow-xl">
+              {displayPic? <img src={displayPic} className="w-full h-full object-cover"/> : <span className="text-black text-3xl font-black">{user.email[0].toUpperCase()}</span>}
             </div>
-            <button onClick={()=>fileRef.current?.click()} className="absolute -bottom-1 -right-1 bg-[#00C853] w-9 h-9 rounded-full flex items-center justify-center border-[3px] border-black text-white font-black">+</button>
+            <button onClick={()=>fileRef.current?.click()} className="absolute -bottom-1 -right-1 bg-[#00C853] w-8 h-8 rounded-full flex items-center justify-center border-[3px] border-[#0e0e0e] text-white font-black shadow-lg active:scale-90 transition">+</button>
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={changePic}/>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[22px] font-black capitalize break-all leading-6">{displayName}</p>
-            <p className="text-[12px] text-gray-300 truncate mt-1">{user.email}</p>
-            <p className="mt-3 bg-white/20 inline-block px-3 py-1 rounded-full text-[11px]">✅ Verified Member</p>
-            {uploading && <p className="text-[11px] mt-2 text-yellow-300">Uploading...</p>}
+            <p className="text-[20px] font-black capitalize leading-6 truncate">{displayName}</p>
+            <p className="text-[11px] text-white/60 truncate mt-1">{user.email}</p>
+            <div className="mt-2.5 inline-flex items-center gap-1.5 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full text-[11px] font-bold border border-white/10">✅ Verified Member</div>
+            {uploading && <p className="text-[11px] mt-2 text-yellow-300 animate-pulse">Uploading...</p>}
           </div>
         </div>
       </div>
 
-      <div className="p-3">
-        <h2 className="font-black text-[16px] mb-3">❤️ My Wishlist ({wishlist.length})</h2>
-        {wishlist.length===0? <p className="bg-gray-50 p-5 rounded-2xl text-center text-gray-400 text-[13px]">Wishlist a la awm lo</p> :
-        <div className="grid grid-cols-2 gap-2">
-          {wishlist.map((item:any)=>(
-            <div key={item.id} className="bg-white border rounded-xl overflow-hidden relative">
-              {item.type==="job"? (
-                <Link href={`/jobs/${item.id}`}><div className="w-full h-32 bg-gray-100 flex items-center justify-center p-3"><p className="font-black text-[14px] text-center line-clamp-2">{item.title}</p></div></Link>
-              ) : (
-                <Link href={`/marketplace/${item.id}`}><img src={item.image || item.images?.[0]} className="w-full h-32 object-cover"/></Link>
-              )}
-              <button onClick={()=>removeWish(item.wishId,item.id)} className="absolute top-2 right-2 bg-black/70 text-white w-7 h-7 rounded-full text-xs">✕</button>
-              <div className="p-2"><p className="text-[12px] font-bold truncate">{item.title}</p><p className="font-black">{item.type==="job"? `₹${item.salary||""}` : `₹${Number(item.price||0).toLocaleString("en-IN")}`}</p></div>
+      <div className="p-3 flex flex-col gap-4">
+        {/* ✅ PERSONAL INFO - THAR NALH TAK */}
+        <div className="bg-white rounded-[24px] p-2 shadow-sm border border-gray-100">
+          <p className="font-black text-[13px] px-3 pt-2 pb-1 text-gray-400 tracking-widest">PERSONAL INFO</p>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-3 px-3 py-3.5">
+              <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center text-[16px]">📧</div>
+              <div className="flex-1 min-w-0"><p className="text-[11px] text-gray-400 font-bold">Email</p><p className="text-[13px] font-bold truncate">{user.email}</p></div>
+              <span className="text-[10px] bg-green-50 text-green-600 px-2 py-1 rounded-full font-black">Verified</span>
             </div>
-          ))}
-        </div>}
+            <div className="h-[1px] bg-gray-100 mx-3"></div>
+            <div className="flex items-center gap-3 px-3 py-3.5">
+              <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center text-[16px]">📱</div>
+              <div className="flex-1"><p className="text-[11px] text-gray-400 font-bold">Phone</p><p className="text-[13px] font-bold">{profile?.phone || "Set ve loh"}</p></div>
+              <span className="text-gray-300 text-[18px]">›</span>
+            </div>
+            <div className="h-[1px] bg-gray-100 mx-3"></div>
+            <div className="flex items-center gap-3 px-3 py-3.5">
+              <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center text-[16px]">📍</div>
+              <div className="flex-1"><p className="text-[11px] text-gray-400 font-bold">Khua / Location</p><p className="text-[13px] font-bold">{profile?.khua || profile?.village || profile?.location || "Aizawl, Mizoram"}</p></div>
+              <span className="text-gray-300 text-[18px]">›</span>
+            </div>
+            <div className="h-[1px] bg-gray-100 mx-3"></div>
+            <div className="flex items-center gap-3 px-3 py-3.5">
+              <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center text-[16px]">🗓️</div>
+              <div className="flex-1"><p className="text-[11px] text-gray-400 font-bold">Member Since</p><p className="text-[13px] font-bold">{user.metadata?.creationTime? new Date(user.metadata.creationTime).toLocaleDateString('en-GB',{day:'2-digit', month:'short', year:'numeric'}) : "2024"}</p></div>
+            </div>
+          </div>
+        </div>
 
-        {!profile?.nameChanged? (
-          <button onClick={openNameEdit} className="w-full bg-black text-white font-black py-4 rounded-2xl mt-6 flex items-center justify-center gap-2">✏️ Hming Thlak</button>
-        ) : (
-          <p className="text-center text-[11px] text-gray-400 mt-6">Hming vawi 1 i thlak tawh</p>
-        )}
+        {/* WISHLIST */}
+        <div className="bg-white rounded-[24px] p-4 shadow-sm border border-gray-100">
+          <h2 className="font-black text-[15px] mb-3 flex items-center gap-2">❤️ My Wishlist <span className="bg-black text-white text-[11px] px-2 py-0.5 rounded-full">{wishlist.length}</span></h2>
+          {wishlist.length===0? <div className="bg-gray-50 p-6 rounded-2xl text-center"><p className="text-gray-400 text-[13px]">Wishlist a la awm lo</p><p className="text-[11px] text-gray-300 mt-1">I duh zawng i save te hetah a lang ang</p></div> :
+          <div className="grid grid-cols-2 gap-2.5">
+            {wishlist.map((item:any)=>(
+              <div key={item.id} className="bg-white border border-gray-100 rounded-2xl overflow-hidden relative shadow-sm">
+                {item.type==="job"? (
+                  <Link href={`/jobs/${item.id}`}><div className="w-full h-28 bg-gray-100 flex items-center justify-center p-3"><p className="font-black text-[13px] text-center line-clamp-2">{item.title}</p></div></Link>
+                ) : (
+                  <Link href={`/marketplace/${item.id}`}><img src={item.image || item.images?.[0]} className="w-full h-28 object-cover"/></Link>
+                )}
+                <button onClick={()=>removeWish(item.wishId,item.id)} className="absolute top-2 right-2 bg-black/70 backdrop-blur text-white w-7 h-7 rounded-full text-[12px] flex items-center justify-center">✕</button>
+                <div className="p-2.5"><p className="text-[11px] font-bold truncate">{item.title}</p><p className="font-black text-[13px] mt-0.5">{item.type==="job"? `₹${item.salary||""}` : `₹${Number(item.price||0).toLocaleString("en-IN")}`}</p></div>
+              </div>
+            ))}
+          </div>}
+        </div>
+
+        {/* SETTINGS LIST - ICON NEN */}
+        <div className="bg-white rounded-[24px] p-2 shadow-sm border border-gray-100">
+          <p className="font-black text-[13px] px-3 pt-2 pb-1 text-gray-400 tracking-widest">SETTINGS</p>
+          {!profile?.nameChanged? (
+            <button onClick={openNameEdit} className="w-full flex items-center gap-3 px-3 py-3.5 active:bg-gray-50 rounded-xl transition">
+              <div className="w-9 h-9 bg-black rounded-full flex items-center justify-center text-white text-[14px]">✏️</div>
+              <div className="flex-1 text-left"><p className="font-bold text-[13px]">Hming Thlak</p><p className="text-[11px] text-gray-400">Display name thlakna (vawi 1 chiah)</p></div>
+              <span className="text-gray-300 text-[18px]">›</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-3 px-3 py-3.5 opacity-50">
+              <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center text-[14px]">✏️</div>
+              <div className="flex-1"><p className="font-bold text-[13px]">Hming Thlak</p><p className="text-[11px] text-gray-400">Vawi 1 i thlak tawh</p></div>
+              <span className="text-[11px] bg-gray-100 px-2 py-1 rounded-full font-bold">Done</span>
+            </div>
+          )}
+          <div className="h-[1px] bg-gray-100 mx-3"></div>
+          <Link href="/my-ads" className="flex items-center gap-3 px-3 py-3.5 active:bg-gray-50 rounded-xl">
+            <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center text-[14px]">📦</div>
+            <div className="flex-1"><p className="font-bold text-[13px]">Ka Ads te</p><p className="text-[11px] text-gray-400">I post zawng zawng enna</p></div>
+            <span className="text-gray-300 text-[18px]">›</span>
+          </Link>
+          <div className="h-[1px] bg-gray-100 mx-3"></div>
+          <Link href="/notifications" className="flex items-center gap-3 px-3 py-3.5 active:bg-gray-50 rounded-xl">
+            <div className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center text-[14px]">🔔</div>
+            <div className="flex-1"><p className="font-bold text-[13px]">Notifications</p><p className="text-[11px] text-gray-400">Hriattirna te</p></div>
+            <span className="text-gray-300 text-[18px]">›</span>
+          </Link>
+        </div>
 
         {isAdmin && (
-          <Link href="/admin/reports" className="w-full bg-red-600 text-white font-black py-4 rounded-2xl mt-3 flex items-center justify-center gap-2 block text-center">
+          <Link href="/admin/reports" className="w-full bg-[#E53935] text-white font-black py-4 rounded-[20px] flex items-center justify-center gap-2 shadow-lg shadow-red-200 active:scale-[0.98] transition">
             🚩 Admin - Reports En
           </Link>
         )}
 
-        <button onClick={async()=>{ await signOut(auth); router.push("/"); }} className="w-full bg-red-50 text-red-600 font-black py-4 rounded-2xl mt-3">Log Out</button>
+        <button onClick={async()=>{ await signOut(auth); router.push("/"); }} className="w-full bg-white border border-red-100 text-red-600 font-black py-4 rounded-[20px] flex items-center justify-center gap-2 shadow-sm active:scale-[0.98] transition">
+          <span className="text-[16px]">↪</span> Log Out
+        </button>
+        <p className="text-center text-[10px] text-gray-300 font-bold tracking-widest mt-2">MIZOCHATAPPS v2.0 • VERIFIED</p>
       </div>
 
       {showPic && displayPic && (
@@ -195,7 +243,7 @@ export default function Account(){
             <p className="text-[12px] text-red-500 mt-1 font-bold">⚠️ Hming vawi khat chiah i thlak thei!</p>
             <input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Hming thar" className="w-full mt-4 border-2 border-gray-200 p-3 rounded-xl outline-none focus:border-black"/>
             <div className="flex gap-2 mt-5">
-              <button onClick={()=>{ setShowNameEdit(false); if(window.history.state?.nameModal) window.history.back(); }} className="flex-1 bg-gray-200 text-black font-bold py-3 rounded-xl">Cancel</button>
+              <button onClick={()=>{ setShowNameEdit(false); if(window.history.state?.nameModal) window.history.back(); }} className="flex-1 bg-gray-100 text-black font-bold py-3 rounded-xl">Cancel</button>
               <button onClick={handleNameChange} disabled={savingName} className="flex-1 bg-black text-white font-bold py-3 rounded-xl">{savingName?"...":"Change Name"}</button>
             </div>
           </div>
@@ -203,4 +251,4 @@ export default function Account(){
       )}
     </main>
   );
-    }
+}
