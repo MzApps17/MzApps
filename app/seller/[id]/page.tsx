@@ -1,8 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc, addDoc, serverTimestamp, updateDoc, increment, arrayUnion, arrayRemove } from "firebase/firestore";
 import { useParams, useRouter } from "next/navigation";
-import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc, serverTimestamp, updateDoc, increment, arrayUnion, arrayRemove } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc, addDoc, serverTimestamp, updateDoc, increment, arrayUnion, arrayRemove } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase/config";
 import Link from "next/link";
 import { onAuthStateChanged } from "firebase/auth";
@@ -143,7 +142,7 @@ export default function SellerProfile(){
           if(Array.isArray(fd.likedBy)&&fd.likedBy.includes(uid)) lSet.add(p.id);
         }
         lc[p.id]=likeNum;
-        let cNum = typeof fd.commentCount==='number'? fd.commentCount : typeof fd.commentsCount==='number'? fd.commentsCount : typeof fd.comments==='number'? fd.comments : 0;
+        let cNum = typeof fd.commentCount==='number'? fd.commentCount : typeof fd.commentsCount==='number'? fd.commentsCount : 0;
         if(cNum===0){
           try{ const cs=await getDocs(collection(db,"products",p.id,"comments")); cNum=cs.size; }catch{}
         }
@@ -318,4 +317,4 @@ export default function SellerProfile(){
       {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
     </main>
   );
-    }
+}
