@@ -5,6 +5,8 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase/config";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+// === BELH CHIAH - Comment Popup ===
+import CommentPopup from "@/components/CommentPopup";
 
 function timeAgo(ts:any){
   if(!ts) return "today";
@@ -33,6 +35,7 @@ export default function Home(){
   const [user,setUser]=useState<any>(null);
   const [showLoginAlert,setShowLoginAlert]=useState(false);
   const [hasNewNoti,setHasNewNoti]=useState(false);
+  const [selectedPostId,setSelectedPostId]=useState<string|null>(null);
   const router = useRouter();
 
   // === BELH CHIAH 1 - SCROLL RESTORE - FIXED ===
@@ -120,7 +123,6 @@ export default function Home(){
           const tb=b.createdAt?.toMillis? b.createdAt.toMillis() : new Date(b.createdAt||0).getTime();
           return tb-ta;
         });
-        // FIX 1 - DUPLICATE REMOVE + POST THAR CHUNG BER AH
         const uniqueMap = new Map();
         allAds.forEach((ad:any)=> uniqueMap.set(ad.id, ad));
         setAds(Array.from(uniqueMap.values()));
@@ -160,7 +162,6 @@ export default function Home(){
       if(snap.empty){
         setHasMore(false);
       }else{
-        // FIX 2 - DOUBLE VENNA
         setAds(prev=>{
           const existingIds = new Set(prev.map((a:any)=>a.id));
           const newOnes = snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"})).filter((a:any)=>!existingIds.has(a.id));
@@ -184,7 +185,7 @@ export default function Home(){
   },[lastDoc,hasMore]);
 
   const toggleWish = async(e:any, adId:string)=>{
-    e.preventDefault();
+    e.preventDefault(); e.stopPropagation();
     if(!user){ setShowLoginAlert(true); return; }
     const wishRef=doc(db,"users",user.uid,"wishlist",adId);
     if(wishIds.has(adId)){
@@ -207,9 +208,6 @@ export default function Home(){
     <main className="min-h-screen bg-[#f2f2f2]">
       <div style={{position:'absolute', left:'-9999px', top:'auto', width:'1px', height:'1px', overflow:'hidden'}}>
         <h1>MizoApps - Mizoram No.1 Marketplace, Jobs, Chat - Buy Sell Cars, Properties, Mobiles in Mizoram</h1>
-        <h2>Mizo thil zawrhna, hna zawnna, Mizo Marketplace Official</h2>
-        <p>MizoApps.in is Mizoram largest marketplace for buying and selling cars, bikes, mobiles, properties, jobs, furniture, fashion.</p>
-        <p>Aizawl, Lunglei, Saiha, Champhai, Kolasib, Serchhip, Lawngtlai, Mamit, Saitual, Khawzawl</p>
       </div>
 
       <div className="bg-white sticky top-0 z-20 p-3 border-b">
@@ -218,17 +216,14 @@ export default function Home(){
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#002f34" strokeWidth="2.5"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.3-4.3"/></svg>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Find Cars, Mobile..." className="flex-1 outline-none text-[14px] bg-transparent"/>
           </div>
-
           <button onClick={()=> router.push(user? "/account" : "/login")} className="h-9 px-4 bg-black rounded-full flex items-center justify-center flex-shrink-0 border border-black">
             <span className="text-white font-black text-[11px] tracking-wide">LOGIN</span>
           </button>
-
           <button onClick={()=> router.push("/notifications")} className="w-9 h-9 bg-white border-[1.5px] border-black rounded-full flex items-center justify-center flex-shrink-0 relative">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 6 5 6 10H0s6-3 6-10"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>
             {hasNewNoti && <span className="absolute top-[3px] right-[4px] w-[9px] h-[9px] bg-red-600 rounded-full border border-white"></span>}
           </button>
         </div>
-
         <div className="flex gap-2 overflow-x-auto mt-3 pb-1 no-scrollbar">
           {categories.map(c=>(
             <button key={c} onClick={()=>setCat(c)} className={`whitespace-nowrap px-4 py-1.5 rounded-full border text-[13px] font-black ${cat===c?'bg-[#002f34] text-white border-[#002f34]':'bg-white text-[#002f34] border-gray-300'}`}>{c}</button>
@@ -236,47 +231,112 @@ export default function Home(){
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-[1px] bg-gray-200">
+      {/* ============ THLAK CHIAH - FACEBOOK STYLE FEED ============ */}
+      <div className="flex flex-col">
         {filtered.map(ad=>(
-          <div key={ad.id} className="bg-white p-2 flex flex-col relative group">
-            <button onClick={(e)=>toggleWish(e,ad.id)} className="absolute top-3 right-3 z-10 bg-white w-8 h-8 rounded-full shadow flex items-center justify-center text-[16px]">
-              {wishIds.has(ad.id)? "❤️" : "🤍"}
-            </button>
-            <Link onClick={saveScroll} href={ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`}>
-              <div className="w-full h-40 bg-gray-100 overflow-hidden rounded flex items-center justify-center">
+          <div key={ad.id} className="bg-white mb-2 w-full cursor-pointer">
+            {/* 1. POST TU PIC + HMING + TIME - CLICK = PROFILE */}
+            <div className="flex items-center gap-3 p-3">
+              <img
+                onClick={(e)=>{ e.stopPropagation(); if(ad.userId) router.push(`/user/${ad.userId}`); }}
+                src={ad.userPhoto || ad.userPic || "https://i.pravatar.cc/100"}
+                className="w-10 h-10 rounded-full object-cover border cursor-pointer"
+              />
+              <div className="flex flex-col">
+                <span
+                  onClick={(e)=>{ e.stopPropagation(); if(ad.userId) router.push(`/user/${ad.userId}`); }}
+                  className="font-bold text-[15px] leading-none cursor-pointer hover:underline"
+                >
+                  {ad.userName || ad.userDisplayName || "Mizo User"}
+                </span>
+                <span className="text-[12px] text-gray-500 mt-1">{timeAgo(ad.createdAt)}</span>
+              </div>
+            </div>
+
+            {/* 2. ITEM NAME */}
+            <div className="px-3 pb-1" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
+              <h2 className="font-bold text-[16px] text-[#002f34] line-clamp-1">{ad.title}</h2>
+            </div>
+
+            {/* 3. DESCRIPTION */}
+            <div className="px-3 pb-2" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
+              <p className="text-[13px] text-gray-700 line-clamp-2">{ad.description || ad.desc || ""}</p>
+            </div>
+
+            {/* 4. IMAGE + WISHLIST LOVE - SIR AH */}
+            <div className="relative w-full bg-gray-100" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
+              <div className="w-full h-[380px] bg-gray-100 overflow-hidden flex items-center justify-center">
                 {(ad._type==="job" &&!ad.image &&!ad.images?.[0])? (
                   <div className="w-full h-full bg-[#f3f4f6] flex items-center justify-center p-3">
-                    <p className="text-[20px] font-black text-[#002f34] text-center leading-tight capitalize">{ad.title || ad.jobTitle || "Job"}</p>
+                    <p className="text-[22px] font-black text-[#002f34] text-center leading-tight capitalize">{ad.title || "Job"}</p>
                   </div>
                 ) : (
-                  <img src={ad.image || ad.images?.[0] || "https://via.placeholder.com/300"} alt={ad.title} loading="lazy" className="w-full h-full object-cover group-active:scale-105 transition-transform duration-200"/>
+                  <img src={ad.image || ad.images?.[0] || "https://via.placeholder.com/300"} alt={ad.title} loading="lazy" className="w-full h-full object-cover"/>
                 )}
               </div>
-              <p className="font-black mt-2 text-[16px] text-[#002f34]">₹ {Number(ad.price || ad.salary || 0).toLocaleString("en-IN") || "0"}</p>
-              <p className="text-[13px] truncate font-medium text-[#002f34]">{ad.title}</p>
-              <div className="flex justify-between mt-2 items-center">
-                <p className="text-[11px] text-[#666] font-bold uppercase truncate flex items-center gap-1">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s-7-5.91-7-11a7 7 0 0 1 14 0c0 5.09-7 11-7 11z"/><circle cx="12" cy="10" r="3"/></svg>
-                  {ad.location || "ZAWLNUAM, MIZORAM"}
-                </p>
-                <p className="text-[10px] text-gray-500 font-bold">{timeAgo(ad.createdAt)}</p>
-              </div>
-            </Link>
+              {/* LOVE ICON - IMAGE TLANG SIR AH */}
+              <button onClick={(e)=>toggleWish(e,ad.id)} className="absolute top-3 right-3 bg-white/90 backdrop-blur p-2.5 rounded-full shadow-md">
+                <span className="text-[18px]">{wishIds.has(ad.id)? "❤️" : "🤍"}</span>
+              </button>
+            </div>
+
+            {/* 5. PRICE - PIC HNUAIAH */}
+            <div className="px-3 pt-2.5" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
+              <p className="font-black text-[18px] text-[#002f34]">₹ {Number(ad.price || ad.salary || 0).toLocaleString("en-IN") || "0"}</p>
+            </div>
+
+            {/* 6. LOCATION ICON + KHUA DISTRICT */}
+            <div className="px-3 pt-1 flex items-center gap-1 text-gray-500" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span className="text-[11px] font-bold uppercase">{ad.khua || ad.location || "AIZAWL"}, {ad.district || "MIZORAM"}</span>
+            </div>
+
+            {/* 7. LIKE COMMENT SHARE - LOGIN TAN CHIAH */}
+            <div className="flex items-center gap-6 px-3 py-3 mt-2 border-t border-gray-100">
+              <button
+                onClick={(e)=>{ e.stopPropagation(); if(!user){ setShowLoginAlert(true); return; } /* like logic */ }}
+                className="flex items-center gap-1.5 text-[13px] font-bold"
+              >
+                ❤️ {ad.likes || 0}
+              </button>
+              <button
+                onClick={(e)=>{ e.stopPropagation(); if(!user){ setShowLoginAlert(true); return; } setSelectedPostId(ad.id); }}
+                className="flex items-center gap-1.5 text-[13px] font-bold"
+              >
+                💬 {ad.commentsCount || 0} Comment
+              </button>
+              <button
+                onClick={(e)=>{ e.stopPropagation(); if(navigator.share) navigator.share({url: `${window.location.origin}/marketplace/${ad.id}`}) }}
+                className="flex items-center gap-1.5 text-[13px] font-bold"
+              >
+                ↗️ Share
+              </button>
+            </div>
           </div>
         ))}
       </div>
+      {/* ============ THLAK ZO ============ */}
 
-      {loading && <div className="grid grid-cols-2 gap-[1px] bg-gray-200">{[1,2,3,4,5,6].map(i=><div key={i} className="bg-white h-56 animate-pulse"/>)}</div>}
+      {loading && <div className="flex flex-col gap-2">{[1,2,3].map(i=><div key={i} className="bg-white h-[450px] animate-pulse"/>)}</div>}
       {isLoadingMore && <p className="text-center py-4 text-[12px] font-bold text-gray-400">Loading more...</p>}
 
       {showLoginAlert && (
         <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[20px] w-full max-w-[300px] p-6 shadow-2xl text-center">
             <p className="font-bold text-[16px] text-[#002f34]">Login hmasa phawt rawh</p>
-            <button onClick={()=> setShowLoginAlert(false)} className="w-full mt-5 bg-black text-white font-black py-3 rounded-xl text-[14px]">OK</button>
+            <p className="text-[12px] text-gray-500 mt-1">Like, Comment, Wishlist ti tur chuan login a ngai</p>
+            <div className="flex gap-2 mt-5">
+              <button onClick={()=> setShowLoginAlert(false)} className="flex-1 bg-gray-100 font-bold py-3 rounded-xl text-[14px]">Cancel</button>
+              <button onClick={()=> router.push("/login")} className="flex-1 bg-black text-white font-black py-3 rounded-xl text-[14px]">LOGIN</button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* COMMENT POPUP - LOGIN TAN CHIAH */}
+      {selectedPostId && (
+        <CommentPopup postId={selectedPostId} onClose={()=>setSelectedPostId(null)} />
+      )}
     </main>
   );
-        }
+              }
