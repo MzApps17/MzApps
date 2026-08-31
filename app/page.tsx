@@ -5,7 +5,6 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase/config";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-// === BELH CHIAH - Comment Popup ===
 import CommentPopup from "@/components/CommentPopup";
 
 function timeAgo(ts:any){
@@ -36,32 +35,21 @@ export default function Home(){
   const [showLoginAlert,setShowLoginAlert]=useState(false);
   const [hasNewNoti,setHasNewNoti]=useState(false);
   const [selectedPostId,setSelectedPostId]=useState<string|null>(null);
+  const [userMap,setUserMap]=useState<Record<string,any>>({});
   const router = useRouter();
 
-  // === BELH CHIAH 1 - SCROLL RESTORE - FIXED ===
   useEffect(()=>{
     if(ads.length > 0 &&!loading){
       const saved = sessionStorage.getItem("mzHomeScroll");
-      if(saved){
-        setTimeout(()=> window.scrollTo(0, parseInt(saved)), 100);
-      }
+      if(saved){ setTimeout(()=> window.scrollTo(0, parseInt(saved)), 100); }
     }
   },[ads, loading]);
-
   useEffect(()=>{
-    const onScroll = () => {
-      if(!loading){
-        sessionStorage.setItem("mzHomeScroll", String(window.scrollY));
-      }
-    };
+    const onScroll = () => { if(!loading) sessionStorage.setItem("mzHomeScroll", String(window.scrollY)); };
     window.addEventListener("scroll", onScroll);
     return ()=> window.removeEventListener("scroll", onScroll);
   },[loading]);
-
-  const saveScroll = () => {
-    sessionStorage.setItem("mzHomeScroll", String(window.scrollY));
-  };
-  // === BELH CHIAH 1 ZO ===
+  const saveScroll = () => { sessionStorage.setItem("mzHomeScroll", String(window.scrollY)); };
 
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth, async(u)=>{
@@ -78,35 +66,36 @@ export default function Home(){
     return ()=>unsub();
   },[]);
 
-  // === BELH CHIAH - Online presence (login + login lo) ===
   useEffect(()=>{
     const markOnline = async()=>{
       try{
         let anonId = localStorage.getItem("anon_id");
-        if(!anonId){
-          anonId = "anon_" + Math.random().toString(36).slice(2,11);
-          localStorage.setItem("anon_id", anonId);
-        }
-        await setDoc(doc(db,"presence", anonId), {
-          lastSeen: new Date(),
-          uid: auth.currentUser?.uid || null,
-          isAnon:!auth.currentUser
-        }, {merge:true});
-        if(auth.currentUser){
-          await setDoc(doc(db,"users", auth.currentUser.uid), { lastSeen: new Date() }, {merge:true});
-        }
+        if(!anonId){ anonId = "anon_" + Math.random().toString(36).slice(2,11); localStorage.setItem("anon_id", anonId); }
+        await setDoc(doc(db,"presence", anonId), { lastSeen: new Date(), uid: auth.currentUser?.uid || null, isAnon:!auth.currentUser }, {merge:true});
+        if(auth.currentUser){ await setDoc(doc(db,"users", auth.currentUser.uid), { lastSeen: new Date() }, {merge:true}); }
       }catch{}
     };
     markOnline();
     const iv = setInterval(markOnline, 60000);
     return ()=> clearInterval(iv);
   },[user]);
-  // === BELH CHIAH ZO ===
 
-  useEffect(()=>{
-    const t=setTimeout(()=>setDebouncedSearch(search),300);
-    return ()=>clearTimeout(t);
-  },[search]);
+  useEffect(()=>{ const t=setTimeout(()=>setDebouncedSearch(search),300); return ()=>clearTimeout(t); },[search]);
+
+  // === HMING & PIC DIK TAK LA CHHUAK NA ===
+  const fetchUserProfiles = async (adsList:any[]) => {
+    const ids = [...new Set(adsList.map(a=>a.userId).filter(Boolean))];
+    const missing = ids.filter(id=>!userMap[id]);
+    if(missing.length===0) return;
+    try{
+      const newMap = {...userMap};
+      await Promise.all(missing.map(async(uid)=>{
+        const snap = await getDoc(doc(db,"users",uid));
+        if(snap.exists()) newMap[uid] = snap.data();
+      }));
+      setUserMap(newMap);
+    }catch(e){ console.log(e); }
+  };
 
   const loadAds = useCallback(async (isNewCat=false)=>{
     setLoading(isNewCat);
@@ -123,23 +112,22 @@ export default function Home(){
           const tb=b.createdAt?.toMillis? b.createdAt.toMillis() : new Date(b.createdAt||0).getTime();
           return tb-ta;
         });
-        const uniqueMap = new Map();
-        allAds.forEach((ad:any)=> uniqueMap.set(ad.id, ad));
-        setAds(Array.from(uniqueMap.values()));
-        setLastDoc(snap1.docs[snap1.docs.length-1] || null);
-        setHasMore(snap1.docs.length===15);
+        const uniqueMap = new Map(); allAds.forEach((ad:any)=> uniqueMap.set(ad.id, ad));
+        const finalAds = Array.from(uniqueMap.values());
+        setAds(finalAds); fetchUserProfiles(finalAds);
+        setLastDoc(snap1.docs[snap1.docs.length-1] || null); setHasMore(snap1.docs.length===15);
       }else if(cat==="Jobs"){
         const q=query(collection(db,"jobs"), orderBy("createdAt","desc"), limit(20));
         const snap=await getDocs(q);
-        setAds(snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"job"})));
-        setLastDoc(snap.docs[snap.docs.length-1] || null);
-        setHasMore(snap.docs.length===20);
+        const finalAds = snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"job"}));
+        setAds(finalAds); fetchUserProfiles(finalAds);
+        setLastDoc(snap.docs[snap.docs.length-1] || null); setHasMore(snap.docs.length===20);
       }else{
         const q=query(collection(db,"products"), where("category","==",cat), orderBy("createdAt","desc"), limit(20));
         const snap=await getDocs(q);
-        setAds(snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"})));
-        setLastDoc(snap.docs[snap.docs.length-1] || null);
-        setHasMore(snap.docs.length===20);
+        const finalAds = snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"}));
+        setAds(finalAds); fetchUserProfiles(finalAds);
+        setLastDoc(snap.docs[snap.docs.length-1] || null); setHasMore(snap.docs.length===20);
       }
     }catch(e){ console.log(e); }
     setLoading(false);
@@ -148,38 +136,29 @@ export default function Home(){
   useEffect(()=>{ loadAds(true); },[loadAds]);
 
   const loadMore = async ()=>{
-    if(!lastDoc ||!hasMore || isLoadingMore) return;
-    if(cat==="Jobs") return;
+    if(!lastDoc ||!hasMore || isLoadingMore) return; if(cat==="Jobs") return;
     setIsLoadingMore(true);
     try{
       let q;
-      if(cat==="All"){
-        q=query(collection(db,"products"), orderBy("createdAt","desc"), startAfter(lastDoc), limit(20));
-      }else{
-        q=query(collection(db,"products"), where("category","==",cat), orderBy("createdAt","desc"), startAfter(lastDoc), limit(20));
-      }
+      if(cat==="All"){ q=query(collection(db,"products"), orderBy("createdAt","desc"), startAfter(lastDoc), limit(20)); }
+      else{ q=query(collection(db,"products"), where("category","==",cat), orderBy("createdAt","desc"), startAfter(lastDoc), limit(20)); }
       const snap=await getDocs(q);
-      if(snap.empty){
-        setHasMore(false);
-      }else{
+      if(snap.empty){ setHasMore(false); }
+      else{
         setAds(prev=>{
           const existingIds = new Set(prev.map((a:any)=>a.id));
           const newOnes = snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"})).filter((a:any)=>!existingIds.has(a.id));
-          return [...prev,...newOnes];
+          const merged = [...prev,...newOnes];
+          fetchUserProfiles(merged);
+          return merged;
         });
-        setLastDoc(snap.docs[snap.docs.length-1] || null);
-        setHasMore(snap.docs.length===20);
+        setLastDoc(snap.docs[snap.docs.length-1] || null); setHasMore(snap.docs.length===20);
       }
-    }catch{}
-    setIsLoadingMore(false);
+    }catch{} setIsLoadingMore(false);
   };
 
   useEffect(()=>{
-    const handleScroll=()=>{
-      if(window.innerHeight + window.scrollY >= document.body.offsetHeight - 800){
-        loadMore();
-      }
-    };
+    const handleScroll=()=>{ if(window.innerHeight + window.scrollY >= document.body.offsetHeight - 800) loadMore(); };
     window.addEventListener("scroll",handleScroll);
     return ()=>window.removeEventListener("scroll",handleScroll);
   },[lastDoc,hasMore]);
@@ -188,26 +167,20 @@ export default function Home(){
     e.preventDefault(); e.stopPropagation();
     if(!user){ setShowLoginAlert(true); return; }
     const wishRef=doc(db,"users",user.uid,"wishlist",adId);
-    if(wishIds.has(adId)){
-      await deleteDoc(wishRef);
-      setWishIds(prev=>{ const n=new Set(prev); n.delete(adId); return n; });
-    }else{
-      await setDoc(wishRef,{productId:adId, createdAt:new Date()});
-      setWishIds(prev=>{ const n=new Set(prev); n.add(adId); return n; });
-    }
+    if(wishIds.has(adId)){ await deleteDoc(wishRef); setWishIds(prev=>{ const n=new Set(prev); n.delete(adId); return n; }); }
+    else{ await setDoc(wishRef,{productId:adId, createdAt:new Date()}); setWishIds(prev=>{ const n=new Set(prev); n.add(adId); return n; }); }
   };
 
   const categories=["All","Cars","Properties","Mobiles","Jobs","Bikes","Furniture","Fashion","Electronics","Cosmetics","Others"];
   const filtered = ads.filter(a=>{
-    if(!debouncedSearch) return true;
-    const s=debouncedSearch.toLowerCase();
+    if(!debouncedSearch) return true; const s=debouncedSearch.toLowerCase();
     return a.title?.toLowerCase().includes(s) || a.location?.toLowerCase().includes(s);
   });
 
   return (
     <main className="min-h-screen bg-[#f2f2f2]">
       <div style={{position:'absolute', left:'-9999px', top:'auto', width:'1px', height:'1px', overflow:'hidden'}}>
-        <h1>MizoApps - Mizoram No.1 Marketplace, Jobs, Chat - Buy Sell Cars, Properties, Mobiles in Mizoram</h1>
+        <h1>MizoApps - Mizoram No.1 Marketplace</h1>
       </div>
 
       <div className="bg-white sticky top-0 z-20 p-3 border-b">
@@ -231,91 +204,63 @@ export default function Home(){
         </div>
       </div>
 
-      {/* ============ THLAK CHIAH - FACEBOOK STYLE FEED ============ */}
       <div className="flex flex-col">
-        {filtered.map(ad=>(
-          <div key={ad.id} className="bg-white mb-2 w-full cursor-pointer">
-            {/* 1. POST TU PIC + HMING + TIME - CLICK = PROFILE */}
-            <div className="flex items-center gap-3 p-3">
-              <img
-                onClick={(e)=>{ e.stopPropagation(); if(ad.userId) router.push(`/user/${ad.userId}`); }}
-                src={ad.userPhoto || ad.userPic || "https://i.pravatar.cc/100"}
-                className="w-10 h-10 rounded-full object-cover border cursor-pointer"
-              />
-              <div className="flex flex-col">
-                <span
-                  onClick={(e)=>{ e.stopPropagation(); if(ad.userId) router.push(`/user/${ad.userId}`); }}
-                  className="font-bold text-[15px] leading-none cursor-pointer hover:underline"
-                >
-                  {ad.userName || ad.userDisplayName || "Mizo User"}
-                </span>
-                <span className="text-[12px] text-gray-500 mt-1">{timeAgo(ad.createdAt)}</span>
+        {filtered.map(ad=>{
+          const u = userMap[ad.userId];
+          const realName = u?.displayName || u?.name || u?.fullName || ad.userName || ad.userDisplayName || ad.title?.split(" ")[0] || "Mizo User";
+          const realPic = u?.photoURL || u?.profilePic || u?.avatar || ad.userPhoto || ad.userPic || `https://ui-avatars.com/api/?name=${encodeURIComponent(realName)}&background=random`;
+          return (
+            <div key={ad.id} className="bg-white mb-2 w-full cursor-pointer">
+              <div className="flex items-center gap-3 p-3">
+                <img
+                  onClick={(e)=>{ e.stopPropagation(); if(ad.userId) { saveScroll(); router.push(`/user/${ad.userId}`); } }}
+                  src={realPic}
+                  className="w-10 h-10 rounded-full object-cover border cursor-pointer active:scale-95"
+                />
+                <div className="flex flex-col">
+                  <span
+                    onClick={(e)=>{ e.stopPropagation(); if(ad.userId) { saveScroll(); router.push(`/user/${ad.userId}`); } }}
+                    className="font-bold text-[15px] leading-none cursor-pointer hover:underline active:opacity-60"
+                  >
+                    {realName}
+                  </span>
+                  <span className="text-[12px] text-gray-500 mt-1">{timeAgo(ad.createdAt)}</span>
+                </div>
+              </div>
+
+              <div className="px-3 pb-1" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
+                <h2 className="font-bold text-[16px] text-[#002f34] line-clamp-1">{ad.title}</h2>
+              </div>
+              <div className="px-3 pb-2" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
+                <p className="text-[13px] text-gray-700 line-clamp-2">{ad.description || ad.desc || ""}</p>
+              </div>
+
+              <div className="relative w-full bg-gray-100" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
+                <div className="w-full h-[380px] bg-gray-100 overflow-hidden flex items-center justify-center">
+                  {(ad._type==="job" &&!ad.image &&!ad.images?.[0])? (
+                    <div className="w-full h-full bg-[#f3f4f6] flex items-center justify-center p-3"><p className="text-[22px] font-black text-[#002f34] text-center leading-tight capitalize">{ad.title || "Job"}</p></div>
+                  ) : (<img src={ad.image || ad.images?.[0] || "https://via.placeholder.com/300"} alt={ad.title} loading="lazy" className="w-full h-full object-cover"/>)}
+                </div>
+                <button onClick={(e)=>toggleWish(e,ad.id)} className="absolute top-3 right-3 bg-white/90 backdrop-blur p-2.5 rounded-full shadow-md"><span className="text-[18px]">{wishIds.has(ad.id)? "❤️" : "🤍"}</span></button>
+              </div>
+
+              <div className="px-3 pt-2.5" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
+                <p className="font-black text-[18px] text-[#002f34]">₹ {Number(ad.price || ad.salary || 0).toLocaleString("en-IN") || "0"}</p>
+              </div>
+              <div className="px-3 pt-1 flex items-center gap-1 text-gray-500" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <span className="text-[11px] font-bold uppercase">{ad.khua || ad.location || "AIZAWL"}, {ad.district || "MIZORAM"}</span>
+              </div>
+
+              <div className="flex items-center gap-6 px-3 py-3 mt-2 border-t border-gray-100">
+                <button onClick={(e)=>{ e.stopPropagation(); if(!user){ setShowLoginAlert(true); return; } }} className="flex items-center gap-1.5 text-[13px] font-bold">❤️ {ad.likes || 0}</button>
+                <button onClick={(e)=>{ e.stopPropagation(); if(!user){ setShowLoginAlert(true); return; } setSelectedPostId(ad.id); }} className="flex items-center gap-1.5 text-[13px] font-bold">💬 {ad.commentsCount || 0} Comment</button>
+                <button onClick={(e)=>{ e.stopPropagation(); if(navigator.share) navigator.share({url: `${window.location.origin}/marketplace/${ad.id}`}) }} className="flex items-center gap-1.5 text-[13px] font-bold">↗️ Share</button>
               </div>
             </div>
-
-            {/* 2. ITEM NAME */}
-            <div className="px-3 pb-1" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
-              <h2 className="font-bold text-[16px] text-[#002f34] line-clamp-1">{ad.title}</h2>
-            </div>
-
-            {/* 3. DESCRIPTION */}
-            <div className="px-3 pb-2" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
-              <p className="text-[13px] text-gray-700 line-clamp-2">{ad.description || ad.desc || ""}</p>
-            </div>
-
-            {/* 4. IMAGE + WISHLIST LOVE - SIR AH */}
-            <div className="relative w-full bg-gray-100" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
-              <div className="w-full h-[380px] bg-gray-100 overflow-hidden flex items-center justify-center">
-                {(ad._type==="job" &&!ad.image &&!ad.images?.[0])? (
-                  <div className="w-full h-full bg-[#f3f4f6] flex items-center justify-center p-3">
-                    <p className="text-[22px] font-black text-[#002f34] text-center leading-tight capitalize">{ad.title || "Job"}</p>
-                  </div>
-                ) : (
-                  <img src={ad.image || ad.images?.[0] || "https://via.placeholder.com/300"} alt={ad.title} loading="lazy" className="w-full h-full object-cover"/>
-                )}
-              </div>
-              {/* LOVE ICON - IMAGE TLANG SIR AH */}
-              <button onClick={(e)=>toggleWish(e,ad.id)} className="absolute top-3 right-3 bg-white/90 backdrop-blur p-2.5 rounded-full shadow-md">
-                <span className="text-[18px]">{wishIds.has(ad.id)? "❤️" : "🤍"}</span>
-              </button>
-            </div>
-
-            {/* 5. PRICE - PIC HNUAIAH */}
-            <div className="px-3 pt-2.5" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
-              <p className="font-black text-[18px] text-[#002f34]">₹ {Number(ad.price || ad.salary || 0).toLocaleString("en-IN") || "0"}</p>
-            </div>
-
-            {/* 6. LOCATION ICON + KHUA DISTRICT */}
-            <div className="px-3 pt-1 flex items-center gap-1 text-gray-500" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-              <span className="text-[11px] font-bold uppercase">{ad.khua || ad.location || "AIZAWL"}, {ad.district || "MIZORAM"}</span>
-            </div>
-
-            {/* 7. LIKE COMMENT SHARE - LOGIN TAN CHIAH */}
-            <div className="flex items-center gap-6 px-3 py-3 mt-2 border-t border-gray-100">
-              <button
-                onClick={(e)=>{ e.stopPropagation(); if(!user){ setShowLoginAlert(true); return; } /* like logic */ }}
-                className="flex items-center gap-1.5 text-[13px] font-bold"
-              >
-                ❤️ {ad.likes || 0}
-              </button>
-              <button
-                onClick={(e)=>{ e.stopPropagation(); if(!user){ setShowLoginAlert(true); return; } setSelectedPostId(ad.id); }}
-                className="flex items-center gap-1.5 text-[13px] font-bold"
-              >
-                💬 {ad.commentsCount || 0} Comment
-              </button>
-              <button
-                onClick={(e)=>{ e.stopPropagation(); if(navigator.share) navigator.share({url: `${window.location.origin}/marketplace/${ad.id}`}) }}
-                className="flex items-center gap-1.5 text-[13px] font-bold"
-              >
-                ↗️ Share
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-      {/* ============ THLAK ZO ============ */}
 
       {loading && <div className="flex flex-col gap-2">{[1,2,3].map(i=><div key={i} className="bg-white h-[450px] animate-pulse"/>)}</div>}
       {isLoadingMore && <p className="text-center py-4 text-[12px] font-bold text-gray-400">Loading more...</p>}
@@ -332,11 +277,7 @@ export default function Home(){
           </div>
         </div>
       )}
-
-      {/* COMMENT POPUP - LOGIN TAN CHIAH */}
-      {selectedPostId && (
-        <CommentPopup postId={selectedPostId} onClose={()=>setSelectedPostId(null)} />
-      )}
+      {selectedPostId && <CommentPopup postId={selectedPostId} onClose={()=>setSelectedPostId(null)} />}
     </main>
   );
-              }
+}
