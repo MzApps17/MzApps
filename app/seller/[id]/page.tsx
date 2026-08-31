@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc, addDoc, serverTimestamp, updateDoc, increment, arrayUnion, arrayRemove } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc, addDoc, serverTimestamp, updateDoc, increment, arrayUnion, arrayRemove, orderBy } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase/config";
 import Link from "next/link";
 import { onAuthStateChanged } from "firebase/auth";
@@ -59,15 +59,42 @@ export default function SellerProfile(){
   const [errorMsg,setErrorMsg]=useState("");
   const [showLoginAlert,setShowLoginAlert]=useState(false);
   const [showPic,setShowPic]=useState(false);
-  // comment modal
+
+  // ✅ HOME ANG CHIAH COMMENT POPUP
   const [commentPostId,setCommentPostId]=useState<string|null>(null);
+  const [comments,setComments]=useState<any[]>([]);
   const [commentText,setCommentText]=useState("");
   const [commenting,setCommenting]=useState(false);
+  const [loadingComments,setLoadingComments]=useState(false);
 
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth,(u)=>setCurrentUser(u));
     return ()=>unsub();
   },[]);
+
+  // COMMENT FETCH - HOME ANG CHIAH
+  useEffect(()=>{
+    const fetchComments = async()=>{
+      if(!commentPostId) return;
+      setLoadingComments(true);
+      try{
+        const q = query(collection(db,"products",commentPostId,"comments"), orderBy("createdAt","asc"));
+        const snap = await getDocs(q);
+        const list:any[]=[];
+        snap.forEach(d=> list.push({id:d.id,...d.data()}));
+        setComments(list);
+      }catch{
+        try{
+          const snap = await getDocs(collection(db,"products",commentPostId,"comments"));
+          const list:any[]=[];
+          snap.forEach(d=> list.push({id:d.id,...d.data()}));
+          setComments(list.sort((a,b)=> (a.createdAt?.seconds||0)-(b.createdAt?.seconds||0)));
+        }catch{ setComments([]); }
+      }
+      setLoadingComments(false);
+    };
+    fetchComments();
+  },[commentPostId, commentCounts]);
 
   useEffect(()=>{
     const load=async()=>{
@@ -101,28 +128,17 @@ export default function SellerProfile(){
         try{
           const freshSnap = await getDoc(doc(db,"products", p.id));
           const freshData = freshSnap.exists()? freshSnap.data() as any : p;
-
-          let lc = 0;
-          if(typeof freshData.likeCount === 'number') lc = freshData.likeCount;
-          else if(typeof freshData.likesCount === 'number') lc = freshData.likesCount;
-          else if(Array.isArray(freshData.likes)) lc = freshData.likes.length;
-          else if(Array.isArray(freshData.likedBy)) lc = freshData.likedBy.length;
-          else { try{ const ls = await getDocs(collection(db,"products",p.id,"likes")); lc = ls.size; }catch{} }
-
+          let lc = typeof freshData.likeCount==='number'? freshData.likeCount : typeof freshData.likesCount==='number'? freshData.likesCount : Array.isArray(freshData.likes)? freshData.likes.length : 0;
+          if(lc===0){ try{ const ls=await getDocs(collection(db,"products",p.id,"likes")); lc=ls.size; }catch{} }
           if(auth.currentUser){
-            const uid = auth.currentUser.uid;
+            const uid=auth.currentUser.uid;
             if(Array.isArray(freshData.likes) && freshData.likes.includes(uid)) likedSet.add(p.id);
             if(Array.isArray(freshData.likedBy) && freshData.likedBy.includes(uid)) likedSet.add(p.id);
-            if(Array.isArray(freshData.likedUsers) && freshData.likedUsers.includes(uid)) likedSet.add(p.id);
-            try{ const ld = await getDoc(doc(db,"products",p.id,"likes",uid)); if(ld.exists()) likedSet.add(p.id); }catch{}
+            try{ const ld=await getDoc(doc(db,"products",p.id,"likes",uid)); if(ld.exists()) likedSet.add(p.id); }catch{}
           }
           lCounts[p.id]=lc;
-
-          let cc = 0;
-          if(typeof freshData.commentCount === 'number') cc = freshData.commentCount;
-          else if(typeof freshData.commentsCount === 'number') cc = freshData.commentsCount;
-          else if(Array.isArray(freshData.comments)) cc = freshData.comments.length;
-          else { try{ const cs = await getDocs(collection(db,"products",p.id,"comments")); cc = cs.size; }catch{} }
+          let cc = typeof freshData.commentCount==='number'? freshData.commentCount : typeof freshData.commentsCount==='number'? freshData.commentsCount : 0;
+          if(cc===0){ try{ const cs=await getDocs(collection(db,"products",p.id,"comments")); cc=cs.size; }catch{} }
           cCounts[p.id]=cc;
         }catch{}
       }
@@ -154,45 +170,22 @@ export default function SellerProfile(){
     }
   };
 
-  // ✅ HOME LEH PROFILE SYNC 100% - FIELD ZAWNG ZAWNG UPDATE
   const toggleLike=async(e:any, pid:string)=>{
     e.preventDefault(); e.stopPropagation();
     // @ts-ignore
     if(e.nativeEvent) e.nativeEvent.stopImmediatePropagation();
     const u = auth.currentUser || currentUser;
     if(!u){ router.push("/login"); return; }
-
     const prodRef=doc(db,"products",pid);
     const likeRef=doc(db,"products",pid,"likes",u.uid);
-
     if(liked.has(pid)){
       setLiked(prev=>{ const n=new Set(prev); n.delete(pid); return n; });
       setLikeCounts(prev=>({...prev, [pid]: Math.max(0,(prev[pid]||1)-1)}));
-      try{
-        await deleteDoc(likeRef);
-        await updateDoc(prodRef,{
-          likes: arrayRemove(u.uid),
-          likedBy: arrayRemove(u.uid),
-          likedUsers: arrayRemove(u.uid),
-          likeCount: increment(-1),
-          likesCount: increment(-1)
-        });
-      }catch{ try{ await updateDoc(prodRef,{ likeCount: increment(-1) }); }catch{} }
+      try{ await deleteDoc(likeRef); await updateDoc(prodRef,{ likes: arrayRemove(u.uid), likedBy: arrayRemove(u.uid), likeCount: increment(-1), likesCount: increment(-1) }); }catch{}
     }else{
       setLiked(prev=>{ const n=new Set(prev); n.add(pid); return n; });
       setLikeCounts(prev=>({...prev, [pid]: (prev[pid]||0)+1}));
-      try{
-        await setDoc(likeRef,{userId:u.uid, createdAt:serverTimestamp()});
-        await updateDoc(prodRef,{
-          likes: arrayUnion(u.uid),
-          likedBy: arrayUnion(u.uid),
-          likedUsers: arrayUnion(u.uid),
-          likeCount: increment(1),
-          likesCount: increment(1)
-        });
-      }catch{
-        try{ await setDoc(prodRef,{ likes: arrayUnion(u.uid), likeCount: increment(1), likesCount: increment(1) }, {merge:true}); await setDoc(likeRef,{userId:u.uid, createdAt:serverTimestamp()}); }catch{}
-      }
+      try{ await setDoc(likeRef,{userId:u.uid, createdAt:serverTimestamp()}); await updateDoc(prodRef,{ likes: arrayUnion(u.uid), likedBy: arrayUnion(u.uid), likeCount: increment(1), likesCount: increment(1) }); }catch{ try{ await setDoc(prodRef,{ likes: arrayUnion(u.uid), likeCount: increment(1) }, {merge:true}); }catch{} }
     }
   };
 
@@ -206,16 +199,25 @@ export default function SellerProfile(){
         text: commentText.trim(),
         userId: u.uid,
         userName: u.displayName || u.email?.split('@')[0] || "User",
-        userPhoto: u.photoURL || "",
+        userPhoto: u.photoURL || currentUser?.photoURL || "",
         createdAt: serverTimestamp()
       });
-      await updateDoc(doc(db,"products",commentPostId),{
-        commentCount: increment(1),
-        commentsCount: increment(1)
-      });
+      await updateDoc(doc(db,"products",commentPostId),{ commentCount: increment(1), commentsCount: increment(1) });
       setCommentCounts(prev=>({...prev, [commentPostId]: (prev[commentPostId]||0)+1}));
       setCommentText("");
-      setCommentPostId(null);
+      // refetch
+      const q = query(collection(db,"products",commentPostId,"comments"), orderBy("createdAt","asc"));
+      try{
+        const snap = await getDocs(q);
+        const list:any[]=[];
+        snap.forEach(d=> list.push({id:d.id,...d.data()}));
+        setComments(list);
+      }catch{
+        const snap = await getDocs(collection(db,"products",commentPostId,"comments"));
+        const list:any[]=[];
+        snap.forEach(d=> list.push({id:d.id,...d.data()}));
+        setComments(list);
+      }
     }catch(err){ console.log(err); }
     finally{ setCommenting(false); }
   };
@@ -226,15 +228,8 @@ export default function SellerProfile(){
     try{
       const firstPost = posts.length > 0? posts[0] : null;
       const nameForReport = getDisplayName(seller, firstPost);
-      await addDoc(collection(db,"reports"),{
-        reportedUserId:id,
-        reporterId: currentUser?.uid || "anonymous",
-        message: reportMsg.trim(),
-        sellerName: nameForReport || "",
-        createdAt: serverTimestamp()
-      });
-      setShowReport(false); setReportMsg(""); setShowMenu(false);
-      setShowSuccess(true);
+      await addDoc(collection(db,"reports"),{ reportedUserId:id, reporterId: currentUser?.uid || "anonymous", message: reportMsg.trim(), sellerName: nameForReport || "", createdAt: serverTimestamp() });
+      setShowReport(false); setReportMsg(""); setShowMenu(false); setShowSuccess(true);
     }catch(e:any){ setErrorMsg(e.message); }
     finally{ setReporting(false); }
   };
@@ -248,14 +243,10 @@ export default function SellerProfile(){
   return (
     <main className="min-h-screen bg-[#f5f5f7] pb-24">
       <div className="flex items-center justify-between p-3 pt-4 bg-[#f5f5f7] sticky top-0 z-50">
-        <button onClick={()=>{ if(window.history.length>1) router.back(); else router.push("/"); }} className="w-11 h-11 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100">←</button>
+        <button onClick={()=>{ if(window.history.length>1) router.back(); else router.push("/"); }} className="w-11 h-11 bg-white rounded-full flex items-center justify-center shadow-sm border">←</button>
         <div className="relative">
-          <button onClick={()=>setShowMenu(!showMenu)} className="w-11 h-11 rounded-full flex items-center justify-center bg-white shadow-sm border border-gray-100">⋮</button>
-          {showMenu && (
-            <div className="absolute right-0 top-12 bg-white border rounded-2xl shadow-xl w-44 z-50 overflow-hidden">
-              <button onClick={()=>{ if(!currentUser){ setShowMenu(false); setShowLoginAlert(true); return; } setShowReport(true); setShowMenu(false); }} className="w-full text-left px-4 py-3.5 text-[13px] font-bold">🚩 Report User</button>
-            </div>
-          )}
+          <button onClick={()=>setShowMenu(!showMenu)} className="w-11 h-11 rounded-full flex items-center justify-center bg-white shadow-sm border">⋮</button>
+          {showMenu && (<div className="absolute right-0 top-12 bg-white border rounded-2xl shadow-xl w-44 z-50 overflow-hidden"><button onClick={()=>{ if(!currentUser){ setShowMenu(false); setShowLoginAlert(true); return; } setShowReport(true); setShowMenu(false); }} className="w-full text-left px-4 py-3.5 text-[13px] font-bold">🚩 Report User</button></div>)}
         </div>
       </div>
 
@@ -282,52 +273,55 @@ export default function SellerProfile(){
 
         <div className="bg-white rounded-[26px] p-4 border border-gray-100 shadow-sm">
           <h2 className="font-black text-[16px] mb-3 flex items-center gap-2">{displayName} Ads <span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full">{posts.length}</span></h2>
-
           <div className="flex flex-col gap-3">
             {posts.map((p:any)=>(
               <div key={p.id} className="bg-[#fafafa] border border-gray-100 rounded-[20px] p-2.5 flex gap-3 relative">
                 <Link href={`/marketplace/${p.id}`} className="w-[108px] h-[108px] flex-shrink-0"><img src={p.image || p.images?.[0]} className="w-full h-full object-cover rounded-[16px]"/></Link>
                 <div className="flex-1 min-w-0 flex flex-col justify-between">
-                  <div>
-                    <Link href={`/marketplace/${p.id}`}><p className="font-bold text-[14px] line-clamp-2">{p.title}</p><p className="font-black text-[18px] mt-2">₹{Number(p.price).toLocaleString("en-IN")}</p><p className="text-[11px] text-gray-500 mt-1 truncate">{p.village || p.location?.split(",")[0] || "Aizawl"} • {timeAgo(p.createdAt)}</p></Link>
-                  </div>
+                  <div><Link href={`/marketplace/${p.id}`}><p className="font-bold text-[14px] line-clamp-2">{p.title}</p><p className="font-black text-[18px] mt-2">₹{Number(p.price).toLocaleString("en-IN")}</p><p className="text-[11px] text-gray-500 mt-1 truncate">{p.village || p.location?.split(",")[0] || "Aizawl"} • {timeAgo(p.createdAt)}</p></Link></div>
                   <div className="flex items-center gap-2.5 mt-2.5">
-                    <button type="button" onClick={(e)=>toggleLike(e,p.id)} className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full shadow-sm border-2 active:scale-90 transition ${liked.has(p.id)? "bg-black text-white border-black" : "bg-white border-gray-200"}`}>
-                      <span>{liked.has(p.id)? "❤️":"🤍"}</span><span className="text-[13px] font-black">{likeCounts[p.id]?? 0}</span>
-                    </button>
-                    {/* ✅ COMMENT - POST DETAILS AH A KAL LO, HELAI AH NGEI COMMENT THEIH */}
-                    <button type="button" onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setCommentPostId(p.id); }} className="flex items-center gap-1.5 bg-white border-2 border-gray-200 px-3.5 py-1.5 rounded-full shadow-sm active:scale-90 transition">
-                      <span>💬</span><span className="text-[13px] font-black">{commentCounts[p.id]?? 0}</span>
-                    </button>
+                    <button type="button" onClick={(e)=>toggleLike(e,p.id)} className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full shadow-sm border-2 active:scale-90 transition ${liked.has(p.id)? "bg-black text-white border-black" : "bg-white border-gray-200"}`}><span>{liked.has(p.id)? "❤️":"🤍"}</span><span className="text-[13px] font-black">{likeCounts[p.id]?? 0}</span></button>
+                    <button type="button" onClick={(e)=>{ e.preventDefault(); e.stopPropagation(); setCommentPostId(p.id); }} className="flex items-center gap-1.5 bg-white border-2 border-gray-200 px-3.5 py-1.5 rounded-full shadow-sm active:scale-90 transition"><span>💬</span><span className="text-[13px] font-black">{commentCounts[p.id]?? 0}</span></button>
                   </div>
                 </div>
-                <button type="button" onClick={(e)=>toggleWish(e,p.id)} className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 text-[18px]">{wished.has(p.id)? "❤️":"🤍"}</button>
+                <button type="button" onClick={(e)=>toggleWish(e,p.id)} className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border">{wished.has(p.id)? "❤️":"🤍"}</button>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* ✅ COMMENT MODAL - HELAI VEK AH COMMENT THEIH */}
+      {/* ✅ COMMENT POPUP - HOME ANG CHIAH A IN ANG VEK */}
       {commentPostId && (
-        <div className="fixed inset-0 bg-black/60 z-[1500] flex items-end sm:items-center justify-center p-0 sm:p-6 backdrop-blur-sm">
-          <div className="bg-white rounded-t-[28px] sm:rounded-[26px] w-full sm:max-w-[420px] p-5 pb-8 shadow-2xl">
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden"></div>
-            <h3 className="font-black text-[16px]">Comment ziak rawh</h3>
-            <p className="text-[12px] text-gray-400 mt-1">Home leh Profile ah a inthlun zawm vek ang</p>
-            <textarea value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Comment tha tak ziak rawh..." autoFocus className="w-full mt-4 border-2 border-gray-200 p-3 rounded-2xl outline-none focus:border-black h-24 text-[14px] resize-none"/>
-            <div className="flex gap-2 mt-4">
-              <button onClick={()=>{ setCommentPostId(null); setCommentText(""); }} className="flex-1 bg-gray-100 font-bold py-3.5 rounded-xl">Cancel</button>
-              <button onClick={handleCommentSubmit} disabled={commenting ||!commentText.trim()} className="flex-1 bg-black text-white font-black py-3.5 rounded-xl disabled:opacity-50">{commenting? "Posting...":"Post Comment"}</button>
+        <div className="fixed inset-0 bg-black/50 z-[1500] flex flex-col justify-end sm:justify-center sm:items-center sm:p-6">
+          <div className="bg-[#f5f5f5] sm:bg-white w-full sm:max-w-[500px] h-[85vh] sm:h-[75vh] rounded-t-[24px] sm:rounded-[24px] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="bg-white p-4 flex items-center justify-between border-b">
+              <h3 className="font-black text-[18px]">{commentCounts[commentPostId]||comments.length} Comments</h3>
+              <button onClick={()=>{ setCommentPostId(null); setComments([]); setCommentText(""); }} className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center font-bold">✕</button>
+            </div>
+            {/* List */}
+            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 bg-[#f5f5f5]">
+              {loadingComments? <p className="text-center text-gray-400 mt-10">Loading...</p> : comments.length===0? <p className="text-center text-gray-400 mt-10 text-[13px]">Comment la awm lo</p> : comments.map((c:any)=>(
+                <div key={c.id} className="flex gap-2.5">
+                  <img src={c.userPhoto || "/default-avatar.png"} className="w-9 h-9 rounded-full bg-gray-200 object-cover flex-shrink-0"/>
+                  <div className="bg-[#e9eb] sm:bg-gray-100 rounded-[18px] px-4 py-2.5 flex-1">
+                    <p className="font-black text-[13px]">{c.userName || "User"}</p>
+                    <p className="text-[14px] mt-0.5 leading-5">{c.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Input - HOME ANG CHIAH */}
+            <div className="bg-white p-3 border-t flex items-center gap-2">
+              <img src={currentUser?.photoURL || "/default-avatar.png"} className="w-9 h-9 rounded-full bg-gray-200 object-cover"/>
+              <div className="flex-1 bg-[#f0f0f0] rounded-full flex items-center px-4 py-1">
+                <input value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Comment ziak rawh..." className="flex-1 bg-transparent outline-none text-[14px] py-2.5"/>
+              </div>
+              <button onClick={handleCommentSubmit} disabled={commenting ||!commentText.trim()} className="bg-black text-white px-5 py-2.5 rounded-full font-bold text-[14px] disabled:opacity-40 active:scale-95 transition">Post</button>
             </div>
           </div>
         </div>
       )}
 
-      {showReport && (<div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm"><div className="bg-white rounded-[22px] p-6 w-full max-w-[340px]"><h3 className="font-black">Report {displayName}</h3><textarea value={reportMsg} onChange={e=>setReportMsg(e.target.value)} placeholder="Report chhan..." className="w-full mt-4 border-2 p-3 rounded-xl h-28"/><div className="flex gap-2 mt-5"><button onClick={()=>setShowReport(false)} className="flex-1 bg-gray-100 font-bold py-3 rounded-xl">Cancel</button><button onClick={handleReport} className="flex-1 bg-black text-white font-bold py-3 rounded-xl">Report</button></div></div></div>)}
-      {showSuccess && (<div className="fixed inset-0 bg-black/70 z-[1100] flex items-center justify-center p-6"><div className="bg-white rounded-[26px] p-7 w-full max-w-[340px] text-center"><h3 className="font-black mt-4">Report i thawn ta e</h3><button onClick={()=>setShowSuccess(false)} className="w-full bg-black text-white font-black py-3.5 rounded-xl mt-6">OK</button></div></div>)}
-      {showPic && (<div onClick={()=>setShowPic(false)} className="fixed inset-0 bg-black/90 z-[1300] flex items-center justify-center p-4"><img src={photoURL || ""} className="max-w-full max-h-[85vh] rounded-[22px]"/></div>)}
-      {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
-    </main>
-  )
-    }
+      {showReport && (<div className="fixed inset-0 bg-black
