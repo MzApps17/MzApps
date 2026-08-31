@@ -335,7 +335,7 @@ export default function SellerProfile(){
         </div>
       </div>
 
-            {commentPostId && (
+      {commentPostId && (
         <CommentPopup
           postId={commentPostId}
           currentUser={currentUser}
@@ -367,4 +367,4 @@ export default function SellerProfile(){
       {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
     </main>
   );
-       }
+}
