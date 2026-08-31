@@ -20,11 +20,13 @@ function timeAgo(ts:any){
   }catch{ return ""; }
 }
 
-// ✅ FINAL - Email + Post atangin hming la chhuak tu
+// ✅ FIX - Hming lakna - Account page mil
 function getDisplayName(seller:any, fallbackPost:any = null){
-  if(seller?.displayName && seller.displayName.trim()!=="") return seller.displayName;
-  if(seller?.fullName && seller.fullName.trim()!=="") return seller.fullName;
-  if(seller?.name && seller.name.trim()!=="") return seller.name;
+  if(seller?.displayName && seller.displayName.trim()!=="") return seller.displayName.trim();
+  if(seller?.fullName && seller.fullName.trim()!=="") return seller.fullName.trim();
+  if(seller?.name && seller.name.trim()!=="") return seller.name.trim();
+  if(seller?.userName && seller.userName.trim()!=="") return seller.userName.trim();
+  if(seller?.username && seller.username.trim()!=="") return seller.username.trim();
   if(seller?.email) return seller.email.split('@')[0];
   if(seller?.userEmail) return seller.userEmail.split('@')[0];
 
@@ -36,6 +38,12 @@ function getDisplayName(seller:any, fallbackPost:any = null){
     if(fallbackPost.email) return fallbackPost.email.split('@')[0];
   }
   return "Mizo User";
+}
+
+// ✅ FIX - Pic lakna - Account page mil
+function getPhotoURL(seller:any){
+  if(!seller) return null;
+  return seller.photoURL || seller.profilePic || seller.avatar || seller.image || seller.profileImage || seller.photo || null;
 }
 
 export default function SellerProfile(){
@@ -129,6 +137,7 @@ export default function SellerProfile(){
 
   const firstPost = posts.length > 0? posts[0] : null;
   const displayName = getDisplayName(seller, firstPost);
+  const photoURL = getPhotoURL(seller);
 
   return (
     <main className="min-h-screen bg-white pb-10">
@@ -158,8 +167,8 @@ export default function SellerProfile(){
       </div>
 
       <div className="flex items-center gap-5 p-5">
-        <button onClick={()=> seller?.photoURL && setShowPic(true)} className="w-24 h-24 rounded-full bg-black text-white flex items-center justify-center font-black text-3xl overflow-hidden flex-shrink-0 active:scale-95 transition-transform">
-          {seller?.photoURL? <img src={seller.photoURL} className="w-full h-full object-cover"/> : displayName?.[0]?.toUpperCase()}
+        <button onClick={()=> photoURL && setShowPic(true)} className="w-24 h-24 rounded-full bg-black text-white flex items-center justify-center font-black text-3xl overflow-hidden flex-shrink-0 active:scale-95 transition-transform">
+          {photoURL? <img src={photoURL} className="w-full h-full object-cover"/> : displayName?.[0]?.toUpperCase()}
         </button>
         <div>
           <p className="font-black text-[24px] capitalize">{displayName}</p>
@@ -233,7 +242,7 @@ export default function SellerProfile(){
 
       {showPic && (
         <div onClick={()=>setShowPic(false)} className="fixed inset-0 bg-black/90 z-[1300] flex items-center justify-center p-4">
-          <img src={seller?.photoURL} className="max-w-full max-h-[85vh] object-contain rounded-2xl"/>
+          <img src={photoURL || ""} className="max-w-full max-h-[85vh] object-contain rounded-2xl"/>
           <button className="absolute top-5 right-5 w-10 h-10 bg-white/20 rounded-full text-white font-black">✕</button>
         </div>
       )}
@@ -241,4 +250,4 @@ export default function SellerProfile(){
       {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
     </main>
   )
-}
+    }
