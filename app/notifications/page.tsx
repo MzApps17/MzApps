@@ -18,6 +18,19 @@ function timeAgo(ts:any){
   }catch{ return "just now"; }
 }
 
+// ✅ EMAIL ATANGIN HMING LA CHHUAk TU - Hming thlak loh pawn email ang a lang ang
+function getNameFromUserData(uData:any){
+  if(!uData) return "";
+  if(uData.displayName && uData.displayName.trim()!=="") return uData.displayName;
+  if(uData.fullName && uData.fullName.trim()!=="") return uData.fullName;
+  if(uData.name && uData.name.trim()!=="") return uData.name;
+  if(uData.userName && uData.userName.trim()!=="") return uData.userName;
+  // Hming an thlak loh chuan email a an rin tlang ang kha lang rawh se
+  if(uData.email) return uData.email.split('@')[0];
+  if(uData.userEmail) return uData.userEmail.split('@')[0];
+  return "";
+}
+
 export default function NotificationsPage(){
   const router = useRouter();
   const [notis,setNotis]=useState<any[]>([]);
@@ -48,14 +61,24 @@ export default function NotificationsPage(){
             const uSnap = await getDoc(doc(db,"users",uid));
             if(uSnap.exists()){
               const uData:any = uSnap.data();
-              userMap[uid] = uData.displayName || uData.name || uData.userName || uData.fullName || "";
+              // ✅ FIX: Email atanga hming lak tur
+              userMap[uid] = getNameFromUserData(uData);
             }
           }catch{}
         }));
 
         merged = merged.map((m:any)=>{
           const uid = m.userId || m.uid || m.createdBy || m.sellerId;
-          const realName = userMap[uid] || m.userName || m.sellerName || m.postedByName || m.authorName || m.name || "";
+          // ✅ FIX: users ah a awm loh pawn Post chhung a email atangin la tho rawh
+          let realName = userMap[uid] || "";
+          if(!realName){
+            realName = m.userName || m.sellerName || m.postedByName || m.authorName || m.name || "";
+          }
+          if(!realName){
+            if(m.userEmail) realName = m.userEmail.split('@')[0];
+            else if(m.email) realName = m.email.split('@')[0];
+          }
+          if(!realName) realName = "Mizo User";
           return {...m, _realSellerName: realName};
         });
 
@@ -148,4 +171,4 @@ export default function NotificationsPage(){
       <div className="h-[80px]"/>
     </main>
   );
-}
+                                         }
