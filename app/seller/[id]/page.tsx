@@ -153,8 +153,7 @@ export default function SellerProfile(){
     };
     load();
   },[sid]);
-
-  const toggleWish = async(e:any,pid:string)=>{
+    const toggleWish = async(e:any,pid:string)=>{
     e.preventDefault(); e.stopPropagation();
     const u = auth.currentUser || currentUser;
     if(!u){ router.push("/login"); return; }
@@ -220,7 +219,6 @@ export default function SellerProfile(){
   const fp = posts.length>0? posts[0] : null;
   const displayName = getDisplayName(seller, fp);
   const photoURL = getPhotoURL(seller);
-
   const memberSince = seller?.createdAt || seller?.joinedAt || seller?.memberSince || null;
   const dob = seller?.dob || seller?.dateOfBirth || seller?.birthDate || null;
   const khua = seller?.khua || seller?.village || seller?.hometown || null;
@@ -240,7 +238,7 @@ export default function SellerProfile(){
           </button>
           {showMenu && (
             <div className="absolute right-0 top-14 bg-white border rounded-2xl shadow-xl w-44 z-50 overflow-hidden">
-              <button onClick={()=>{ setShowReport(true); setShowMenu(false); }} className="w-full text-left px-4 py-3.5 text-[13px] font-bold">🚩 Report User</button>
+              <button onClick={()=>{ setShowReport(true); setShowMenu(false); }} className="w-full text-left px-4 py-3.5 text-[13px] font-bold">Report User</button>
             </div>
           )}
         </div>
@@ -253,7 +251,7 @@ export default function SellerProfile(){
           </button>
           <div className="flex-1 min-w-0">
             <p className="font-black text-[22px] capitalize truncate">{displayName}</p>
-            <p className="text-[13px] text-white/60 mt-1.5">{posts.length} Ads • Member since {formatMemberSince(memberSince)}</p>
+            <p className="text-[13px] text-white/60 mt-1.5">{posts.length} Ads - Member since {formatMemberSince(memberSince)}</p>
           </div>
         </div>
       </div>
@@ -261,61 +259,19 @@ export default function SellerProfile(){
       <div className="p-3 flex flex-col gap-3">
         <div className="bg-white rounded-[26px] p-2 border border-gray-100 shadow-sm">
           <p className="text-[11px] font-black px-4 pt-3 pb-1 text-gray-400 tracking-widest">PERSONAL INFO</p>
-
-          <div className="flex items-center gap-3 px-3 py-3.5">
-            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M4 4h16c1.1 0 2.9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-            </div>
-            <div className="flex-1 min-w-0"><p className="text-[11px] text-gray-400">Email</p><p className="text-[13px] font-bold truncate">{seller?.email||seller?.userEmail||"Private"}</p></div>
-          </div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M4 4h16c1.1 0 2.9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div><div className="flex-1 min-w-0"><p className="text-[11px] text-gray-400">Email</p><p className="text-[13px] font-bold truncate">{seller?.email||seller?.userEmail||"Private"}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
-          <div className="flex items-center gap-3 px-3 py-3.5">
-            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.68A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0.7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-            </div>
-            <div className="flex-1"><p className="text-[11px] text-gray-400">Phone</p><p className="text-[13px] font-bold">{seller?.phone||seller?.phoneNumber||"Set ve loh"}</p></div>
-          </div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.68A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0.7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div><div className="flex-1"><p className="text-[11px] text-gray-400">Phone</p><p className="text-[13px] font-bold">{seller?.phone||seller?.phoneNumber||"Set ve loh"}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
-          <div className="flex items-center gap-3 px-3 py-3.5">
-            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            </div>
-            <div className="flex-1"><p className="text-[11px] text-gray-400">Khua / Village</p><p className="text-[13px] font-bold">{khua || locationFull || "Aizawl"}{district? `, ${district}`: ""}</p></div>
-          </div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div><div className="flex-1"><p className="text-[11px] text-gray-400">Khua / Village</p><p className="text-[13px] font-bold">{khua || locationFull || "Aizawl"}{district? `, ${district}`: ""}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
-          <div className="flex items-center gap-3 px-3 py-3.5">
-            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            </div>
-            <div className="flex-1"><p className="text-[11px] text-gray-400">Date of Birth</p><p className="text-[13px] font-bold">{formatDob(dob)}</p></div>
-          </div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div className="flex-1"><p className="text-[11px] text-gray-400">Date of Birth</p><p className="text-[13px] font-bold">{formatDob(dob)}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
-          <div className="flex items-center gap-3 px-3 py-3.5">
-            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M20 8v6"/><path d="M23 11v2"/><path d="M17 11v2"/></svg>
-            </div>
-            <div className="flex-1"><p className="text-[11px] text-gray-400">Gender</p><p className="text-[13px] font-bold capitalize">{gender || "Set ve loh"}</p></div>
-          </div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/></svg></div><div className="flex-1"><p className="text-[11px] text-gray-400">Gender</p><p className="text-[13px] font-bold capitalize">{gender || "Set ve loh"}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
-          <div className="flex items-center gap-3 px-3 py-3.5">
-            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            </div>
-            <div className="flex-1"><p className="text-[11px] text-gray-400">Member Since</p><p className="text-[13px] font-bold">{formatMemberSince(memberSince)}</p></div>
-          </div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div className="flex-1"><p className="text-[11px] text-gray-400">Member Since</p><p className="text-[13px] font-bold">{formatMemberSince(memberSince)}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
-          <div className="flex items-center gap-3 px-3 py-3.5">
-            <div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 8 9"/></svg>
-            </div>
-            <div className="flex-1"><p className="text-[11px] text-gray-400">Total Ads</p><p className="text-[13px] font-bold">{posts.length} Active Ads</p></div><span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full font-black">{posts.length}</span>
-          </div>
+          <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div className="flex-1"><p className="text-[11px] text-gray-400">Total Ads</p><p className="text-[13px] font-bold">{posts.length} Active Ads</p></div><span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full font-black">{posts.length}</span></div>
         </div>
 
         <div className="bg-white rounded-[26px] p-4 border border-gray-100 shadow-sm">
@@ -334,4 +290,58 @@ export default function SellerProfile(){
                   </div>
                 </div>
                 <button type="button" onClick={(e)=>toggleWish(e,p.id)} className="absolute top-3 right-3 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm border">{wished.has(p.id)?"❤️":"🤍"}</button>
-           
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {commentPostId && (
+        <div className="fixed inset-0 bg-black/50 z-[1500] flex flex-col justify-end sm:justify-center sm:items-center sm:p-6">
+          <div className="bg-[#f5f5f5] w-full sm:max-w-[500px] h-[85vh] sm:h-[75vh] rounded-t-[24px] sm:rounded-[24px] flex flex-col overflow-hidden">
+            <div className="bg-white p-4 flex items-center justify-between border-b">
+              <h3 className="font-black text-[18px]">{commentCounts[commentPostId]||comments.length} Comments</h3>
+              <button onClick={()=>{ setCommentPostId(null); setComments([]); setCommentText(""); }} className="w-9 h-9 bg-gray-100 rounded-full flex items-center justify-center font-bold">✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 bg-[#f5f5f5]">
+              {loadingComments? <p className="text-center text-gray-400 mt-10">Loading...</p> : comments.length===0? <p className="text-center text-gray-400 mt-10 text-[13px]">Comment la awm lo</p> : comments.map((c:any)=>(
+                <div key={c.id} className="flex gap-2.5">
+                  <img src={c.userPhoto||"/default-avatar.png"} className="w-9 h-9 rounded-full bg-gray-200 object-cover flex-shrink-0" alt="" />
+                  <div className="bg-white rounded-[18px] px-4 py-2.5 flex-1 shadow-sm">
+                    <p className="font-black text-[13px]">{c.userName||"User"}</p>
+                    <p className="text-[14px] mt-0.5 leading-5">{c.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="bg-white p-3 border-t flex items-center gap-2">
+              <img src={currentUser?.photoURL||"/default-avatar.png"} className="w-9 h-9 rounded-full bg-gray-200 object-cover" alt="" />
+              <div className="flex-1 bg-[#f0f0f0] rounded-full flex items-center px-4 py-1">
+                <input value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="Comment ziak rawh..." className="flex-1 bg-transparent outline-none text-[14px] py-2.5" />
+              </div>
+              <button onClick={submitComment} disabled={commenting||!commentText.trim()} className="bg-black text-white px-5 py-2.5 rounded-full font-bold text-[14px] disabled:opacity-40">Post</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReport && (
+        <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
+          <div className="bg-white rounded-[22px] p-6 w-full max-w-[340px]">
+            <h3 className="font-black">Report {displayName}</h3>
+            <textarea value={reportMsg} onChange={e=>setReportMsg(e.target.value)} placeholder="Report chhan..." className="w-full mt-4 border-2 p-3 rounded-xl h-28" />
+            {errorMsg && <p className="text-red-500 text-[12px] mt-2">{errorMsg}</p>}
+            <div className="flex gap-2 mt-5">
+              <button onClick={()=>setShowReport(false)} className="flex-1 bg-gray-100 font-bold py-3 rounded-xl">Cancel</button>
+              <button onClick={doReport} disabled={reporting} className="flex-1 bg-black text-white font-bold py-3 rounded-xl">{reporting?"...":"Report"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showSuccess && (<div className="fixed inset-0 bg-black/70 z-[1100] flex items-center justify-center p-6"><div className="bg-white rounded-[26px] p-7 w-full max-w-[340px] text-center"><h3 className="font-black mt-4">Report i thawn ta e</h3><button onClick={()=>setShowSuccess(false)} className="w-full bg-black text-white font-black py-3.5 rounded-xl mt-6">OK</button></div></div>)}
+      {showPic && (<div onClick={()=>setShowPic(false)} className="fixed inset-0 bg-black/90 z-[1300] flex items-center justify-center p-4"><img src={photoURL||""} className="max-w-full max-h-[85vh] rounded-[22px]" alt="" /></div>)}
+      {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
+    </main>
+  );
+}
+  
