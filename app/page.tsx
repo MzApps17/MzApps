@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { collection, getDocs, query, orderBy, limit, startAfter, where, doc, setDoc, deleteDoc, getDoc, updateDoc, increment, QueryDocumentSnapshot } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, limit, startAfter, where, doc, setDoc, deleteDoc, getDoc, updateDoc, increment, QueryDocumentSnapshot, arrayUnion, arrayRemove } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase/config";
 import { useRouter } from "next/navigation";
@@ -32,6 +32,15 @@ function getUserNameFromDoc(u:any){
 function getUserPicFromDoc(u:any){
   if(!u) return null;
   return u.photoURL || u.profilePic || u.avatar || u.image || u.profileImage || u.photo || null;
+}
+// ✅ FIX - LIKE COUNT DIK TAK LAK - ARRAY PAWH NUMBER PAWH
+function getLikeCount(ad:any){
+  if(Array.isArray(ad.likes)) return ad.likes.length;
+  if(Array.isArray(ad.likedBy)) return ad.likedBy.length;
+  if(typeof ad.likeCount === 'number') return ad.likeCount;
+  if(typeof ad.likesCount === 'number') return ad.likesCount;
+  if(typeof ad.likes === 'number') return ad.likes;
+  return 0;
 }
 
 export default function Home(){
@@ -187,6 +196,7 @@ export default function Home(){
     else{ await setDoc(wishRef,{productId:adId, createdAt:new Date()}); setWishIds(prev=>{ const n=new Set(prev); n.add(adId); return n; }); }
   };
 
+  // ✅ FIX - HOME LEH PROFILE SYNC 100% - FIELD ZAWNG ZAWNG UPDATE
   const toggleLike = async(e:any, ad:any)=>{
     e.preventDefault(); e.stopPropagation();
     if(!user){ setShowLoginAlert(true); return; }
@@ -194,17 +204,36 @@ export default function Home(){
     const colName = ad._type==="job"? "jobs" : "products";
     const likeRef = doc(db,"users",user.uid,"likes",postId);
     const postRef = doc(db,colName,postId);
+    const subLikeRef = doc(db,colName,postId,"likes",user.uid);
     try{
       if(likeIds.has(postId)){
         await deleteDoc(likeRef);
-        await updateDoc(postRef, { likes: increment(-1) });
+        await deleteDoc(subLikeRef).catch(()=>{});
+        await updateDoc(postRef, {
+          likes: arrayRemove(user.uid),
+          likedBy: arrayRemove(user.uid),
+          likeCount: increment(-1),
+          likesCount: increment(-1)
+        }).catch(async()=>{
+          await updateDoc(postRef, { likes: increment(-1) }).catch(()=>{});
+        });
         setLikeIds(prev=>{ const n=new Set(prev); n.delete(postId); return n; });
-        setAds(prev=> prev.map(p=> p.id===postId? {...p, likes: Math.max(0,(p.likes||1)-1)} : p));
+        setAds(prev=> prev.map(p=> p.id===postId? {...p, likes: Array.isArray(p.likes)? p.likes.filter((id:string)=>id!==user.uid) : Math.max(0,getLikeCount(p)-1), likeCount: Math.max(0,(p.likeCount||getLikeCount(p))-1), likesCount: Math.max(0,(p.likesCount||getLikeCount(p))-1)} : p));
       }else{
         await setDoc(likeRef,{productId:postId, createdAt:new Date()});
-        await updateDoc(postRef, { likes: increment(1) });
+        await setDoc(subLikeRef,{userId:user.uid, createdAt:new Date()}).catch(()=>{});
+        await updateDoc(postRef, {
+          likes: arrayUnion(user.uid),
+          likedBy: arrayUnion(user.uid),
+          likeCount: increment(1),
+          likesCount: increment(1)
+        }).catch(async()=>{
+          await setDoc(postRef, { likes: arrayUnion(user.uid), likeCount: increment(1) }, {merge:true}).catch(async()=>{
+            await updateDoc(postRef, { likes: increment(1) }).catch(()=>{});
+          });
+        });
         setLikeIds(prev=>{ const n=new Set(prev); n.add(postId); return n; });
-        setAds(prev=> prev.map(p=> p.id===postId? {...p, likes: (p.likes||0)+1} : p));
+        setAds(prev=> prev.map(p=> p.id===postId? {...p, likes: Array.isArray(p.likes)? [...p.likes, user.uid] : (p.likes||0)+1, likeCount: (p.likeCount||getLikeCount(p))+1, likesCount: (p.likesCount||getLikeCount(p))+1} : p));
       }
     }catch(err){ console.log(err); }
   };
@@ -257,8 +286,8 @@ export default function Home(){
               <div className="px-3 pt-2.5" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><p className="font-black text-[18px] text-[#002f34]">₹ {Number(ad.price || ad.salary || 0).toLocaleString("en-IN") || "0"}</p></div>
               <div className="px-3 pt-1 flex items-center gap-1 text-gray-500" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="text-[11px] font-bold uppercase">{ad.khua || ad.location || "AIZAWL"}, {ad.district || "MIZORAM"}</span></div>
               <div className="flex items-center gap-6 px-3 py-3 mt-2 border-t border-gray-100">
-                <button onClick={(e)=>toggleLike(e,ad)} className={`flex items-center gap-1.5 text-[13px] font-bold ${likeIds.has(ad.id)? 'text-red-600' : ''}`}>{likeIds.has(ad.id)? '❤️' : '🤍'} {ad.likes || 0}</button>
-                <button onClick={(e)=>{ e.stopPropagation(); if(!user){ setShowLoginAlert(true); return; } setSelectedPostId(ad.id); }} className="flex items-center gap-1.5 text-[13px] font-bold">💬 {ad.commentsCount || 0} Comment</button>
+                <button onClick={(e)=>toggleLike(e,ad)} className={`flex items-center gap-1.5 text-[13px] font-bold ${likeIds.has(ad.id)? 'text-red-600' : ''}`}>{likeIds.has(ad.id)? '❤️' : '🤍'} {getLikeCount(ad)}</button>
+                <button onClick={(e)=>{ e.stopPropagation(); if(!user){ setShowLoginAlert(true); return; } setSelectedPostId(ad.id); }} className="flex items-center gap-1.5 text-[13px] font-bold">💬 {ad.commentsCount || ad.commentCount || 0} Comment</button>
                 <button onClick={(e)=>{ e.stopPropagation(); if(navigator.share) navigator.share({url: `${window.location.origin}/marketplace/${ad.id}`}) }} className="flex items-center gap-1.5 text-[13px] font-bold">↗️ Share</button>
               </div>
             </div>
@@ -278,7 +307,7 @@ export default function Home(){
           </div>
         </div>
       )}
-      {selectedPostId && <CommentPopup postId={selectedPostId} onClose={()=>setSelectedPostId(null)} onCommentAdded={(pid)=>{ setAds(prev=> prev.map(p=> p.id===pid? {...p, commentsCount: (p.commentsCount||0)+1} : p)); }} />}
+      {selectedPostId && <CommentPopup postId={selectedPostId} onClose={()=>setSelectedPostId(null)} onCommentAdded={(pid)=>{ setAds(prev=> prev.map(p=> p.id===pid? {...p, commentsCount: (p.commentsCount||0)+1, commentCount: (p.commentCount||0)+1} : p)); }} />}
     </main>
   );
-      }
+          }
