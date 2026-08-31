@@ -278,7 +278,7 @@ export default function Home(){
           </div>
         </div>
       )}
-      {selectedPostId && <CommentPopup postId={selectedPostId} onClose={()=>setSelectedPostId(null)} />}
+      {selectedPostId && <CommentPopup postId={selectedPostId} onClose={()=>setSelectedPostId(null)} onCommentAdded={(pid)=>{ setAds(prev=> prev.map(p=> p.id===pid? {...p, commentsCount: (p.commentsCount||0)+1} : p)); }} />}
     </main>
   );
-              }
+      }
