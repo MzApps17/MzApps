@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { collection, addDoc, getDocs, query, orderBy, doc, getDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, getDocs, query, orderBy, doc, getDoc, serverTimestamp, updateDoc, increment } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -54,29 +54,29 @@ export default function CommentPopup({ postId, onClose }: { postId: string; onCl
     const name = userData?.displayName || userData?.name || userData?.fullName || user.displayName || user.email?.split("@")[0] || "Mizo User";
     const pic = userData?.photoURL || userData?.profilePic || userData?.avatar || user.photoURL || "";
     try{
-      // products ah try hmasa
       try{
         await addDoc(collection(db,"products",postId,"comments"),{
           text: text.trim(), userId: user.uid, userName: name, userPic: pic, createdAt: serverTimestamp()
         });
+        await updateDoc(doc(db,"products",postId), { commentsCount: increment(1) });
       }catch{
         await addDoc(collection(db,"jobs",postId,"comments"),{
           text: text.trim(), userId: user.uid, userName: name, userPic: pic, createdAt: serverTimestamp()
         });
+        await updateDoc(doc(db,"jobs",postId), { commentsCount: increment(1) });
       }
       setText("");
       await loadComments();
-    }catch(e){ console.log(e); alert("Comment theih loh, Firestore Rules en rawh"); }
+    }catch(e){ console.log(e); alert("Comment theih loh, Rules Publish hmasa rawh"); }
     setLoading(false);
   };
 
   return (
     <div className="fixed inset-0 z-[1001] flex items-end sm:items-center justify-center bg-black/50">
-      {/* LIGHT MODE FORCED - dark mode pawhin a var reng */}
       <div className="bg-white w-full sm:max-w-[500px] h-[75vh] sm:h-[600px] rounded-t-[24px] sm:rounded-[20px] flex flex-col shadow-2xl" style={{backgroundColor:"#ffffff", colorScheme:"light"}}>
         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-white">
-          <p className="font-black text-[16px] text-black">Comments</p>
-          <button onClick={onClose} className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full text-black flex items-center justify-center">✕</button>
+          <p className="font-black text-[16px] text-black">{comments.length} Comments</p>
+          <button onClick={onClose} className="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full text-black flex items-center justify-center font-bold">✕</button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3 bg-white">
@@ -84,7 +84,7 @@ export default function CommentPopup({ postId, onClose }: { postId: string; onCl
           {comments.map(c=>{
             const u = userMap[c.userId];
             const rName = u?.displayName || u?.name || u?.fullName || c.userName || "User";
-            const rPic = u?.photoURL || u?.profilePic || u?.avatar || c.userPic || `https://ui-avatars.com/api/?name=${encodeURIComponent(rName)}&background=002f34&color=fff`;
+            const rPic = u?.photoURL || u?.profilePic || u?.avatar || c.userPic || `https://ui-avatars.com/api/?name=${encodeURIComponent(rName)}&background=002f34&color=fff&bold=true`;
             return (
               <div key={c.id} className="flex gap-2.5">
                 <img src={rPic} className="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gray-200"/>
@@ -114,4 +114,4 @@ export default function CommentPopup({ postId, onClose }: { postId: string; onCl
       </div>
     </div>
   );
-                                      }
+}
