@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc, addDoc, serverTimestamp, updateDoc, increment, arrayUnion, arrayRemove, orderBy } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, setDoc, deleteDoc, serverTimestamp, updateDoc, increment, arrayUnion, arrayRemove } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase/config";
 import Link from "next/link";
 import { onAuthStateChanged } from "firebase/auth";
@@ -98,36 +98,11 @@ export default function SellerProfile(){
   const [errorMsg,setErrorMsg] = useState("");
   const [showPic,setShowPic] = useState(false);
   const [commentPostId,setCommentPostId] = useState<string|null>(null);
-  const [comments,setComments] = useState<any[]>([]);
-  const [commentText,setCommentText] = useState("");
-  const [commenting,setCommenting] = useState(false);
-  const [loadingComments,setLoadingComments] = useState(false);
 
   useEffect(()=>{
     const unsub = onAuthStateChanged(auth,(u)=>setCurrentUser(u));
     return ()=>unsub();
   },[]);
-
-  useEffect(()=>{
-    const loadComments = async()=>{
-      if(!commentPostId) return;
-      setLoadingComments(true);
-      try{
-        const q = query(collection(db,"products",commentPostId,"comments"), orderBy("createdAt","asc"));
-        const snap = await getDocs(q);
-        const list:any[]=[];
-        snap.forEach(d=>{ list.push({id:d.id,...d.data()}); });
-        setComments(list);
-      }catch{
-        const snap = await getDocs(collection(db,"products",commentPostId,"comments"));
-        const list:any[]=[];
-        snap.forEach(d=>{ list.push({id:d.id,...d.data()}); });
-        setComments(list);
-      }
-      setLoadingComments(false);
-    };
-    loadComments();
-  },[commentPostId]);
 
   useEffect(()=>{
     const load = async()=>{
@@ -167,7 +142,7 @@ export default function SellerProfile(){
           if(Array.isArray(fd.likedBy)&&fd.likedBy.includes(uid)) lSet.add(p.id);
         }
         lc[p.id]=likeNum;
-        let cNum = typeof fd.commentCount==='number'? fd.commentCount : typeof fd.commentsCount==='number'? fd.commentsCount : 0;
+        let cNum = typeof fd.commentCount==='number'? fd.commentCount : typeof fd.commentsCount==='number'? fd.commentsCount : typeof fd.comments==='number'? fd.comments : 0;
         if(cNum===0){
           try{ const cs=await getDocs(collection(db,"products",p.id,"comments")); cNum=cs.size; }catch{}
         }
@@ -179,7 +154,8 @@ export default function SellerProfile(){
     };
     load();
   },[sid]);
-    const toggleWish = async(e:any,pid:string)=>{
+
+  const toggleWish = async(e:any,pid:string)=>{
     e.preventDefault(); e.stopPropagation();
     const u = auth.currentUser || currentUser;
     if(!u){ router.push("/login"); return; }
@@ -210,23 +186,6 @@ export default function SellerProfile(){
         try{ await setDoc(prodRef,{likes:arrayUnion(u.uid),likeCount:increment(1)},{merge:true}); }catch{}
       }
     }
-  };
-
-  const submitComment = async()=>{
-    if(!commentPostId ||!commentText.trim()) return;
-    const u = auth.currentUser || currentUser;
-    if(!u){ router.push("/login"); return; }
-    setCommenting(true);
-    try{
-      await addDoc(collection(db,"products",commentPostId,"comments"),{text:commentText.trim(),userId:u.uid,userName:u.displayName||u.email?.split('@')[0]||"User",userPhoto:u.photoURL||"",createdAt:serverTimestamp()});
-      await updateDoc(doc(db,"products",commentPostId),{commentCount:increment(1),commentsCount:increment(1)});
-      setCommentCounts(prev=>{ const c={...prev}; c[commentPostId]=(c[commentPostId]||0)+1; return c; });
-      setCommentText("");
-      const snap = await getDocs(collection(db,"products",commentPostId,"comments"));
-      const list:any[]=[];
-      snap.forEach(d=>{ list.push({id:d.id,...d.data()}); });
-      setComments(list);
-    }catch{} finally{ setCommenting(false); }
   };
 
   const doReport = async()=>{
@@ -297,19 +256,14 @@ export default function SellerProfile(){
       <div className="p-3 flex flex-col gap-3">
         <div className="bg-white rounded-[26px] p-2 border border-gray-100 shadow-sm">
           <p className="text-[11px] font-black px-4 pt-3 pb-1 text-gray-400 tracking-widest">PERSONAL INFO</p>
-
           <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M4 4h16c1.1 0 2.9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div><div className="flex-1 min-w-0"><p className="text-[11px] text-gray-400">Email</p><p className="text-[13px] font-bold truncate">Private</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
           <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.68A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0.7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div><div className="flex-1"><p className="text-[11px] text-gray-400">Phone</p><p className="text-[13px] font-bold">{phoneDisplay}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
           <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div><div className="flex-1"><p className="text-[11px] text-gray-400">Khua / Location</p><p className="text-[13px] font-bold">{khuaDisplay}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
           <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div className="flex-1"><p className="text-[11px] text-gray-400">Date of Birth</p><p className="text-[13px] font-bold">{dobDisplay}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
           <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div className="flex-1"><p className="text-[11px] text-gray-400">Member Since</p><p className="text-[13px] font-bold">{memberSinceDisplay}</p></div></div>
         </div>
 
@@ -338,14 +292,10 @@ export default function SellerProfile(){
       {commentPostId && (
         <CommentPopup
           postId={commentPostId}
-          currentUser={currentUser}
-          comments={comments}
-          loadingComments={loadingComments}
-          commentText={commentText}
-          setCommentText={setCommentText}
-          commenting={commenting}
-          onClose={() => { setCommentPostId(null); setComments([]); setCommentText(""); }}
-          onSubmit={submitComment}
+          onClose={() => setCommentPostId(null)}
+          onCommentAdded={(id:string)=>{
+            setCommentCounts(prev=>{ const c={...prev}; c[id]=(c[id]||0)+1; return c; });
+          }}
         />
       )}
 
@@ -367,4 +317,4 @@ export default function SellerProfile(){
       {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
     </main>
   );
-}
+    }
