@@ -20,6 +20,18 @@ function timeAgo(ts:any){
   }catch{ return ""; }
 }
 
+// ✅ I DUH DAN CHIAH - Email atanga hming lak chhuahna
+function getDisplayName(seller:any){
+  if(!seller) return "Mizo User";
+  // 1. An thlak tawh chuan an thlak ang kha
+  if(seller.displayName && seller.displayName.trim()!== "") return seller.displayName;
+  if(seller.fullName && seller.fullName.trim()!== "") return seller.fullName;
+  if(seller.name && seller.name.trim()!== "") return seller.name;
+  // 2. An thlak loh chuan Email atangin
+  if(seller.email) return seller.email.split('@')[0];
+  return "Mizo User";
+}
+
 export default function SellerProfile(){
   const {id}=useParams();
   const router=useRouter();
@@ -96,7 +108,7 @@ export default function SellerProfile(){
         reportedUserId:id,
         reporterId: currentUser?.uid || "anonymous",
         message: reportMsg.trim(),
-        sellerName: seller?.displayName || "",
+        sellerName: getDisplayName(seller) || "",
         createdAt: serverTimestamp()
       });
       setShowReport(false); setReportMsg(""); setShowMenu(false);
@@ -106,6 +118,8 @@ export default function SellerProfile(){
   };
 
   if(!seller) return <div className="p-10 text-center font-black">Loading...</div>;
+
+  const displayName = getDisplayName(seller);
 
   return (
     <main className="min-h-screen bg-white pb-10">
@@ -136,15 +150,15 @@ export default function SellerProfile(){
 
       <div className="flex items-center gap-5 p-5">
         <button onClick={()=> seller.photoURL && setShowPic(true)} className="w-24 h-24 rounded-full bg-black text-white flex items-center justify-center font-black text-3xl overflow-hidden flex-shrink-0 active:scale-95 transition-transform">
-          {seller.photoURL? <img src={seller.photoURL} className="w-full h-full object-cover"/> : seller.displayName?.[0]?.toUpperCase()}
+          {seller.photoURL? <img src={seller.photoURL} className="w-full h-full object-cover"/> : displayName?.[0]?.toUpperCase()}
         </button>
         <div>
-          <p className="font-black text-[24px] capitalize">{seller.displayName}</p>
+          <p className="font-black text-[24px] capitalize">{displayName}</p>
           <p className="text-[14px] text-gray-500 mt-1">{posts.length} Ads</p>
         </div>
       </div>
 
-      <h2 className="font-black text-[18px] px-5 mt-6">{seller.displayName} Ads</h2>
+      <h2 className="font-black text-[18px] px-5 mt-6">{displayName} Ads</h2>
 
       {posts.length===0? (
         <p className="text-center text-gray-400 text-[13px] mt-10 bg-gray-50 mx-5 p-6 rounded-2xl">Ads a la awm lo - field name i product ah `userId` a nilo maithei, tun ah ka fix tawh</p>
@@ -174,7 +188,7 @@ export default function SellerProfile(){
       {showReport && (
         <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[22px] p-6 w-full max-w-[340px] shadow-2xl">
-            <h3 className="font-black text-[18px]">Report {seller.displayName}</h3>
+            <h3 className="font-black text-[18px]">Report {displayName}</h3>
             <p className="text-[12px] text-gray-400 mt-1">Eng vangin?</p>
             <textarea value={reportMsg} onChange={e=>setReportMsg(e.target.value)} placeholder="Report chhan ziak rawh..." className="w-full mt-4 border-2 border-gray-200 p-3 rounded-xl outline-none focus:border-black h-28 text-[14px] resize-none"/>
             {errorMsg && <p className="text-red-500 text-[12px] mt-2 font-bold">{errorMsg}</p>}
@@ -199,7 +213,6 @@ export default function SellerProfile(){
         </div>
       )}
 
-      {/* LOGIN BLOCK - LOGIN LO TAN */}
       {showLoginAlert && (
         <div className="fixed inset-0 bg-black/60 z-[1200] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[20px] w-full max-w-[300px] p-6 shadow-2xl text-center">
@@ -209,7 +222,6 @@ export default function SellerProfile(){
         </div>
       )}
 
-      {/* PROFILE PIC VIEW */}
       {showPic && (
         <div onClick={()=>setShowPic(false)} className="fixed inset-0 bg-black/90 z-[1300] flex items-center justify-center p-4">
           <img src={seller.photoURL} className="max-w-full max-h-[85vh] object-contain rounded-2xl"/>
@@ -220,4 +232,4 @@ export default function SellerProfile(){
       {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
     </main>
   )
-                                                                      }
+}
