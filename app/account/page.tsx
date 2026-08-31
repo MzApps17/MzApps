@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import { onAuthStateChanged, signOut, updateProfile } from "firebase/auth";
-import { collection, getDocs, query, deleteDoc, doc, setDoc, getDoc } from "firebase/firestore";
+import { collection, getDocs, query, deleteDoc, doc, setDoc, getDoc, where, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/config";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -81,11 +81,40 @@ export default function Account(){
     if(profile?.nameChanged) return alert("Vawi 1 chiah thlak theih!");
     setSavingName(true);
     try{
-      await updateProfile(user,{displayName:newName.trim()});
-      await setDoc(doc(db,"users",user.uid),{ displayName:newName.trim(), nameChanged:true, email:user.email, photoURL: profile?.photoURL || user.photoURL || "" },{merge:true});
-      setProfile((p:any)=>({...p, displayName:newName.trim(), nameChanged:true}));
-      setUser({...user, displayName:newName.trim()}); setShowNameEdit(false);
+      const finalName = newName.trim();
+      await updateProfile(user,{displayName:finalName});
+      await setDoc(doc(db,"users",user.uid),{ displayName:finalName, name:finalName, nameChanged:true, email:user.email, photoURL: profile?.photoURL || user.photoURL || "" },{merge:true});
+
+      // ✅ FIX - A Post hlui zawng zawng ah pawh Hming thar update nghal
+      try{
+        const pq = query(collection(db,"products"), where("userId","==", user.uid));
+        const psnap = await getDocs(pq);
+        for(const pd of psnap.docs){
+          await updateDoc(doc(db,"products",pd.id), {
+            sellerName: finalName,
+            userName: finalName,
+            displayName: finalName,
+            userDisplayName: finalName
+          });
+        }
+      }catch{}
+      try{
+        const jq = query(collection(db,"jobs"), where("userId","==", user.uid));
+        const jsnap = await getDocs(jq);
+        for(const jd of jsnap.docs){
+          await updateDoc(doc(db,"jobs",jd.id), {
+            sellerName: finalName,
+            userName: finalName,
+            displayName: finalName,
+            userDisplayName: finalName
+          });
+        }
+      }catch{}
+
+      setProfile((p:any)=>({...p, displayName:finalName, name:finalName, nameChanged:true}));
+      setUser({...user, displayName:finalName}); setShowNameEdit(false);
       if(window.history.state?.nameModal) window.history.back();
+      alert("Hming thlak fel a ni e! ✅");
     }catch(e:any){ alert(e.message); } finally{ setSavingName(false); }
   };
 
@@ -174,4 +203,4 @@ export default function Account(){
       )}
     </main>
   );
-        }
+    }
