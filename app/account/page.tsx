@@ -170,7 +170,7 @@ export default function Account() {
                 <div className="bg-white rounded-[26px] p-4 border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-black text-[15px]">My Posts Notifications {myNotiUnread>0 && <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full ml-2">{myNotiUnread} new</span>}</h3>
-            <button onClick={()=>router.push("/notifications")} className="text-[12px] font-bold text-blue-600">View all ›</button>
+            <button onClick={()=>router.push("/my-notifications")} className="text-[12px] font-bold text-blue-600">View all ›</button>
           </div>
           {myNotis.length===0? (<p className="text-[13px] text-gray-400 text-center py-8">I post ah like/comment a la awm lo</p>) : (
             <div className="flex flex-col gap-2">
