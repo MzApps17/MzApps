@@ -62,13 +62,11 @@ export default function Home(){
   const router = useRouter();
   const isFirstLoad = useRef(true);
 
-  // SCROLL RESTORE - A pawimawh ber
   useEffect(()=>{
     if(ads.length > 0 &&!loading){
       const saved = sessionStorage.getItem("mzHomeScroll");
       if(saved && isFirstLoad.current){
         const y = parseInt(saved);
-        // 2 tum scroll - a dik ngei ngei nan
         setTimeout(()=> window.scrollTo(0, y), 100);
         setTimeout(()=> window.scrollTo(0, y), 400);
         setTimeout(()=> window.scrollTo(0, y), 800);
@@ -89,7 +87,7 @@ export default function Home(){
 
   const saveScroll = () => {
     sessionStorage.setItem("mzHomeScroll", String(window.scrollY));
-    sessionStorage.setItem("mz_is_back", "1"); // back lo kal tih hriat nan
+    sessionStorage.setItem("mz_is_back", "1");
   };
 
   useEffect(()=>{
@@ -182,7 +180,8 @@ export default function Home(){
       });
     }catch{}
   };
-    const createNoti = async(ownerId:string, post:any, type:"like"|"comment", text?:string)=>{
+
+  const createNoti = async(ownerId:string, post:any, type:"like"|"comment", text?:string)=>{
     try{
       if(!ownerId ||!user || ownerId===user.uid) return;
       const ref = doc(collection(db,"users",ownerId,"notifications"));
@@ -223,7 +222,6 @@ export default function Home(){
         const isBackNav = sessionStorage.getItem("mz_is_back")==="1";
         const cachedStr = sessionStorage.getItem(cacheKey);
 
-        // BACK NAV a nih chuan cache hmang - shuffle lo!
         if(isBackNav && cachedStr &&!isNewCat){
           try{
             const cachedIds: string[] = JSON.parse(cachedStr);
@@ -234,12 +232,12 @@ export default function Home(){
               fetchUserProfiles(restored);
               setLastDoc(null); setHasMore(true);
               setLoading(false);
+              sessionStorage.removeItem("mz_is_back");
               return;
             }
           }catch{}
         }
 
-        // A thar siam - I en tam ber mil
         const viewedSet = new Set<string>(JSON.parse(localStorage.getItem(`mz_viewed_${uid}`)||"[]"));
         const catScores:Record<string,number> = JSON.parse(localStorage.getItem(`mz_score_${uid}`)||"{}");
         const topCats = Object.entries(catScores).sort((a,b)=> (b[1] as number)-(a[1] as number)).slice(0,3).map(x=>x[0]);
@@ -259,8 +257,7 @@ export default function Home(){
           if(ageH > 72) score -= 40;
           return {...ad, _score: score, _viewed: isViewed, _isTopCat: isTopCat};
         });
-
-        const topCatPosts = scored.filter((a:any)=>a._isTopCat &&!a._viewed).sort((a,b)=> b._score - a._score);
+                const topCatPosts = scored.filter((a:any)=>a._isTopCat &&!a._viewed).sort((a,b)=> b._score - a._score);
         const otherUnseen = scored.filter((a:any)=>!a._isTopCat &&!a._viewed).sort((a,b)=> b._score - a._score);
         const seen = scored.filter((a:any)=>a._viewed).sort((a,b)=> b._score - a._score);
 
@@ -274,9 +271,8 @@ export default function Home(){
           finalAds = [...scored].sort((a,b)=> b._score - a._score + (Math.random()-0.5)*20).slice(0,30);
         }
 
-        // CACHE SAVE - back hun atan
         sessionStorage.setItem(cacheKey, JSON.stringify(finalAds.map((a:any)=>a.id)));
-        sessionStorage.removeItem("mz_is_back"); // back flag clear
+        sessionStorage.removeItem("mz_is_back");
 
         const map = new Map(); finalAds.forEach((ad:any)=> map.set(ad.id, ad));
         const uniqueFinal = Array.from(map.values());
@@ -291,7 +287,6 @@ export default function Home(){
   },[cat, user]);
 
   useEffect(()=>{
-    // Category thlak chuan cache thar siam
     if(cat!=="All"){
       sessionStorage.removeItem(`mz_feed_cache_${cat}_${auth.currentUser?.uid || "guest"}`);
     }
@@ -455,7 +450,7 @@ export default function Home(){
           onCommentAdded={async (pid:string)=>{
             try{
               const ad = ads.find((a:any)=>a.id===pid);
-              const colName = ad?._type==="job"? "jobs" : "products";
+              const colName = ad?._type==="job"? "jobs":"products";
               const snap = await getDocs(collection(db,colName,pid,"comments"));
               setCommentCounts(prev=>({...prev, [pid]: snap.size}));
             }catch{
@@ -475,4 +470,4 @@ export default function Home(){
       )}
     </main>
   );
-                                                                       }
+            }
