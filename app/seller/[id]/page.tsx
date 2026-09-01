@@ -163,6 +163,26 @@ export default function SellerProfile(){
     load();
   },[sid, currentUser]);
 
+  const createNoti = async(ownerId:string, post:any, type:"like"|"comment", text?:string)=>{
+    try{
+      const u = auth.currentUser || currentUser;
+      if(!u ||!ownerId || ownerId===u.uid) return;
+      const ref = doc(collection(db,"users",ownerId,"notifications"));
+      await setDoc(ref,{
+        type,
+        postId: post.id,
+        postType: "product",
+        fromUid: u.uid,
+        fromName: u.displayName || u.email?.split("@")[0] || "Someone",
+        fromPhoto: u.photoURL || "",
+        title: post.title || "your post",
+        message: type==="like"? `${u.displayName||"Someone"} liked your post: ${post.title?.slice(0,30)}` : `${u.displayName||"Someone"}: ${text?.slice(0,50)}`,
+        read: false,
+        createdAt: new Date()
+      });
+    }catch(e){ console.log("noti err",e); }
+  };
+
   const toggleWish = async(e:any,pid:string)=>{
     e.preventDefault(); e.stopPropagation();
     const u = auth.currentUser || currentUser;
@@ -193,6 +213,8 @@ export default function SellerProfile(){
       try{ await setDoc(likeRef,{userId:u.uid,createdAt:serverTimestamp()}); await updateDoc(prodRef,{likes:arrayUnion(u.uid),likedBy:arrayUnion(u.uid),likeCount:increment(1),likesCount:increment(1)}); }catch{
         try{ await setDoc(prodRef,{likes:arrayUnion(u.uid),likeCount:increment(1)},{merge:true}); }catch{}
       }
+      const postData = posts.find((p:any)=>p.id===pid);
+      if(postData) await createNoti(sid, postData, "like");
     }
   };
 
@@ -217,7 +239,6 @@ export default function SellerProfile(){
   const khuaRaw = seller?.khua || seller?.village || seller?.hometown || null;
   const locationRaw = seller?.location || seller?.address || seller?.district || null;
   const phoneRaw = seller?.phone || seller?.phoneNumber || null;
-
   const memberSinceDisplay = formatMemberSince(memberSinceRaw, posts);
   const dobDisplay = formatDobDisplay(dobRaw);
   const phoneDisplay = phoneRaw && String(phoneRaw).trim()!==""? phoneRaw : "Not Set";
@@ -230,7 +251,6 @@ export default function SellerProfile(){
   } else if(locationRaw && String(locationRaw).trim()!==""){
     khuaDisplay = locationRaw;
   }
-
   return (
     <main className="min-h-screen bg-[#f5f5f7] pb-24">
       <div className="flex items-center justify-between p-3 pt-4 bg-[#f5f5f7] sticky top-0 z-50">
@@ -248,7 +268,6 @@ export default function SellerProfile(){
           )}
         </div>
       </div>
-
       <div className="mx-3 mt-1 bg-[#111111] rounded-[32px] p-6 text-white">
         <div className="flex items-center gap-5">
           <button onClick={()=>{ if(photoURL) setShowPic(true); }} className="w-[92px] h-[92px] rounded-full bg-white flex items-center justify-center font-black text-3xl overflow-hidden border-[3px] border-white/20 active:scale-95">
@@ -260,7 +279,6 @@ export default function SellerProfile(){
           </div>
         </div>
       </div>
-
       <div className="p-3 flex flex-col gap-3">
         <div className="bg-white rounded-[26px] p-2 border border-gray-100 shadow-sm">
           <p className="text-[11px] font-black px-4 pt-3 pb-1 text-gray-400 tracking-widest">PERSONAL INFO</p>
@@ -269,12 +287,11 @@ export default function SellerProfile(){
           <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.68A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0.7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div><div className="flex-1"><p className="text-[11px] text-gray-400">Phone</p><p className="text-[13px] font-bold">{phoneDisplay}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
           <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div><div className="flex-1"><p className="text-[11px] text-gray-400">Khua / Location</p><p className="text-[13px] font-bold">{khuaDisplay}</p></div></div>
-          <div className="h-[1px] bg-gray-100 mx-3"></div>
+                    <div className="h-[1px] bg-gray-100 mx-3"></div>
           <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div className="flex-1"><p className="text-[11px] text-gray-400">Date of Birth</p><p className="text-[13px] font-bold">{dobDisplay}</p></div></div>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
           <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div className="flex-1"><p className="text-[11px] text-gray-400">Member Since</p><p className="text-[13px] font-bold">{memberSinceDisplay}</p></div></div>
         </div>
-
         <div className="bg-white rounded-[26px] p-4 border border-gray-100 shadow-sm">
           <h2 className="font-black text-[16px] mb-3 flex items-center gap-2">{displayName} Ads <span className="bg-black text-white text-[11px] px-2.5 py-1 rounded-full">{posts.length}</span></h2>
           <div className="flex flex-col gap-3">
@@ -296,7 +313,6 @@ export default function SellerProfile(){
           </div>
         </div>
       </div>
-
       {commentPostId && (
         <CommentPopup
           postId={commentPostId}
@@ -308,10 +324,17 @@ export default function SellerProfile(){
             }catch{
               setCommentCounts(prev=>{ const c={...prev}; c[id]=(c[id]||0)+1; return c; });
             }
+            try{
+              const postData = posts.find((p:any)=>p.id===id);
+              if(postData){
+                const lastCommentSnap = await getDocs(query(collection(db,"products",id,"comments"), orderBy("createdAt","desc"), limit(1)));
+                const lastText = lastCommentSnap.docs[0]?.data()?.text || "New comment";
+                await createNoti(sid, postData, "comment", lastText);
+              }
+            }catch{}
           }}
         />
       )}
-
       {showReport && (
         <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[22px] p-6 w-full max-w-[340px]">
