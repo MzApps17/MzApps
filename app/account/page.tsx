@@ -28,6 +28,7 @@ export default function Account() {
   const [savingDob, setSavingDob] = useState(false);
   const [myNotis, setMyNotis] = useState<any[]>([]);
   const [myNotiUnread, setMyNotiUnread] = useState(0);
+  const [notiUserMap, setNotiUserMap] = useState<Record<string,any>>({});
   const adminEmails = ["mizochatapps@gmail.com"];
 
   useEffect(() => {
@@ -52,7 +53,6 @@ export default function Account() {
     return () => unsub();
   }, [router]);
 
-  // NOTIFICATIONS - FIXED (Separate ah ka la chhuak - wishlist vangin a fail lo nan)
   useEffect(()=>{
     if(!user?.uid) return;
     const fetchNotis = async()=>{
@@ -66,6 +66,23 @@ export default function Account() {
     };
     fetchNotis();
   },[user]);
+
+  // FIX - Pic tak tak lak na
+  useEffect(()=>{
+    if(myNotis.length===0) return;
+    const fetchNotiPics = async()=>{
+      const ids = Array.from(new Set(myNotis.map((n:any)=>n.fromUserId).filter(Boolean))) as string[];
+      const missing = ids.filter((id:string)=>!notiUserMap[id]);
+      if(missing.length===0) return;
+      const newMap:any = {...notiUserMap};
+      await Promise.all(missing.map(async(uid)=>{
+        const s = await getDoc(doc(db,"users",uid));
+        if(s.exists()) newMap[uid]=s.data();
+      }));
+      setNotiUserMap(newMap);
+    };
+    fetchNotiPics();
+  },[myNotis]);
 
   const openPic = () => { window.history.pushState({ picModal: true }, ""); setShowPic(true); };
   const closePic = () => { if (window.history.state?.picModal) window.history.back(); else setShowPic(false); };
@@ -94,8 +111,7 @@ export default function Account() {
       }; img.src = base64;
     }; reader.readAsDataURL(file);
   };
-
-  const openNameEdit = () => {
+    const openNameEdit = () => {
     if (profile?.nameChanged) { alert("I hming i thlak tawh - vawi 1 chiah thlak theih a ni!"); return; }
     setNewName(profile?.displayName || user?.displayName || user?.email.split("@")[0] || "");
     window.history.pushState({ nameModal: true }, ""); setShowNameEdit(true);
@@ -175,7 +191,7 @@ export default function Account() {
           <div className="h-[1px] bg-gray-100 mx-3"></div>
           <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">🗓️</div><div className="flex-1"><p className="text-[13px] text-gray-400">Member Since</p><p className="text-[15px] font-bold">29/08/2026</p></div></div>
         </div>
-                <div className="bg-white rounded-[26px] p-2 border border-gray-100 shadow-sm">
+        <div className="bg-white rounded-[26px] p-2 border border-gray-100 shadow-sm">
           <p className="text-[14px] font-black px-4 pt-3 pb-2 text-black tracking-widest">ACCOUNT ACTIONS</p>
           <Link href="/my-ads" className="w-full flex items-center gap-3 px-3 py-3.5 active:bg-gray-50 rounded-xl">
             <div className="w-11 h-11 bg-black rounded-full flex items-center justify-center text-white text-[18px]">📦</div>
@@ -189,7 +205,7 @@ export default function Account() {
           <button onClick={async()=>{ await signOut(auth); router.push("/"); }} className="w-full flex items-center gap-3 px-3 py-3.5 text-left active:bg-red-50 rounded-xl"><div className="w-11 h-11 bg-[#ffefef] rounded-full flex items-center justify-center text-[18px]">🚪</div><div className="flex-1"><p className="text-[14px] font-bold text-red-600">Log Out</p><p className="text-[12px] text-gray-400">Account chhuahsan</p></div><span className="text-gray-400">›</span></button>
         </div>
 
-        {/* NOTIFICATIONS - HEMI CHIAH KA FIX */}
+        {/* NOTIFICATIONS - PIC TAK TAK */}
         <div className="bg-white rounded-[26px] p-4 border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-black text-[15px]">Notifications {myNotiUnread>0 && <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full ml-2">{myNotiUnread} new</span>}</h3>
@@ -197,17 +213,21 @@ export default function Account() {
           </div>
           {myNotis.length===0? (<p className="text-[13px] text-gray-400 text-center py-8">I post ah like/comment a la awm lo</p>) : (
             <div className="flex flex-col gap-2">
-              {myNotis.slice(0,6).map((n:any)=>(
+              {myNotis.slice(0,6).map((n:any)=>{
+                const u = notiUserMap[n.fromUserId];
+                const realPic = u?.photoURL || u?.profilePic || u?.avatar || n.fromPhoto || n.fromUserPic || `https://ui-avatars.com/api/?name=${encodeURIComponent(n.fromName||"MI")}&background=002f34&color=fff&bold=true`;
+                const realName = u?.displayName || u?.name || n.fromName || "User";
+                return (
                 <div key={n.id} onClick={async()=>{ try{ await updateDoc(doc(db,"users",user.uid,"notifications",n.id),{read:true}); }catch{} if(n.postType==="job") router.push(`/jobs/${n.postId}`); else router.push(`/marketplace/${n.postId}`); }} className={`flex gap-3 p-3 rounded-2xl cursor-pointer border active:scale-[0.98] ${!n.read?'bg-blue-50 border-blue-200':'bg-[#f8f8f8] border-gray-100'}`}>
-                  <img src={n.fromPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(n.fromName||"User")}`} className="w-10 h-10 rounded-full object-cover flex-shrink-0"/>
+                  <img src={realPic} className="w-10 h-10 rounded-full object-cover flex-shrink-0 bg-gray-200"/>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] leading-tight truncate"><b>{n.fromName}</b> {n.type==="like"?"❤️ liked":"💬 commented on"} your post</p>
+                    <p className="text-[13px] leading-tight truncate"><b>{realName}</b> {n.type==="like"?"❤️ liked":"💬 commented on"} your post</p>
                     <p className="text-[12px] font-bold text-[#002f34] truncate">{n.title}</p>
                     <p className="text-[11px] text-gray-500 truncate mt-0.5">{n.message}</p>
                   </div>
                   {!n.read && <span className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></span>}
                 </div>
-              ))}
+              )})}
             </div>
           )}
         </div>
@@ -219,4 +239,4 @@ export default function Account() {
       {showDobEdit && (<div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6"><div className="bg-white rounded-[20px] p-6 w-full max-w-[320px]"><h3 className="font-black">🎂 DoB</h3><input value={newDob} onChange={e=>setNewDob(e.target.value)} type="date" className="w-full border-2 p-3 rounded-xl mt-4" /><div className="flex gap-2 mt-4"><button onClick={()=>setShowDobEdit(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold">Cancel</button><button onClick={handleDobSave} className="flex-1 bg-black text-white py-3 rounded-xl font-bold">{savingDob?"...":"Save"}</button></div></div></div>)}
     </main>
   );
-      }
+            }
