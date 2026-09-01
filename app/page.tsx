@@ -69,11 +69,13 @@ export default function Home(){
       if(saved) setTimeout(()=> window.scrollTo(0, parseInt(saved)), 100);
     }
   },[ads, loading]);
+
   useEffect(()=>{
     const onScroll = () => { if(!loading &&!selectedPostId) sessionStorage.setItem("mzHomeScroll", String(window.scrollY)); };
     window.addEventListener("scroll", onScroll);
     return ()=> window.removeEventListener("scroll", onScroll);
   },[loading, selectedPostId]);
+
   const saveScroll = () => { sessionStorage.setItem("mzHomeScroll", String(window.scrollY)); };
 
   useEffect(()=>{
@@ -332,7 +334,27 @@ export default function Home(){
           </div>
         </div>
       )}
-      {selectedPostId && <CommentPopup postId={selectedPostId} onClose={()=>{ const pos = scrollPosRef.current; setSelectedPostId(null); setTimeout(()=> window.scrollTo(0, pos), 50); }} onCommentAdded={async (pid)=>{ try{ const ad = ads.find(a=>a.id===pid); const colName = ad?._type==="job"? "jobs":"products" : "products"; const cs = await getDocs(collection(db,colName,pid,"comments")); setCommentCounts(prev=>{ const c={...prev}; c[pid]=cs.size; return c; }); }catch{ setAds(prev=> prev.map(p=> p.id===pid? {...p, commentsCount: (p.commentsCount||0)+1, commentCount: (p.commentCount||0)+1} : p)); } }} />}
+
+      {selectedPostId && (
+        <CommentPopup
+          postId={selectedPostId}
+          onClose={()=>{
+            const pos = scrollPosRef.current;
+            setSelectedPostId(null);
+            setTimeout(()=> window.scrollTo(0, pos), 50);
+          }}
+          onCommentAdded={async (pid:string)=>{
+            try{
+              const ad = ads.find((a:any)=>a.id===pid);
+              const colName = ad?._type==="job"? "jobs" : "products";
+              const snap = await getDocs(collection(db,colName,pid,"comments"));
+              setCommentCounts(prev=>({...prev, [pid]: snap.size}));
+            }catch{
+              setAds(prev=> prev.map(p=> p.id===pid? {...p, commentsCount: (p.commentsCount||0)+1} : p));
+            }
+          }}
+        />
+      )}
     </main>
   );
-              }
+    }
