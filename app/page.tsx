@@ -149,7 +149,6 @@ export default function Home(){
     loadRealCounts();
   },[ads.map(a=>a.id).join(",")]);
 
-  // ✅ FACEBOOK MARKETPLACE LOGIC BELH - THIL DANG KHAWIH LO
   const trackView = async (ad:any)=>{
     try{
       const colName = ad._type==="job"? "jobs":"products";
@@ -165,6 +164,25 @@ export default function Home(){
         await setDoc(postRef, { views: 1, viewsCount: 1 }, {merge:true});
       });
     }catch{}
+  };
+
+  const createNoti = async(ownerId:string, post:any, type:"like"|"comment", text?:string)=>{
+    try{
+      if(!ownerId ||!user || ownerId===user.uid) return;
+      const ref = doc(collection(db,"users",ownerId,"notifications"));
+      await setDoc(ref,{
+        type,
+        postId: post.id,
+        postType: post._type || "product",
+        fromUid: user.uid,
+        fromName: user.displayName || user.email?.split("@")[0] || "Someone",
+        fromPhoto: user.photoURL || "",
+        title: post.title || "your post",
+        message: type==="like"? `${user.displayName||"Someone"} liked your post` : `${user.displayName||"Someone"}: ${text?.slice(0,50)}`,
+        read: false,
+        createdAt: new Date()
+      });
+    }catch(e){ console.log("noti err",e); }
   };
 
   const loadAds = useCallback(async (isNewCat=false)=>{
@@ -188,8 +206,6 @@ export default function Home(){
         const snap=await getDocs(q);
         allAds = snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"}));
       }
-
-      // ✅ MARKETPLACE ALGO - EN NASAT APIANG LANG HMA + REFRESH A NGAi LANG LO
       try{
         const viewedSet = new Set<string>(JSON.parse(localStorage.getItem("mz_viewed_ids")||"[]"));
         const catScores:Record<string,number> = JSON.parse(localStorage.getItem("mz_cat_score")||"{}");
@@ -298,11 +314,12 @@ export default function Home(){
         setLikeIds(prev=>{ const n=new Set(prev); n.add(postId); return n; });
         setLikeCounts(prev=>{ const c={...prev}; c[postId]=(c[postId]??getLikeCount(ad))+1; return c; });
         setAds(prev=> prev.map(p=> p.id===postId? {...p, likes: Array.isArray(p.likes)? [...p.likes, user.uid] : (p.likes||0)+1, likeCount: (p.likeCount||getLikeCount(p))+1, likesCount: (p.likesCount||getLikeCount(p))+1} : p));
+        const ownerId = getPostUserId(ad);
+        if(ownerId) await createNoti(ownerId, ad, "like");
       }
     }catch(err){ console.log(err); }
   };
-
-  const categories=["All","Cars","Properties","Mobiles","Jobs","Bikes","Furniture","Fashion","Electronics","Cosmetics","Others"];
+    const categories=["All","Cars","Properties","Mobiles","Jobs","Bikes","Furniture","Fashion","Electronics","Cosmetics","Others"];
   const filtered = ads.filter(a=>{
     if(!debouncedSearch) return true; const s=debouncedSearch.toLowerCase();
     return a.title?.toLowerCase().includes(s) || a.location?.toLowerCase().includes(s);
@@ -389,9 +406,18 @@ export default function Home(){
             }catch{
               setAds(prev=> prev.map(p=> p.id===pid? {...p, commentsCount: (p.commentsCount||0)+1} : p));
             }
+            try{
+              const post = ads.find((a:any)=>a.id===pid);
+              if(post){
+                const ownerId = getPostUserId(post);
+                const lastSnap = await getDocs(query(collection(db, (post._type==="job"?"jobs":"products"), pid, "comments"), orderBy("createdAt","desc"), limit(1)));
+                const lastText = lastSnap.docs[0]?.data()?.text || "New comment";
+                if(ownerId) await createNoti(ownerId, post, "comment", lastText);
+              }
+            }catch{}
           }}
         />
       )}
     </main>
   );
-      }
+}
