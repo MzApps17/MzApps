@@ -64,7 +64,9 @@ export default function Home(){
   useEffect(()=>{
     if(ads.length > 0 &&!loading){
       const saved = sessionStorage.getItem("mzHomeScroll");
-      if(saved) setTimeout(()=> window.scrollTo(0, parseInt(saved)), 100);
+      if(saved){
+        setTimeout(()=>{ window.scrollTo({top: parseInt(saved), behavior: "auto"}); }, 300);
+      }
     }
   },[ads, loading]);
 
@@ -207,16 +209,14 @@ export default function Home(){
           const t = ad.createdAt?.toMillis? ad.createdAt.toMillis() : new Date(ad.createdAt||0).getTime();
           const ageH = (Date.now()-t)/(1000*3600);
           const fresh = Math.max(0,60-ageH*0.4);
-          const rnd = Math.random()*35;
-          let score = catPoint + viewsPoint + fresh + rnd;
+          let score = catPoint + viewsPoint + fresh;
           if(isViewed) score -= 120;
           return {...ad, _score: score, _viewed: isViewed};
         });
         scored.sort((a,b)=>b._score-a._score);
         const unseen = scored.filter((a:any)=>!a._viewed);
         const seen = scored.filter((a:any)=>a._viewed);
-        const shuffled = unseen.sort(()=>Math.random()-0.5);
-        const finalAds = [...shuffled.slice(0,22),...seen.slice(0,5),...shuffled.slice(22)].slice(0,30);
+        const finalAds = [...unseen,...seen].slice(0,30);
         const map = new Map(); finalAds.forEach((ad:any)=> map.set(ad.id, ad));
         const uniqueFinal = Array.from(map.values());
         setAds(uniqueFinal); fetchUserProfiles(uniqueFinal);
@@ -408,4 +408,4 @@ export default function Home(){
       )}
     </main>
   );
-  }
+                              }
