@@ -128,6 +128,7 @@ export default function SellerProfile(){
       const lc:Record<string,number>={};
       const cc:Record<string,number>={};
       const lSet = new Set<string>();
+      const uid = auth.currentUser?.uid || currentUser?.uid;
       for(const p of all){
         const snap = await getDoc(doc(db,"products",p.id));
         const fd = snap.exists()? snap.data() as any : p;
@@ -136,8 +137,12 @@ export default function SellerProfile(){
         else if(typeof fd.likesCount==='number') likeNum=fd.likesCount;
         else if(Array.isArray(fd.likes)) likeNum=fd.likes.length;
         else if(Array.isArray(fd.likedBy)) likeNum=fd.likedBy.length;
-        if(auth.currentUser){
-          const uid=auth.currentUser.uid;
+        try{
+          const likeSnap = await getDocs(collection(db,"products",p.id,"likes"));
+          if(likeSnap.size>0) likeNum = likeSnap.size;
+          if(uid && likeSnap.docs.find(d=>d.id===uid)) lSet.add(p.id);
+        }catch{}
+        if(uid){
           if(Array.isArray(fd.likes)&&fd.likes.includes(uid)) lSet.add(p.id);
           if(Array.isArray(fd.likedBy)&&fd.likedBy.includes(uid)) lSet.add(p.id);
         }
@@ -156,7 +161,7 @@ export default function SellerProfile(){
       setLiked(lSet);
     };
     load();
-  },[sid]);
+  },[sid, currentUser]);
 
   const toggleWish = async(e:any,pid:string)=>{
     e.preventDefault(); e.stopPropagation();
@@ -325,4 +330,4 @@ export default function SellerProfile(){
       {showMenu && <div className="fixed inset-0 z-40" onClick={()=>setShowMenu(false)}></div>}
     </main>
   );
-                                             }
+}
