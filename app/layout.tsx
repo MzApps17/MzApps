@@ -40,58 +40,68 @@ function Footer(){
   const isHome = pathname === "/";
   const isSell = pathname.startsWith("/sell");
   const isCategory = pathname.startsWith("/categories") || pathname.startsWith("/category");
+  const isMarket = pathname.startsWith("/marketplace");
   const isWishlist = pathname.startsWith("/wishlist");
   const isAccount = pathname.startsWith("/account");
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex justify-around items-center h-[58px] z-50 px-2">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex justify-around items-center h-[58px] z-50 px-1">
       {/* 1. HOME */}
-      <Link href="/" className="flex items-center justify-center w-[48px] h-[48px]">
+      <Link href="/" className="flex items-center justify-center w-[44px] h-[44px]">
         {isHome? (
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="black"><path d="M12 2.5L3 10v11a1 1 0 001 1h5a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h5a1 1 0 001-1V10l-9-7.5z"/></svg>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="black"><path d="M12 2.5L3 10v11a1 1 0 001 1h5a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h5a1 1 0 001-1V10l-9-7.5z"/></svg>
         ) : (
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         )}
       </Link>
 
-      {/* 2. SELL - Post */}
-      <Link href="/sell" className="flex items-center justify-center w-[48px] h-[48px]">
+      {/* 2. SELL */}
+      <Link href="/sell" className="flex items-center justify-center w-[44px] h-[44px]">
         {isSell? (
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="black"><rect x="2" y="2" width="20" height="20" rx="6" /><path d="M12 8v8M8 12h8" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="black"><rect x="2" y="2" width="20" height="20" rx="6" /><path d="M12 8v8M8 12h8" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>
         ) : (
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.9" strokeLinecap="round"><rect x="2" y="2" width="20" height="20" rx="6"/><path d="M12 8v8M8 12h8"/></svg>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.9" strokeLinecap="round"><rect x="2" y="2" width="20" height="20" rx="6"/><path d="M12 8v8M8 12h8"/></svg>
         )}
       </Link>
 
-      {/* 3. CATEGORY - Page thar */}
-      <Link href="/categories" className="flex items-center justify-center w-[48px] h-[48px]">
+      {/* 3. CATEGORY - MAWI ZAWK */}
+      <Link href="/categories" className="flex items-center justify-center w-[44px] h-[44px]">
         {isCategory? (
-          <svg width="27" height="27" viewBox="0 0 24 24" fill="black" stroke="black"><circle cx="11" cy="11" r="6" stroke="black" strokeWidth="2.2" fill="black"/><path d="M20 20l-3.5-3.5" stroke="black" strokeWidth="2.5" strokeLinecap="round"/></svg>
+          <svg width="25" height="25" viewBox="0 0 24 24" fill="black"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
         ) : (
-          <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.9" strokeLinecap="round"><circle cx="11" cy="11" r="6"/><path d="M20 20l-3.5-3.5" strokeWidth="2.2"/></svg>
+          <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.9"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
         )}
       </Link>
 
-      {/* 4. WISHLIST - Love */}
-      <Link href="/wishlist" className="flex items-center justify-center w-[48px] h-[48px]">
+      {/* 4. MARKETPLACE SHOP - Facebook marketplace ang */}
+      <Link href="/marketplace" className="flex items-center justify-center w-[44px] h-[44px]">
+        {isMarket? (
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="black" stroke="black" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 012-2h2l2-1h6l2 1h2a2 2 0 012 2v2.5a2 2 0 01-2 2 2 2 0 01-2-2v-.5H6v.5a2 2 0 01-2 2 2 2 0 01-2-2V7z"/><path d="M3 9v9a2 2 0 002 2h14a2 2 0 002-2V9"/><path d="M9 20v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>
+        ) : (
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7a2 2 0 012-2h2l2-1h6l2 1h2a2 2 0 012 2v2.5a2 2 0 01-2 2 2 2 0 01-2-2v-.5H6v.5a2 2 0 01-2 2 2 2 0 01-2-2V7z"/><path d="M3 9v9a2 2 0 002 2h14a2 2 0 002-2V9"/><path d="M9 20v-4a2 2 0 012-2h2a2 2 0 012 2v4"/></svg>
+        )}
+      </Link>
+
+      {/* 5. WISHLIST */}
+      <Link href="/wishlist" className="flex items-center justify-center w-[44px] h-[44px]">
         {isWishlist? (
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="black" stroke="black"><path d="M12 21C12 21 4 13.5 4 8.5C4 5.5 6.5 3 9.5 3C11.04 3 12.5 3.99 12 5.5C11.5 3.99 12.96 3 14.5 3C17.5 3 20 5.5 20 8.5C20 13.5 12 21 12 21Z" strokeWidth="1.6"/></svg>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="black" stroke="black"><path d="M12 21C12 21 4 13.5 4 8.5C4 5.5 6.5 3 9.5 3C11.04 3 12.5 3.99 12 5.5C11.5 3.99 12.96 3 14.5 3C17.5 3 20 5.5 20 8.5C20 13.5 12 21 12 21Z" strokeWidth="1.6"/></svg>
         ) : (
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.9"><path d="M12 21C12 21 4 13.5 4 8.5C4 5.5 6.5 3 9.5 3C11.04 3 12.5 3.99 12 5.5C11.5 3.99 12.96 3 14.5 3C17.5 3 20 5.5 20 8.5C20 13.5 12 21 12 21Z"/></svg>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.9"><path d="M12 21C12 21 4 13.5 4 8.5C4 5.5 6.5 3 9.5 3C11.04 3 12.5 3.99 12 5.5C11.5 3.99 12.96 3 14.5 3C17.5 3 20 5.5 20 8.5C20 13.5 12 21 12 21Z"/></svg>
         )}
       </Link>
 
-      {/* 5. PROFILE - Pic a lang */}
-      <Link href="/account" className="flex items-center justify-center w-[48px] h-[48px]">
+      {/* 6. PROFILE - Pic lang */}
+      <Link href="/account" className="flex items-center justify-center w-[44px] h-[44px]">
         {userPic? (
-          <div className={`w-[30px] h-[30px] rounded-full overflow-hidden ${isAccount? 'ring-[2px] ring-black ring-offset-[2px]' : 'ring-[1px] ring-gray-300'}`}>
+          <div className={`w-[28px] h-[28px] rounded-full overflow-hidden ${isAccount? 'ring-[2px] ring-black ring-offset-[2px]' : 'ring-[1px] ring-gray-300'}`}>
             <img src={userPic} alt="profile" className="w-full h-full object-cover"/>
           </div>
         ) : (
           isAccount? (
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="black"><circle cx="12" cy="8" r="4.5"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7" /></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="black"><circle cx="12" cy="8" r="4.5"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7" /></svg>
           ) : (
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.9"><circle cx="12" cy="8" r="4.5"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.9"><circle cx="12" cy="8" r="4.5"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/></svg>
           )
         )}
       </Link>
