@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
-import { collection, query, where, onSnapshot, deleteDoc, doc } from "firebase/firestore";
-import { db } from "@/lib/firebase/config";
+import { collection, query, where, onSnapshot, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc, increment, arrayUnion, arrayRemove, serverTimestamp } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase/config";
 import { useAuth } from "@/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import CommentPopup from "@/components/CommentPopup";
@@ -14,6 +14,9 @@ export default function MyAdsPage(){
   const [deleteItem,setDeleteItem]=useState<{id:string,type:string}|null>(null);
   const [loadingDelete,setLoadingDelete]=useState(false);
   const [selectedPostId,setSelectedPostId]=useState<string|null>(null);
+  const [liked,setLiked]=useState<Set<string>>(new Set());
+  const [likeCounts,setLikeCounts]=useState<Record<string,number>>({});
+  const [commentCounts,setCommentCounts]=useState<Record<string,number>>({});
 
   const formatDate = (ts:any)=>{
     if(!ts) return "";
@@ -52,6 +55,77 @@ export default function MyAdsPage(){
     });
     return ()=>{unsub1(); unsub2();};
   },[user]);
+
+  // LIKE/COMMENT COUNT DIK TAK LA
+  useEffect(()=>{
+    if(ads.length===0) return;
+    const loadCounts = async()=>{
+      const lc:Record<string,number>={};
+      const cc:Record<string,number>={};
+      const lSet = new Set<string>();
+      const uid = auth.currentUser?.uid || user?.uid;
+      for(const ad of ads){
+        const colName = ad.type==="job"? "jobs" : "products";
+        try{
+          const snap = await getDoc(doc(db,colName,ad.id));
+          const fd = snap.exists()? snap.data() as any : ad;
+          let likeNum = 0;
+          if(typeof fd.likeCount==='number') likeNum=fd.likeCount;
+          else if(typeof fd.likesCount==='number') likeNum=fd.likesCount;
+          else if(Array.isArray(fd.likes)) likeNum=fd.likes.length;
+          else if(Array.isArray(fd.likedBy)) likeNum=fd.likedBy.length;
+          // real subcollection check for accuracy
+          try{
+            const likeSnap = await getDocs(collection(db,colName,ad.id,"likes"));
+            if(likeSnap.size>0) likeNum = likeSnap.size;
+          }catch{}
+          lc[ad.id]=likeNum;
+          if(uid){
+            if(Array.isArray(fd.likes)&&fd.likes.includes(uid)) lSet.add(ad.id);
+            if(Array.isArray(fd.likedBy)&&fd.likedBy.includes(uid)) lSet.add(ad.id);
+            if(Array.isArray(fd.likeBy)&&fd.likeBy.includes(uid)) lSet.add(ad.id);
+          }
+          let cNum = 0;
+          try{
+            const cs=await getDocs(collection(db,colName,ad.id,"comments"));
+            cNum=cs.size;
+          }catch{
+            cNum = typeof fd.commentsCount==='number'? fd.commentsCount : typeof fd.commentCount==='number'? fd.commentCount : 0;
+          }
+          cc[ad.id]=cNum;
+        }catch{
+          const fallbackLikes = Array.isArray(ad.likes)? ad.likes.length : typeof ad.likeCount==='number'? ad.likeCount : 0;
+          lc[ad.id]=fallbackLikes;
+          cc[ad.id]=ad.commentsCount||0;
+        }
+      }
+      setLikeCounts(lc);
+      setCommentCounts(cc);
+      setLiked(lSet);
+    };
+    loadCounts();
+  },[ads.length]);
+
+  const toggleLike = async(e:any, ad:any)=>{
+    e.preventDefault(); e.stopPropagation();
+    const u = auth.currentUser;
+    if(!u){ router.push("/login"); return; }
+    const colName = ad.type==="job"? "jobs" : "products";
+    const prodRef = doc(db,colName,ad.id);
+    const likeRef = doc(db,colName,ad.id,"likes",u.uid);
+    const isLiked = liked.has(ad.id);
+    if(isLiked){
+      setLiked(prev=>{ const n=new Set(prev); n.delete(ad.id); return n; });
+      setLikeCounts(prev=>{ const c={...prev}; c[ad.id]=Math.max(0,(c[ad.id]||1)-1); return c; });
+      try{ await deleteDoc(likeRef); await updateDoc(prodRef,{likes:arrayRemove(u.uid),likedBy:arrayRemove(u.uid),likeCount:increment(-1),likesCount:increment(-1)}); }catch{}
+    }else{
+      setLiked(prev=>{ const n=new Set(prev); n.add(ad.id); return n; });
+      setLikeCounts(prev=>{ const c={...prev}; c[ad.id]=(c[ad.id]||0)+1; return c; });
+      try{ await setDoc(likeRef,{userId:u.uid,createdAt:serverTimestamp()}); await updateDoc(prodRef,{likes:arrayUnion(u.uid),likedBy:arrayUnion(u.uid),likeCount:increment(1),likesCount:increment(1)}); }catch{
+        try{ await setDoc(prodRef,{likes:arrayUnion(u.uid),likeCount:increment(1)},{merge:true}); }catch{}
+      }
+    }
+  };
 
   const filtered = ads.filter(a=>{
     if(filter==="all") return true;
@@ -118,10 +192,14 @@ export default function MyAdsPage(){
                   <span className="bg-[#eeeeee] text-black px-2.5 py-[2px] rounded-full text-[10px] font-black border">{ad.type==="job"?"JOB":"PRODUCT"}</span>
                 </div>
                 <p className="text-[11px] text-gray-400 mt-[2px] font-medium">{formatDate(ad.createdAt)}</p>
-                {/* ✅ BELH CHIAH - LIKE & COMMENT */}
-                <div className="flex items-center gap-4 mt-1.5">
-                  <span className="text-[11px] font-black text-black">❤️ {ad.likes||0} likes</span>
-                  <button onClick={()=>setSelectedPostId(ad.id)} className="text-[11px] font-black text-black active:opacity-60">💬 {ad.commentsCount||0} comments</button>
+                {/* ✅ LIKE & COMMENT - DIK THLAK */}
+                <div className="flex items-center gap-3 mt-2">
+                  <button onClick={(e)=>toggleLike(e, ad)} className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-black border active:scale-95 ${liked.has(ad.id)?"bg-black text-white border-black":"bg-white text-black border-gray-200"}`}>
+                    <span>{liked.has(ad.id)?"❤️":"🤍"}</span> {likeCounts[ad.id]?? (Array.isArray(ad.likes)? ad.likes.length : ad.likeCount||0)} likes
+                  </button>
+                  <button onClick={()=>setSelectedPostId(ad.id)} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-gray-200 text-[12px] font-black text-black active:opacity-60">
+                    💬 {commentCounts[ad.id]?? ad.commentsCount||0} comments
+                  </button>
                 </div>
               </div>
               <div className="flex gap-2 mt-2 justify-end">
@@ -149,8 +227,14 @@ export default function MyAdsPage(){
           </div>
         </div>
       )}
-      {selectedPostId && <CommentPopup postId={selectedPostId} onClose={()=>setSelectedPostId(null)} onCommentAdded={(pid)=>{
-        setAds(prev=> prev.map(p=> p.id===pid? {...p, commentsCount: (p.commentsCount||0)+1} : p));
+      {selectedPostId && <CommentPopup postId={selectedPostId} onClose={()=>setSelectedPostId(null)} onCommentAdded={async (pid)=>{
+        try{
+          const colName = ads.find(a=>a.id===pid)?.type==="job"? "jobs":"products";
+          const cs=await getDocs(collection(db,colName,pid,"comments"));
+          setCommentCounts(prev=>{ const c={...prev}; c[pid]=cs.size; return c; });
+        }catch{
+          setAds(prev=> prev.map(p=> p.id===pid? {...p, commentsCount: (p.commentsCount||0)+1} : p));
+        }
       }} />}
     </main>
   );
