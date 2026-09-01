@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { initializeApp } from "firebase/app";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
-import { getFirestore, doc, setDoc } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import IosInstallPopup from "@/components/layout/IosInstallPopup";
 
 const firebaseConfig = {
@@ -20,28 +20,80 @@ const firebaseConfig = {
 
 function Footer(){
   const pathname = usePathname();
+  const [userPic, setUserPic] = useState<string|null>(null);
+
+  useEffect(()=>{
+    const auth = getAuth();
+    const db = getFirestore();
+    const unsub = onAuthStateChanged(auth, async (u)=>{
+      if(u){
+        setUserPic(u.photoURL);
+        try{
+          const p = await getDoc(doc(db,"users",u.uid));
+          if(p.exists() && p.data().photoURL) setUserPic(p.data().photoURL);
+        }catch{}
+      }else setUserPic(null);
+    });
+    return ()=>unsub();
+  },[]);
+
   const isHome = pathname === "/";
   const isSell = pathname.startsWith("/sell");
-  const isMyAds = pathname.startsWith("/my-ads");
+  const isCategory = pathname.startsWith("/categories") || pathname.startsWith("/category");
+  const isWishlist = pathname.startsWith("/wishlist");
   const isAccount = pathname.startsWith("/account");
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around items-center h-[60px] z-50">
-      <Link href="/" className={`flex flex-col items-center w-20 ${isHome?"text-[#002f34]":"text-gray-400"}`}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isHome?"2.6":"1.6"}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        <span className={`text-[12px] ${isHome?"font-black":"font-bold"}`}>HOME</span>
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex justify-around items-center h-[58px] z-50 px-2">
+      {/* 1. HOME */}
+      <Link href="/" className="flex items-center justify-center w-[48px] h-[48px]">
+        {isHome? (
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="black"><path d="M12 2.5L3 10v11a1 1 0 001 1h5a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h5a1 1 0 001-1V10l-9-7.5z"/></svg>
+        ) : (
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        )}
       </Link>
-      <Link href="/sell" className={`flex flex-col items-center w-20 ${isSell?"text-[#002f34]":"text-gray-400"}`}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isSell?"2.6":"1.6"}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-        <span className={`text-[12px] ${isSell?"font-black":"font-bold"}`}>SELL</span>
+
+      {/* 2. SELL - Post */}
+      <Link href="/sell" className="flex items-center justify-center w-[48px] h-[48px]">
+        {isSell? (
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="black"><rect x="2" y="2" width="20" height="20" rx="6" /><path d="M12 8v8M8 12h8" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>
+        ) : (
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.9" strokeLinecap="round"><rect x="2" y="2" width="20" height="20" rx="6"/><path d="M12 8v8M8 12h8"/></svg>
+        )}
       </Link>
-      <Link href="/my-ads" className={`flex flex-col items-center justify-center w-20 ${isMyAds?"text-[#002f34]":"text-gray-400"}`}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isMyAds?"2.6":"1.6"} strokeLinecap="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
-        <span className={`text-[12px] ${isMyAds?"font-black":"font-bold"}`}>MY ADS</span>
+
+      {/* 3. CATEGORY - Page thar */}
+      <Link href="/categories" className="flex items-center justify-center w-[48px] h-[48px]">
+        {isCategory? (
+          <svg width="27" height="27" viewBox="0 0 24 24" fill="black" stroke="black"><circle cx="11" cy="11" r="6" stroke="black" strokeWidth="2.2" fill="black"/><path d="M20 20l-3.5-3.5" stroke="black" strokeWidth="2.5" strokeLinecap="round"/></svg>
+        ) : (
+          <svg width="27" height="27" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.9" strokeLinecap="round"><circle cx="11" cy="11" r="6"/><path d="M20 20l-3.5-3.5" strokeWidth="2.2"/></svg>
+        )}
       </Link>
-      <Link href="/account" className={`flex flex-col items-center w-20 ${isAccount?"text-[#002f34]":"text-gray-400"}`}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={isAccount?"2.6":"1.6"}><circle cx="12" cy="7" r="4"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
-        <span className={`text-[12px] ${isAccount?"font-black":"font-bold"}`}>ACCOUNT</span>
+
+      {/* 4. WISHLIST - Love */}
+      <Link href="/wishlist" className="flex items-center justify-center w-[48px] h-[48px]">
+        {isWishlist? (
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="black" stroke="black"><path d="M12 21C12 21 4 13.5 4 8.5C4 5.5 6.5 3 9.5 3C11.04 3 12.5 3.99 12 5.5C11.5 3.99 12.96 3 14.5 3C17.5 3 20 5.5 20 8.5C20 13.5 12 21 12 21Z" strokeWidth="1.6"/></svg>
+        ) : (
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.9"><path d="M12 21C12 21 4 13.5 4 8.5C4 5.5 6.5 3 9.5 3C11.04 3 12.5 3.99 12 5.5C11.5 3.99 12.96 3 14.5 3C17.5 3 20 5.5 20 8.5C20 13.5 12 21 12 21Z"/></svg>
+        )}
+      </Link>
+
+      {/* 5. PROFILE - Pic a lang */}
+      <Link href="/account" className="flex items-center justify-center w-[48px] h-[48px]">
+        {userPic? (
+          <div className={`w-[30px] h-[30px] rounded-full overflow-hidden ${isAccount? 'ring-[2px] ring-black ring-offset-[2px]' : 'ring-[1px] ring-gray-300'}`}>
+            <img src={userPic} alt="profile" className="w-full h-full object-cover"/>
+          </div>
+        ) : (
+          isAccount? (
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="black"><circle cx="12" cy="8" r="4.5"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7" /></svg>
+          ) : (
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="1.9"><circle cx="12" cy="8" r="4.5"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+          )
+        )}
       </Link>
     </div>
   );
@@ -57,7 +109,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // --- INSTALL CHECK - SIAM THAT CHIAH ---
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
     if (!isStandalone) {
       const handler = (e: any) => {
@@ -66,14 +117,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         setShowAndroidPrompt(true);
       };
       window.addEventListener('beforeinstallprompt', handler);
-
       const t = setTimeout(() => {
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         if (!isIOS) setShowAndroidPrompt(true);
       }, 3000);
-
-      // Cleanup atan
-      // return hi a hmaa i dah sual vangin notification a thawk lo - tunah ka dah lo
     }
 
     const setupNotifications = async () => {
@@ -111,14 +158,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       if (outcome === 'accepted') setShowAndroidPrompt(false);
       setDeferredPrompt(null);
     } else {
-      // Firefox leh browser dang tan - eng browser atang pawh
       const isFirefox = /Firefox/.test(navigator.userAgent);
       if(isFirefox){
         alert("Firefox ah: Browser menu dot 3 (⋮) > Install emaw Add to Home Screen click rawh!");
       } else {
         alert("Browser Menu (⋮) > Add to Home Screen / Install App tih click rawh!");
       }
-      // setShowAndroidPrompt(false); // duh chuan comment rawh - an luh apiang a lang tur chuan
     }
   };
 
@@ -141,11 +186,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <button onClick={()=> setNotif(null)} className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center text-xs">✕</button>
           </div>
         )}
-        <div className="pb-[60px]">{children}</div>
+        <div className="pb-[58px]">{children}</div>
         <Footer />
         <IosInstallPopup />
         {showAndroidPrompt && (
-          <div className="fixed bottom-[70px] left-3 right-3 z-[9998] animate-in slide-in-from-bottom">
+          <div className="fixed bottom-[68px] left-3 right-3 z-[9998] animate-in slide-in-from-bottom">
             <div className="max-w-md mx-auto bg-black text-white rounded-[20px] p-4 flex items-center gap-3 shadow-2xl">
               <img src="/IMG-20260830-WA0778.jpg" className="w-12 h-12 rounded-xl bg-white object-cover" alt="icon"/>
               <div className="flex-1">
