@@ -48,16 +48,24 @@ export default function Account() {
         if (job.exists()) { items.push({ id: job.id,...job.data() as any, wishId: d.id, type: "job" }); continue; }
       }
       setWishlist(items);
+    });
+    return () => unsub();
+  }, [router]);
+
+  // NOTIFICATIONS - FIXED (Separate ah ka la chhuak - wishlist vangin a fail lo nan)
+  useEffect(()=>{
+    if(!user?.uid) return;
+    const fetchNotis = async()=>{
       try{
-        const nQ = query(collection(db,"users",u.uid,"notifications"), orderBy("createdAt","desc"), limit(20));
+        const nQ = query(collection(db,"users",user.uid,"notifications"), orderBy("createdAt","desc"), limit(20));
         const nSnap = await getDocs(nQ);
         const nList = nSnap.docs.map(d=>({id:d.id,...d.data() as any}));
         setMyNotis(nList);
         setMyNotiUnread(nList.filter((x:any)=>!x.read).length);
-      }catch(e){ console.log(e); }
-    });
-    return () => unsub();
-  }, [router]);
+      }catch(e){ console.log("noti fetch error", e); }
+    };
+    fetchNotis();
+  },[user]);
 
   const openPic = () => { window.history.pushState({ picModal: true }, ""); setShowPic(true); };
   const closePic = () => { if (window.history.state?.picModal) window.history.back(); else setShowPic(false); };
@@ -155,7 +163,6 @@ export default function Account() {
         </div>
       </div>
       <div className="p-3 flex flex-col gap-3">
-        {/* 1 & 2 PERSONAL INFO - TI LIAN + DUM + FONTS LIAN */}
         <div className="bg-white rounded-[26px] p-2 border border-gray-100 shadow-sm">
           <p className="text-[14px] font-black px-4 pt-3 pb-2 text-black tracking-widest">PERSONAL INFO</p>
           <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">📧</div><div className="flex-1 min-w-0"><p className="text-[13px] text-gray-400">Email</p><p className="text-[15px] font-bold truncate">{user.email}</p></div></div>
@@ -168,25 +175,21 @@ export default function Account() {
           <div className="h-[1px] bg-gray-100 mx-3"></div>
           <div className="flex items-center gap-3 px-3 py-3.5"><div className="w-11 h-11 bg-[#f6f6f6] rounded-full flex items-center justify-center text-[18px]">🗓️</div><div className="flex-1"><p className="text-[13px] text-gray-400">Member Since</p><p className="text-[15px] font-bold">29/08/2026</p></div></div>
         </div>
-
-        {/* 3 & 4 ACCOUNT ACTIONS - TI LIAN DUM + MY ADS DAH */}
-        <div className="bg-white rounded-[26px] p-2 border border-gray-100 shadow-sm">
+                <div className="bg-white rounded-[26px] p-2 border border-gray-100 shadow-sm">
           <p className="text-[14px] font-black px-4 pt-3 pb-2 text-black tracking-widest">ACCOUNT ACTIONS</p>
-
           <Link href="/my-ads" className="w-full flex items-center gap-3 px-3 py-3.5 active:bg-gray-50 rounded-xl">
             <div className="w-11 h-11 bg-black rounded-full flex items-center justify-center text-white text-[18px]">📦</div>
             <div className="flex-1"><p className="text-[14px] font-bold">My Ads</p><p className="text-[12px] text-gray-400">Ka zuar lai te</p></div>
             <span className="text-gray-400">›</span>
           </Link>
           <div className="h-[1px] bg-gray-100 mx-3"></div>
-
           {!profile?.nameChanged? (<button onClick={openNameEdit} className="w-full flex items-center gap-3 px-3 py-3.5 text-left active:bg-gray-50 rounded-xl"><div className="w-11 h-11 bg-black rounded-full flex items-center justify-center text-white text-[18px]">✏️</div><div className="flex-1"><p className="text-[14px] font-bold">Hming Thlak</p><p className="text-[12px] text-gray-400">Vawi 1 chiah thlak theih</p></div><span className="text-gray-400">›</span></button>) : (<div className="flex items-center gap-3 px-3 py-3.5 opacity-50"><div className="w-11 h-11 bg-gray-200 rounded-full flex items-center justify-center">✏️</div><div className="flex-1"><p className="text-[14px] font-bold">Hming Thlak</p><p className="text-[12px] text-gray-400">Vawi 1 i thlak tawh</p></div><span className="text-[10px] bg-gray-100 px-2 py-1 rounded-full font-bold">Done</span></div>)}
           <div className="h-[1px] bg-gray-100 mx-3"></div>
           {isAdmin && (<><Link href="/admin/reports" className="w-full flex items-center gap-3 px-3 py-3.5 active:bg-gray-50 rounded-xl"><div className="w-11 h-11 bg-[#ffefef] rounded-full flex items-center justify-center text-[18px]">🚩</div><div className="flex-1"><p className="text-[14px] font-bold text-red-600">Admin Reports</p><p className="text-[12px] text-gray-400">Report te enna</p></div><span className="text-gray-400">›</span></Link><div className="h-[1px] bg-gray-100 mx-3"></div></>)}
           <button onClick={async()=>{ await signOut(auth); router.push("/"); }} className="w-full flex items-center gap-3 px-3 py-3.5 text-left active:bg-red-50 rounded-xl"><div className="w-11 h-11 bg-[#ffefef] rounded-full flex items-center justify-center text-[18px]">🚪</div><div className="flex-1"><p className="text-[14px] font-bold text-red-600">Log Out</p><p className="text-[12px] text-gray-400">Account chhuahsan</p></div><span className="text-gray-400">›</span></button>
         </div>
 
-        {/* 5 & 6 NOTIFICATIONS - A TAWP BER AH + WISHLIST PAIH */}
+        {/* NOTIFICATIONS - HEMI CHIAH KA FIX */}
         <div className="bg-white rounded-[26px] p-4 border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-black text-[15px]">Notifications {myNotiUnread>0 && <span className="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded-full ml-2">{myNotiUnread} new</span>}</h3>
@@ -216,4 +219,4 @@ export default function Account() {
       {showDobEdit && (<div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6"><div className="bg-white rounded-[20px] p-6 w-full max-w-[320px]"><h3 className="font-black">🎂 DoB</h3><input value={newDob} onChange={e=>setNewDob(e.target.value)} type="date" className="w-full border-2 p-3 rounded-xl mt-4" /><div className="flex gap-2 mt-4"><button onClick={()=>setShowDobEdit(false)} className="flex-1 bg-gray-100 py-3 rounded-xl font-bold">Cancel</button><button onClick={handleDobSave} className="flex-1 bg-black text-white py-3 rounded-xl font-bold">{savingDob?"...":"Save"}</button></div></div></div>)}
     </main>
   );
-                  }
+      }
