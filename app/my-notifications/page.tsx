@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, orderBy, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, doc, updateDoc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase/config";
 import { useRouter } from "next/navigation";
@@ -16,7 +16,24 @@ export default function MyPostNotifications(){
       try{
         const q = query(collection(db,"users",u.uid,"notifications"), orderBy("createdAt","desc"));
         const snap = await getDocs(q);
-        setNotis(snap.docs.map(d=>({id:d.id,...d.data()})));
+        let list = snap.docs.map(d=>({id:d.id,...d.data()})) as any[];
+
+        // ✅ PROFILE PIC MIL ZEL - fromPhoto a awm loh chuan users collection atangin la
+        const enriched = await Promise.all(list.map(async(n:any)=>{
+          if(n.fromPhoto) return n;
+          if(n.fromUid){
+            try{
+              const us = await getDoc(doc(db,"users",n.fromUid));
+              if(us.exists()){
+                const ud = us.data() as any;
+                return {...n, fromPhoto: ud.photoURL || ud.profilePic || ud.image || ""};
+              }
+            }catch{}
+          }
+          return n;
+        }));
+        setNotis(enriched);
+
         snap.docs.forEach(async(d)=>{
           if(!d.data().read){
             await updateDoc(doc(db,"users",u.uid,"notifications",d.id), {read:true}).catch(()=>{});
@@ -48,8 +65,7 @@ export default function MyPostNotifications(){
       <div className="bg-white p-4 sticky top-0 z-10 border-b flex items-center gap-3">
         <button onClick={()=>router.back()} className="w-10 h-10 flex items-center justify-center active:scale-90">
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5"/>
-            <path d="M12 19l-7-7 7-7"/>
+            <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
           </svg>
         </button>
         <h1 className="font-black text-[18px]">My Posts Notifications</h1>
@@ -58,7 +74,14 @@ export default function MyPostNotifications(){
         {notis.length===0 && <div className="bg-white rounded-2xl p-10 text-center mt-4"><p className="text-gray-400 text-[14px]">I post ah like/comment a la awm lo</p></div>}
         {notis.map((n:any)=>(
           <div key={n.id} onClick={()=> router.push(n.postType==="job"? `/jobs/${n.postId}` : `/marketplace/${n.postId}`)} className="bg-white rounded-2xl p-4 flex gap-3 items-center cursor-pointer border">
-            <img src={n.fromPhoto || `https://ui-avatars.com/api/?name=${encodeURIComponent(n.fromName||"U")}&background=002f34&color=fff`} className="w-12 h-12 rounded-full object-cover border" alt=""/>
+            {/* ✅ PROFILE PIC MIL ZEL */}
+            {n.fromPhoto? (
+              <img src={n.fromPhoto} className="w-12 h-12 rounded-full object-cover border flex-shrink-0" alt=""/>
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-[#c2185b] text-white flex items-center justify-center font-black text-[20px] flex-shrink-0">
+                {n.fromName?.[0]?.toUpperCase()||"N"}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-[14px]"><span className="font-black">{n.fromName}</span> {n.type==="like"? "liked your post":"commented on your post"}</p>
               <p className="text-[12px] text-gray-500 truncate mt-1">{n.postTitle || n.title || ""}</p>
