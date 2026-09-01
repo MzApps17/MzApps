@@ -148,43 +148,80 @@ export default function Home(){
     };
     loadRealCounts();
   },[ads.map(a=>a.id).join(",")]);
-    const loadAds = useCallback(async (isNewCat=false)=>{
+
+  // ✅ FACEBOOK MARKETPLACE LOGIC BELH - THIL DANG KHAWIH LO
+  const trackView = async (ad:any)=>{
+    try{
+      const colName = ad._type==="job"? "jobs":"products";
+      const viewed = JSON.parse(localStorage.getItem("mz_viewed_ids")||"[]");
+      const updated = [ad.id,...viewed.filter((x:string)=>x!==ad.id)].slice(0,200);
+      localStorage.setItem("mz_viewed_ids", JSON.stringify(updated));
+      const scores = JSON.parse(localStorage.getItem("mz_cat_score")||"{}");
+      const c = ad.category||"Others";
+      scores[c]=(scores[c]||0)+1;
+      localStorage.setItem("mz_cat_score", JSON.stringify(scores));
+      const postRef = doc(db,colName,ad.id);
+      await updateDoc(postRef, { views: increment(1), viewsCount: increment(1) }).catch(async()=>{
+        await setDoc(postRef, { views: 1, viewsCount: 1 }, {merge:true});
+      });
+    }catch{}
+  };
+
+  const loadAds = useCallback(async (isNewCat=false)=>{
     setLoading(isNewCat);
     try{
       let allAds:any[] = [];
       if(cat==="All"){
-        const q1=query(collection(db,"products"), orderBy("createdAt","desc"), limit(15));
-        const q2=query(collection(db,"jobs"), orderBy("createdAt","desc"), limit(15));
+        const q1=query(collection(db,"products"), orderBy("createdAt","desc"), limit(40));
+        const q2=query(collection(db,"jobs"), orderBy("createdAt","desc"), limit(20));
         const [snap1,snap2]=await Promise.all([getDocs(q1), getDocs(q2).catch(()=>({docs:[]} as any))]);
         const p1=snap1.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"}));
         const p2=(snap2 as any).docs.map((d:any)=>({id:d.id,...d.data() as any, _type:"job"}));
-        allAds=[...p1,...p2].sort((a,b)=>{
-          const ta=a.createdAt?.toMillis? a.createdAt.toMillis() : new Date(a.createdAt||0).getTime();
-          const tb=b.createdAt?.toMillis? b.createdAt.toMillis() : new Date(b.createdAt||0).getTime();
-          return tb-ta;
-        });
-        const uniqueMap = new Map(); allAds.forEach((ad:any)=> uniqueMap.set(ad.id, ad));
-        const finalAds = Array.from(uniqueMap.values());
-        setAds(finalAds); fetchUserProfiles(finalAds);
-        setLastDoc(snap1.docs[snap1.docs.length-1] || null); setHasMore(snap1.docs.length===15);
+        allAds=[...p1,...p2];
       }else if(cat==="Jobs"){
-        const q=query(collection(db,"jobs"), orderBy("createdAt","desc"), limit(20));
+        const q=query(collection(db,"jobs"), orderBy("createdAt","desc"), limit(40));
         const snap=await getDocs(q);
         const finalAds = snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"job"}));
-        setAds(finalAds); fetchUserProfiles(finalAds);
-        setLastDoc(snap.docs[snap.docs.length-1] || null); setHasMore(snap.docs.length===20);
+        allAds=finalAds;
       }else{
-        const q=query(collection(db,"products"), where("category","==",cat), orderBy("createdAt","desc"), limit(20));
+        const q=query(collection(db,"products"), where("category","==",cat), orderBy("createdAt","desc"), limit(40));
         const snap=await getDocs(q);
-        const finalAds = snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"}));
-        setAds(finalAds); fetchUserProfiles(finalAds);
-        setLastDoc(snap.docs[snap.docs.length-1] || null); setHasMore(snap.docs.length===20);
+        allAds = snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"}));
+      }
+
+      // ✅ MARKETPLACE ALGO - EN NASAT APIANG LANG HMA + REFRESH A NGAi LANG LO
+      try{
+        const viewedSet = new Set<string>(JSON.parse(localStorage.getItem("mz_viewed_ids")||"[]"));
+        const catScores:Record<string,number> = JSON.parse(localStorage.getItem("mz_cat_score")||"{}");
+        const scored = allAds.map(ad=>{
+          const isViewed = viewedSet.has(ad.id);
+          const catPoint = (catScores[ad.category||""]||0)*15;
+          const viewsPoint = (ad.views||ad.viewsCount||0)*0.6;
+          const t = ad.createdAt?.toMillis? ad.createdAt.toMillis() : new Date(ad.createdAt||0).getTime();
+          const ageH = (Date.now()-t)/(1000*3600);
+          const fresh = Math.max(0,60-ageH*0.4);
+          const rnd = Math.random()*35;
+          let score = catPoint + viewsPoint + fresh + rnd;
+          if(isViewed) score -= 120;
+          return {...ad, _score: score, _viewed: isViewed};
+        });
+        scored.sort((a,b)=>b._score-a._score);
+        const unseen = scored.filter((a:any)=>!a._viewed);
+        const seen = scored.filter((a:any)=>a._viewed);
+        const shuffled = unseen.sort(()=>Math.random()-0.5);
+        const finalAds = [...shuffled.slice(0,22),...seen.slice(0,5),...shuffled.slice(22)].slice(0,30);
+        const map = new Map(); finalAds.forEach((ad:any)=> map.set(ad.id, ad));
+        const uniqueFinal = Array.from(map.values());
+        setAds(uniqueFinal); fetchUserProfiles(uniqueFinal);
+        setLastDoc(null); setHasMore(true);
+      }catch{
+        const map = new Map(); allAds.forEach((ad:any)=> map.set(ad.id, ad));
+        setAds(Array.from(map.values())); fetchUserProfiles(Array.from(map.values()));
       }
     }catch(e){ console.log(e); }
     setLoading(false);
   },[cat]);
-
-  useEffect(()=>{ loadAds(true); },[loadAds]);
+    useEffect(()=>{ loadAds(true); },[loadAds]);
 
   const loadMore = async ()=>{
     if(!lastDoc ||!hasMore || isLoadingMore) return; if(cat==="Jobs") return;
@@ -296,22 +333,22 @@ export default function Home(){
           return (
             <div key={ad.id} className="bg-white mb-2 w-full cursor-pointer">
               <div className="flex items-center gap-3 p-3">
-                <img onClick={(e)=>{ e.stopPropagation(); if(postUid){ saveScroll(); router.push(`/seller/${postUid}`); } }} src={realPic} className="w-10 h-10 rounded-full object-cover border cursor-pointer active:scale-95" alt="profile"/>
+                <img onClick={(e)=>{ e.stopPropagation(); if(postUid){ trackView(ad); saveScroll(); router.push(`/seller/${postUid}`); } }} src={realPic} className="w-10 h-10 rounded-full object-cover border cursor-pointer active:scale-95" alt="profile"/>
                 <div className="flex flex-col">
-                  <span onClick={(e)=>{ e.stopPropagation(); if(postUid){ saveScroll(); router.push(`/seller/${postUid}`); } }} className="font-bold text-[15px] leading-none cursor-pointer hover:underline active:opacity-60">{realName}</span>
+                  <span onClick={(e)=>{ e.stopPropagation(); if(postUid){ trackView(ad); saveScroll(); router.push(`/seller/${postUid}`); } }} className="font-bold text-[15px] leading-none cursor-pointer hover:underline active:opacity-60">{realName}</span>
                   <span className="text-[12px] text-gray-500 mt-1">{timeAgo(ad.createdAt)}</span>
                 </div>
               </div>
-              <div className="px-3 pb-1" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><h2 className="font-bold text-[16px] text-[#002f34] line-clamp-1">{ad.title}</h2></div>
-              <div className="px-3 pb-2" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><p className="text-[13px] text-gray-700 line-clamp-2">{ad.description || ad.desc || ""}</p></div>
-              <div className="relative w-full bg-gray-100" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
+              <div className="px-3 pb-1" onClick={()=>{ trackView(ad); saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><h2 className="font-bold text-[16px] text-[#002f34] line-clamp-1">{ad.title}</h2></div>
+              <div className="px-3 pb-2" onClick={()=>{ trackView(ad); saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><p className="text-[13px] text-gray-700 line-clamp-2">{ad.description || ad.desc || ""}</p></div>
+              <div className="relative w-full bg-gray-100" onClick={()=>{ trackView(ad); saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
                 <div className="w-full h-[420px] bg-gray-100 overflow-hidden flex items-center justify-center">
                   {(ad._type==="job" &&!ad.image &&!ad.images?.[0])? (<div className="w-full h-full bg-[#f3f4f6] flex items-center justify-center p-3"><p className="text-[22px] font-black text-[#002f34] text-center leading-tight capitalize">{ad.title || "Job"}</p></div>) : (<img src={ad.image || ad.images?.[0] || "https://via.placeholder.com/300"} alt={ad.title} loading="lazy" className="w-full h-full object-cover"/>)}
                 </div>
                 <button onClick={(e)=>toggleWish(e,ad.id)} className="absolute top-3 right-3 bg-white/90 backdrop-blur p-2.5 rounded-full shadow-md"><span className="text-[18px]">{wishIds.has(ad.id)? "❤️" : "🤍"}</span></button>
               </div>
-              <div className="px-3 pt-2.5" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><p className="font-black text-[18px] text-[#002f34]">₹ {Number(ad.price || ad.salary || 0).toLocaleString("en-IN") || "0"}</p></div>
-              <div className="px-3 pt-1 flex items-center gap-1 text-gray-500" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="text-[11px] font-bold uppercase">{ad.khua || ad.location || "AIZAWL"}, {ad.district || "MIZORAM"}</span></div>
+              <div className="px-3 pt-2.5" onClick={()=>{ trackView(ad); saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><p className="font-black text-[18px] text-[#002f34]">₹ {Number(ad.price || ad.salary || 0).toLocaleString("en-IN") || "0"}</p></div>
+              <div className="px-3 pt-1 flex items-center gap-1 text-gray-500" onClick={()=>{ trackView(ad); saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="text-[11px] font-bold uppercase">{ad.khua || ad.location || "AIZAWL"}, {ad.district || "MIZORAM"}</span></div>
               <div className="flex items-center gap-6 px-3 py-3 mt-2 border-t border-gray-100">
                 <button onClick={(e)=>toggleLike(e,ad)} className={`flex items-center gap-1.5 text-[13px] font-bold ${likeIds.has(ad.id)? 'text-red-600' : ''}`}>{likeIds.has(ad.id)? '❤️' : '🤍'} {(likeCounts[ad.id]?? getLikeCount(ad))}</button>
                 <button onClick={(e)=>{ e.stopPropagation(); if(!user){ setShowLoginAlert(true); return; } scrollPosRef.current = window.scrollY; saveScroll(); setSelectedPostId(ad.id); }} className="flex items-center gap-1.5 text-[13px] font-bold">💬 {(commentCounts[ad.id]?? ad.commentsCount?? ad.commentCount?? 0)} Comment</button>
@@ -357,4 +394,4 @@ export default function Home(){
       )}
     </main>
   );
-    }
+      }
