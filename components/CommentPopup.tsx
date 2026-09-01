@@ -27,6 +27,12 @@ export default function CommentPopup({ postId, onClose, onCommentAdded }: { post
     }catch{ return ""; }
   };
 
+  const goSeller = (uid:string) => {
+    if(!uid) return;
+    onClose();
+    setTimeout(()=> router.push(`/seller/${uid}`), 150);
+  };
+
   useEffect(()=>{
     const unsub = onAuthStateChanged(auth, async(u)=>{
       setUser(u);
@@ -101,10 +107,10 @@ export default function CommentPopup({ postId, onClose, onCommentAdded }: { post
             const rPic = u?.photoURL || u?.profilePic || u?.avatar || c.userPic || `https://ui-avatars.com/api/?name=${rName}&background=002f34&color=fff&bold=true`;
             return (
               <div key={c.id} className="flex gap-2.5">
-                <img onClick={()=>{ if(c.userId) router.push(`/user/${c.userId}`); }} src={rPic} className="w-8 h-8 rounded-full object-cover bg-gray-200 cursor-pointer active:scale-95"/>
+                <img onClick={()=>goSeller(c.userId)} src={rPic} className="w-8 h-8 rounded-full object-cover bg-gray-200 cursor-pointer active:scale-95"/>
                 <div className="bg-[#f2f3f5] rounded-2xl px-3.5 py-2.5 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <p onClick={()=>{ if(c.userId) router.push(`/user/${c.userId}`); }} className="font-bold text-[13px] text-black cursor-pointer hover:underline">{rName}</p>
+                    <p onClick={()=>goSeller(c.userId)} className="font-bold text-[13px] text-black cursor-pointer hover:underline underline decoration-gray-300">{rName}</p>
                     <p className="text-[10px] text-gray-400 font-bold flex-shrink-0">{timeAgo(c.createdAt)}</p>
                   </div>
                   <p className="text-[13px] text-black mt-1">{c.text}</p>
@@ -116,16 +122,11 @@ export default function CommentPopup({ postId, onClose, onCommentAdded }: { post
         <div className="p-3 border-t border-gray-100 flex gap-2 items-center bg-white">
           <img src={userData?.photoURL || userData?.profilePic || userData?.avatar || `https://ui-avatars.com/api/?name=Me&background=002f34&color=fff`} className="w-8 h-8 rounded-full bg-gray-200"/>
           <input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") postComment(); }} placeholder="Comment ziak rawh..." className="flex-1 bg-[#f2f3f5] rounded-full px-4 py-2.5 text-[14px] outline-none text-black" style={{backgroundColor:"#f2f3f5", color:"#000000"}}/>
-
-          {/* WHATSAPP SEND BUTTON MAWI */}
           <button onClick={postComment} disabled={!text.trim() || loading} className="bg-[#25D366] hover:bg-[#20bd5a] active:scale-90 w-10 h-10 rounded-full flex items-center justify-center disabled:opacity-40 shadow-[0_2px_8px_rgba(37,211,102,0.4)] transition-all shrink-0">
             {loading? <span className="text-white text-[11px] font-bold">...</span> : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="white" className="ml-[1px]">
-                <path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.798-.011 7.931z"/>
-              </svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="white" className="ml-[1px]"><path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.798-.011 7.931z"/></svg>
             )}
           </button>
-
         </div>
       </div>
     </div>
