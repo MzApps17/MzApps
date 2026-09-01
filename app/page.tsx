@@ -60,23 +60,37 @@ export default function Home(){
   const [commentCounts,setCommentCounts]=useState<Record<string,number>>({});
   const scrollPosRef = useRef<number>(0);
   const router = useRouter();
+  const isFirstLoad = useRef(true);
 
+  // SCROLL RESTORE - A pawimawh ber
   useEffect(()=>{
     if(ads.length > 0 &&!loading){
       const saved = sessionStorage.getItem("mzHomeScroll");
-      if(saved){
-        setTimeout(()=>{ window.scrollTo({top: parseInt(saved), behavior: "auto"}); }, 350);
+      if(saved && isFirstLoad.current){
+        const y = parseInt(saved);
+        // 2 tum scroll - a dik ngei ngei nan
+        setTimeout(()=> window.scrollTo(0, y), 100);
+        setTimeout(()=> window.scrollTo(0, y), 400);
+        setTimeout(()=> window.scrollTo(0, y), 800);
       }
+      isFirstLoad.current = false;
     }
   },[ads, loading]);
 
   useEffect(()=>{
-    const onScroll = () => { if(!loading &&!selectedPostId) sessionStorage.setItem("mzHomeScroll", String(window.scrollY)); };
-    window.addEventListener("scroll", onScroll);
+    const onScroll = () => {
+      if(!loading &&!selectedPostId && ads.length>0){
+        sessionStorage.setItem("mzHomeScroll", String(window.scrollY));
+      }
+    };
+    window.addEventListener("scroll", onScroll, {passive:true});
     return ()=> window.removeEventListener("scroll", onScroll);
-  },[loading, selectedPostId]);
+  },[loading, selectedPostId, ads]);
 
-  const saveScroll = () => { sessionStorage.setItem("mzHomeScroll", String(window.scrollY)); };
+  const saveScroll = () => {
+    sessionStorage.setItem("mzHomeScroll", String(window.scrollY));
+    sessionStorage.setItem("mz_is_back", "1"); // back lo kal tih hriat nan
+  };
 
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth, async(u)=>{
@@ -202,8 +216,30 @@ export default function Home(){
         const snap=await getDocs(q);
         allAds = snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"}));
       }
+
       try{
         const uid = auth.currentUser?.uid || "guest";
+        const cacheKey = `mz_feed_cache_${cat}_${uid}`;
+        const isBackNav = sessionStorage.getItem("mz_is_back")==="1";
+        const cachedStr = sessionStorage.getItem(cacheKey);
+
+        // BACK NAV a nih chuan cache hmang - shuffle lo!
+        if(isBackNav && cachedStr &&!isNewCat){
+          try{
+            const cachedIds: string[] = JSON.parse(cachedStr);
+            const mapById = new Map(allAds.map((a:any)=>[a.id,a]));
+            const restored = cachedIds.map(id=>mapById.get(id)).filter(Boolean);
+            if(restored.length>10){
+              setAds(restored);
+              fetchUserProfiles(restored);
+              setLastDoc(null); setHasMore(true);
+              setLoading(false);
+              return;
+            }
+          }catch{}
+        }
+
+        // A thar siam - I en tam ber mil
         const viewedSet = new Set<string>(JSON.parse(localStorage.getItem(`mz_viewed_${uid}`)||"[]"));
         const catScores:Record<string,number> = JSON.parse(localStorage.getItem(`mz_score_${uid}`)||"{}");
         const topCats = Object.entries(catScores).sort((a,b)=> (b[1] as number)-(a[1] as number)).slice(0,3).map(x=>x[0]);
@@ -238,6 +274,10 @@ export default function Home(){
           finalAds = [...scored].sort((a,b)=> b._score - a._score + (Math.random()-0.5)*20).slice(0,30);
         }
 
+        // CACHE SAVE - back hun atan
+        sessionStorage.setItem(cacheKey, JSON.stringify(finalAds.map((a:any)=>a.id)));
+        sessionStorage.removeItem("mz_is_back"); // back flag clear
+
         const map = new Map(); finalAds.forEach((ad:any)=> map.set(ad.id, ad));
         const uniqueFinal = Array.from(map.values());
         setAds(uniqueFinal); fetchUserProfiles(uniqueFinal);
@@ -250,7 +290,13 @@ export default function Home(){
     setLoading(false);
   },[cat, user]);
 
-  useEffect(()=>{ loadAds(true); },[loadAds]);
+  useEffect(()=>{
+    // Category thlak chuan cache thar siam
+    if(cat!=="All"){
+      sessionStorage.removeItem(`mz_feed_cache_${cat}_${auth.currentUser?.uid || "guest"}`);
+    }
+    loadAds(true);
+  },[loadAds, cat]);
 
   const loadMore = async ()=>{
     if(!lastDoc ||!hasMore || isLoadingMore) return; if(cat==="Jobs") return;
@@ -337,7 +383,7 @@ export default function Home(){
           <button onClick={()=> router.push("/notifications")} className="w-9 h-9 bg-white border-[1.5px] border-black rounded-full flex items-center justify-center flex-shrink-0 relative"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 6 5 6 10H0s6-3 6-10"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>{hasNewNoti && <span className="absolute top-[3px] right-[4px] w-[9px] h-[9px] bg-red-600 rounded-full border border-white"></span>}</button>
         </div>
         <div className="flex gap-2 overflow-x-auto mt-3 pb-1 no-scrollbar">
-          {categories.map(c=>(<button key={c} onClick={()=>setCat(c)} className={`whitespace-nowrap px-4 py-1.5 rounded-full border text-[13px] font-black ${cat===c?'bg-[#002f34] text-white border-[#002f34]':'bg-white text-[#002f34] border-gray-300'}`}>{c}</button>))}
+          {categories.map(c=>(<button key={c} onClick={()=>{ sessionStorage.setItem("mzHomeScroll","0"); setCat(c); }} className={`whitespace-nowrap px-4 py-1.5 rounded-full border text-[13px] font-black ${cat===c?'bg-[#002f34] text-white border-[#002f34]':'bg-white text-[#002f34] border-gray-300'}`}>{c}</button>))}
         </div>
       </div>
 
@@ -429,4 +475,4 @@ export default function Home(){
       )}
     </main>
   );
-                               }
+                                                                       }
