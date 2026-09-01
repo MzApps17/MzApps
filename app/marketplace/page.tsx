@@ -1,73 +1,85 @@
 "use client";
-import { useEffect, useState } from "react";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
+import { useState, useEffect } from "react";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase/config";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-function formatTime(ts:any){
-  if(!ts) return "Just now";
-  try{
-    const d = ts.toDate? ts.toDate() : new Date(ts);
-    const now = new Date();
-    const diff = Math.floor((now.getTime() - d.getTime())/1000);
-    if(diff < 60) return "Tunah";
-    if(diff < 3600) return `${Math.floor(diff/60)}m ago`;
-    if(diff < 86400) return `${Math.floor(diff/3600)}h ago`;
-    return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
-  }catch{ return ""; }
-}
+export default function MarketplacePage(){
+  const router = useRouter();
+  const [products, setProducts] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("All");
+  const [loading, setLoading] = useState(true);
 
-export default function Market(){
-  const [items,setItems]=useState<any[]>([]);
-  const [search,setSearch]=useState("");
-  const [cat,setCat]=useState("All");
+  const categories = ["All", "Bike", "Phone", "Car", "In", "Thil"];
 
-  useEffect(()=>{ (async()=>{
-    const q = query(collection(db,"products"), orderBy("createdAt","desc"));
-    const snap = await getDocs(q);
-    setItems(snap.docs.map(d=>({id:d.id,...d.data()})));
-  })() },[]);
+  // Refresh ngai lo - a nung in a in update zel
+  useEffect(()=>{
+    const q = query(collection(db, "products"), orderBy("createdAt","desc"));
+    const unsub = onSnapshot(q, (snap)=>{
+      setProducts(snap.docs.map(d=>({id:d.id,...d.data()})));
+      setLoading(false);
+    });
+    return ()=>unsub();
+  },[]);
 
-  const filtered = items.filter(i=>{
-    const matchSearch = i.title?.toLowerCase().includes(search.toLowerCase());
-    const matchCat = cat==="All" || i.category===cat || (cat==="Bike" && i.title?.toLowerCase().includes("bike"));
-    return matchSearch && (cat==="All"? true : i.title?.toLowerCase().includes(cat.toLowerCase()) || matchCat);
+  const filtered = products.filter(p=>{
+    const matchCat = category==="All" || p.category?.toLowerCase().includes(category.toLowerCase()) || p.title?.toLowerCase().includes(category.toLowerCase());
+    const matchSearch = search==="" || p.title?.toLowerCase().includes(search.toLowerCase());
+    return matchCat && matchSearch;
   });
 
-  const categories = ["All","Bike","Phone","Car","In","Thildang"];
+  return(
+    <main className="bg-[#f0f2f5] min-h-screen pb-[70px]">
+      <div className="bg-white sticky top-0 z-20 px-4 pt-3 pb-3 border-b border-gray-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button onClick={()=>router.back()} className="text-xl">←</button>
+            <h1 className="font-bold text-[18px]">MZ</h1>
+          </div>
+          <Link href="/sell" className="bg-[#1877f2] text-white font-bold px-6 py-2.5 rounded-full text-sm">+ Zuarh</Link>
+        </div>
+        <h1 className="font-black text-[30px] mt-3 leading-none">Bazar</h1>
 
-  return (
-    <main className="p-4 max-w-md mx-auto">
-      <div className="flex justify-between items-center mb-4">
-        <Link href="/" className="font-bold">← MZ</Link>
-        <Link href="/marketplace/new" className="bg-blue-600 text-white px-5 py-2 rounded-full text-sm font-bold">+ Zuarh</Link>
+        {/* SEARCH CHUNG BER */}
+        <div className="mt-4 bg-[#f0f2f5] rounded-full flex items-center px-4 py-[13px]">
+          <span className="mr-2 text-gray-500">🔍</span>
+          <input
+            value={search}
+            onChange={(e)=>setSearch(e.target.value)}
+            placeholder="Bike, Phone zawng rawh..."
+            className="bg-transparent w-full outline-none text-[16px]"
+          />
+        </div>
+
+        {/* ALL / BIKE / PHONE - A hnuai chiah */}
+        <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide">
+          {categories.map(c=>(
+            <button key={c} onClick={()=>setCategory(c)}
+              className={`px-5 py-2 rounded-full font-semibold border text-[15px] whitespace-nowrap ${category===c? "bg-black text-white border-black" : "bg-white border-gray-200"}`}>
+              {c}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <h1 className="font-bold text-2xl mb-3">Bazar</h1>
-
-      {/* SEARCH */}
-      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Bike, Phone zawng rawh..." className="w-full border-2 p-3 rounded-2xl mb-3"/>
-
-      {/* CATEGORY - 3-na hi heta tel nghal! */}
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-        {categories.map(c=>
-          <button key={c} onClick={()=>setCat(c)} className={`px-4 py-1.5 rounded-full text-sm whitespace-nowrap border ${cat===c?'bg-black text-white':'bg-white'}`}>{c}</button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {filtered.map(i=>
-          <Link key={i.id} href={`/marketplace/${i.id}`} className="bg-white rounded-2xl overflow-hidden border">
-            <img src={i.image} className="h-32 w-full object-cover"/>
-            <div className="p-2.5">
-              <p className="font-bold text-sm truncate">{i.title}</p>
-              <p className="text-blue-600 font-black">₹{i.price}</p>
-              <p className="text-[10px] text-gray-400 mt-1">🕒 {formatTime(i.createdAt)}</p>
+      {/* PIC HO - Facebook marketplace ang */}
+      <div className="p-2 grid grid-cols-2 gap-2">
+        {loading? [1,2,3,4].map(i=> <div key={i} className="h-[240px] bg-white rounded-xl animate-pulse"/>) :
+          filtered.map((p)=>(
+          <Link href={`/product/${p.id}`} key={p.id} className="bg-white rounded-xl overflow-hidden">
+            <div className="aspect-square bg-gray-100">
+              <img src={p.image || p.images?.[0]} className="w-full h-full object-cover"/>
+            </div>
+            <div className="p-3">
+              <p className="font-medium text-[14px] truncate">{p.title}</p>
+              <p className="text-[#1877f2] font-bold text-[18px]">₹{p.price}</p>
+              <p className="text-[12px] text-gray-500 mt-1">🕒 31 Aug</p>
             </div>
           </Link>
-        )}
+        ))}
       </div>
-      {filtered.length===0 && <p className="text-center text-gray-400 mt-10">A awm lo - "{search}"</p>}
     </main>
   );
 }
