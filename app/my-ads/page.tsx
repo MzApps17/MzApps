@@ -162,7 +162,15 @@ export default function MyAdsPage(){
   return(
     <main className="bg-[#f5f5f5] min-h-screen pb-24">
       <div className="bg-white p-4 sticky top-0 z-10 border-b">
-        <h1 className="font-black text-[24px] text-black">My Ads ({filtered.length})</h1>
+        <div className="flex items-center gap-3">
+          <button onClick={()=>router.back()} className="w-10 h-10 flex items-center justify-center active:scale-90">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5"/>
+              <path d="M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <h1 className="font-black text-[24px] text-black">My Ads ({filtered.length})</h1>
+        </div>
         <div className="flex gap-2 mt-3">
           <button onClick={()=>setFilter("all")} className={`px-5 py-2.5 rounded-full font-black text-[13px] ${filter==="all"?"bg-black text-white":"bg-gray-100 text-black"}`}>All</button>
           <button onClick={()=>setFilter("products")} className={`px-5 py-2.5 rounded-full font-black text-[13px] ${filter==="products"?"bg-black text-white":"bg-gray-100 text-black"}`}>Products</button>
@@ -232,4 +240,4 @@ export default function MyAdsPage(){
       }} />}
     </main>
   );
-                                                }
+}
