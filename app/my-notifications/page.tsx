@@ -29,12 +29,35 @@ export default function MyPostNotifications(){
     return ()=>unsub();
   },[]);
 
+  // ✅ TIME FIX - 12 FORMAT 3:34pm
+  const formatTime = (t:any)=>{
+    if(!t) return "";
+    let d:Date|null=null;
+    try{
+      if(t.toDate) d=t.toDate();
+      else if(t.seconds) d=new Date(t.seconds*1000);
+      else d=new Date(t);
+    }catch{ return ""; }
+    if(!d||isNaN(d.getTime())) return "";
+    const day = d.toLocaleDateString("en-GB"); // 01/09/2026
+    let h = d.getHours();
+    const m = d.getMinutes().toString().padStart(2,"0");
+    const ampm = h>=12? "pm":"am";
+    h = h%12; if(h===0) h=12;
+    return `${day}, ${h}:${m}${ampm}`;
+  };
+
   if(loading) return <div className="p-10 text-center font-black">Loading...</div>;
 
   return (
     <main className="min-h-screen bg-[#f2f2f2]">
       <div className="bg-white p-4 sticky top-0 z-10 border-b flex items-center gap-3">
-        <button onClick={()=>router.back()} className="w-9 h-9 bg-black text-white rounded-full flex items-center justify-center font-black">←</button>
+        {/* ✅ ARROW LIAN SVG ANG KHA */}
+        <button onClick={()=>router.back()} className="w-12 h-12 bg-black rounded-full flex items-center justify-center shadow-lg">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+          </svg>
+        </button>
         <h1 className="font-black text-[18px]">My Posts Notifications</h1>
       </div>
       <div className="flex flex-col gap-2 p-3">
@@ -46,9 +69,10 @@ export default function MyPostNotifications(){
               <p className="text-[14px]"><span className="font-black">{n.fromName}</span> {n.type==="like"? "liked your post":"commented on your post"}</p>
               <p className="text-[12px] text-gray-500 truncate mt-1">{n.postTitle || n.title || ""}</p>
               {n.type==="comment" && <p className="text-[12px] text-gray-700 mt-1 italic truncate">"{n.message}"</p>}
-              <p className="text-[10px] text-gray-400 mt-1">{n.createdAt?.toDate? n.createdAt.toDate().toLocaleString() : ""}</p>
+              <p className="text-[10px] text-gray-400 mt-1">{formatTime(n.createdAt)}</p>
             </div>
-            <span className="text-gray-400">›</span>
+            {/* ✅ ARROW RIGHT SVG LIAN */}
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
           </div>
         ))}
       </div>
