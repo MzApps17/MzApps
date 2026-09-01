@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { collection, getDocs, query, orderBy, limit, startAfter, where, doc, setDoc, deleteDoc, getDoc, updateDoc, increment, QueryDocumentSnapshot, arrayUnion, arrayRemove } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase/config";
@@ -33,7 +33,6 @@ function getUserPicFromDoc(u:any){
   if(!u) return null;
   return u.photoURL || u.profilePic || u.avatar || u.image || u.profileImage || u.photo || null;
 }
-// ✅ FIX - LIKE COUNT DIK TAK LAK - ARRAY PAWH NUMBER PAWH
 function getLikeCount(ad:any){
   if(Array.isArray(ad.likes)) return ad.likes.length;
   if(Array.isArray(ad.likedBy)) return ad.likedBy.length;
@@ -59,6 +58,9 @@ export default function Home(){
   const [selectedPostId,setSelectedPostId]=useState<string|null>(null);
   const [userMap,setUserMap]=useState<Record<string,any>>({});
   const [likeIds,setLikeIds]=useState<Set<string>>(new Set());
+  const [likeCounts,setLikeCounts]=useState<Record<string,number>>({});
+  const [commentCounts,setCommentCounts]=useState<Record<string,number>>({});
+  const scrollPosRef = useRef<number>(0);
   const router = useRouter();
 
   useEffect(()=>{
@@ -68,10 +70,10 @@ export default function Home(){
     }
   },[ads, loading]);
   useEffect(()=>{
-    const onScroll = () => { if(!loading) sessionStorage.setItem("mzHomeScroll", String(window.scrollY)); };
+    const onScroll = () => { if(!loading &&!selectedPostId) sessionStorage.setItem("mzHomeScroll", String(window.scrollY)); };
     window.addEventListener("scroll", onScroll);
     return ()=> window.removeEventListener("scroll", onScroll);
-  },[loading]);
+  },[loading, selectedPostId]);
   const saveScroll = () => { sessionStorage.setItem("mzHomeScroll", String(window.scrollY)); };
 
   useEffect(()=>{
@@ -121,6 +123,30 @@ export default function Home(){
       setUserMap(newMap);
     }catch(e){ console.log("user fetch error", e); }
   };
+
+  // ✅ REAL COUNTS - LIKE/COMMENT SUBCOLLECTION ATANGA CHHIAR DIK - SELLER/MY-ADS NEN IN ANG
+  useEffect(()=>{
+    if(ads.length===0) return;
+    const loadRealCounts = async()=>{
+      const lc:Record<string,number>={};
+      const cc:Record<string,number>={};
+      for(const ad of ads){
+        const colName = ad._type==="job"? "jobs":"products";
+        try{
+          const likeSnap = await getDocs(collection(db,colName,ad.id,"likes"));
+          if(likeSnap.size>0) lc[ad.id]=likeSnap.size;
+          else lc[ad.id]=getLikeCount(ad);
+        }catch{ lc[ad.id]=getLikeCount(ad); }
+        try{
+          const comSnap = await getDocs(collection(db,colName,ad.id,"comments"));
+          cc[ad.id]=comSnap.size;
+        }catch{ cc[ad.id]=ad.commentsCount||ad.commentCount||0; }
+      }
+      setLikeCounts(prev=>({...prev,...lc}));
+      setCommentCounts(prev=>({...prev,...cc}));
+    };
+    loadRealCounts();
+  },[ads.map(a=>a.id).join(",")]);
 
   const loadAds = useCallback(async (isNewCat=false)=>{
     setLoading(isNewCat);
@@ -196,7 +222,6 @@ export default function Home(){
     else{ await setDoc(wishRef,{productId:adId, createdAt:new Date()}); setWishIds(prev=>{ const n=new Set(prev); n.add(adId); return n; }); }
   };
 
-  // ✅ FIX - HOME LEH PROFILE SYNC 100% - FIELD ZAWNG ZAWNG UPDATE
   const toggleLike = async(e:any, ad:any)=>{
     e.preventDefault(); e.stopPropagation();
     if(!user){ setShowLoginAlert(true); return; }
@@ -218,6 +243,7 @@ export default function Home(){
           await updateDoc(postRef, { likes: increment(-1) }).catch(()=>{});
         });
         setLikeIds(prev=>{ const n=new Set(prev); n.delete(postId); return n; });
+        setLikeCounts(prev=>{ const c={...prev}; c[postId]=Math.max(0,(c[postId]??getLikeCount(ad))-1); return c; });
         setAds(prev=> prev.map(p=> p.id===postId? {...p, likes: Array.isArray(p.likes)? p.likes.filter((id:string)=>id!==user.uid) : Math.max(0,getLikeCount(p)-1), likeCount: Math.max(0,(p.likeCount||getLikeCount(p))-1), likesCount: Math.max(0,(p.likesCount||getLikeCount(p))-1)} : p));
       }else{
         await setDoc(likeRef,{productId:postId, createdAt:new Date()});
@@ -233,6 +259,7 @@ export default function Home(){
           });
         });
         setLikeIds(prev=>{ const n=new Set(prev); n.add(postId); return n; });
+        setLikeCounts(prev=>{ const c={...prev}; c[postId]=(c[postId]??getLikeCount(ad))+1; return c; });
         setAds(prev=> prev.map(p=> p.id===postId? {...p, likes: Array.isArray(p.likes)? [...p.likes, user.uid] : (p.likes||0)+1, likeCount: (p.likeCount||getLikeCount(p))+1, likesCount: (p.likesCount||getLikeCount(p))+1} : p));
       }
     }catch(err){ console.log(err); }
@@ -286,8 +313,8 @@ export default function Home(){
               <div className="px-3 pt-2.5" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><p className="font-black text-[18px] text-[#002f34]">₹ {Number(ad.price || ad.salary || 0).toLocaleString("en-IN") || "0"}</p></div>
               <div className="px-3 pt-1 flex items-center gap-1 text-gray-500" onClick={()=>{ saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="text-[11px] font-bold uppercase">{ad.khua || ad.location || "AIZAWL"}, {ad.district || "MIZORAM"}</span></div>
               <div className="flex items-center gap-6 px-3 py-3 mt-2 border-t border-gray-100">
-                <button onClick={(e)=>toggleLike(e,ad)} className={`flex items-center gap-1.5 text-[13px] font-bold ${likeIds.has(ad.id)? 'text-red-600' : ''}`}>{likeIds.has(ad.id)? '❤️' : '🤍'} {getLikeCount(ad)}</button>
-                <button onClick={(e)=>{ e.stopPropagation(); if(!user){ setShowLoginAlert(true); return; } setSelectedPostId(ad.id); }} className="flex items-center gap-1.5 text-[13px] font-bold">💬 {ad.commentsCount || ad.commentCount || 0} Comment</button>
+                <button onClick={(e)=>toggleLike(e,ad)} className={`flex items-center gap-1.5 text-[13px] font-bold ${likeIds.has(ad.id)? 'text-red-600' : ''}`}>{likeIds.has(ad.id)? '❤️' : '🤍'} {(likeCounts[ad.id]?? getLikeCount(ad))}</button>
+                <button onClick={(e)=>{ e.stopPropagation(); if(!user){ setShowLoginAlert(true); return; } scrollPosRef.current = window.scrollY; saveScroll(); setSelectedPostId(ad.id); }} className="flex items-center gap-1.5 text-[13px] font-bold">💬 {(commentCounts[ad.id]?? ad.commentsCount?? ad.commentCount?? 0)} Comment</button>
                 <button onClick={(e)=>{ e.stopPropagation(); if(navigator.share) navigator.share({url: `${window.location.origin}/marketplace/${ad.id}`}) }} className="flex items-center gap-1.5 text-[13px] font-bold">↗️ Share</button>
               </div>
             </div>
@@ -301,13 +328,4 @@ export default function Home(){
       {showLoginAlert && (
         <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[20px] w-full max-w-[300px] p-6 shadow-2xl text-center">
-            <p className="font-bold text-[16px] text-[#002f34]">Login hmasa phawt rawh</p>
-            <p className="text-[12px] text-gray-500 mt-1">Like, Comment, Wishlist ti tur chuan login a ngai</p>
-            <div className="flex gap-2 mt-5"><button onClick={()=> setShowLoginAlert(false)} className="flex-1 bg-gray-100 font-bold py-3 rounded-xl text-[14px]">Cancel</button><button onClick={()=> router.push("/login")} className="flex-1 bg-black text-white font-black py-3 rounded-xl text-[14px]">LOGIN</button></div>
-          </div>
-        </div>
-      )}
-      {selectedPostId && <CommentPopup postId={selectedPostId} onClose={()=>setSelectedPostId(null)} onCommentAdded={(pid)=>{ setAds(prev=> prev.map(p=> p.id===pid? {...p, commentsCount: (p.commentsCount||0)+1, commentCount: (p.commentCount||0)+1} : p)); }} />}
-    </main>
-  );
-          }
+            <p className="font-bold text-[16px] text-[#002f34]">Login h
