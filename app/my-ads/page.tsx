@@ -56,7 +56,6 @@ export default function MyAdsPage(){
     return ()=>{unsub1(); unsub2();};
   },[user]);
 
-  // LIKE/COMMENT COUNT DIK TAK LA
   useEffect(()=>{
     if(ads.length===0) return;
     const loadCounts = async()=>{
@@ -74,7 +73,6 @@ export default function MyAdsPage(){
           else if(typeof fd.likesCount==='number') likeNum=fd.likesCount;
           else if(Array.isArray(fd.likes)) likeNum=fd.likes.length;
           else if(Array.isArray(fd.likedBy)) likeNum=fd.likedBy.length;
-          // real subcollection check for accuracy
           try{
             const likeSnap = await getDocs(collection(db,colName,ad.id,"likes"));
             if(likeSnap.size>0) likeNum = likeSnap.size;
@@ -83,7 +81,6 @@ export default function MyAdsPage(){
           if(uid){
             if(Array.isArray(fd.likes)&&fd.likes.includes(uid)) lSet.add(ad.id);
             if(Array.isArray(fd.likedBy)&&fd.likedBy.includes(uid)) lSet.add(ad.id);
-            if(Array.isArray(fd.likeBy)&&fd.likeBy.includes(uid)) lSet.add(ad.id);
           }
           let cNum = 0;
           try{
@@ -140,7 +137,6 @@ export default function MyAdsPage(){
     try{
       const colName = deleteItem.type==="job"? "jobs" : "products";
       const adToDelete = ads.find(a => a.id === deleteItem.id);
-
       if (adToDelete && adToDelete.type === "product") {
         try {
           await fetch("/api/delete-imgbb", {
@@ -153,7 +149,6 @@ export default function MyAdsPage(){
           });
         } catch(e) {}
       }
-
       await deleteDoc(doc(db,colName,deleteItem.id));
       setDeleteItem(null);
     }catch(e){ alert("Delete failed"); }
@@ -192,13 +187,12 @@ export default function MyAdsPage(){
                   <span className="bg-[#eeeeee] text-black px-2.5 py-[2px] rounded-full text-[10px] font-black border">{ad.type==="job"?"JOB":"PRODUCT"}</span>
                 </div>
                 <p className="text-[11px] text-gray-400 mt-[2px] font-medium">{formatDate(ad.createdAt)}</p>
-                {/* ✅ LIKE & COMMENT - DIK THLAK */}
                 <div className="flex items-center gap-3 mt-2">
                   <button onClick={(e)=>toggleLike(e, ad)} className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-black border active:scale-95 ${liked.has(ad.id)?"bg-black text-white border-black":"bg-white text-black border-gray-200"}`}>
-                    <span>{liked.has(ad.id)?"❤️":"🤍"}</span> {likeCounts[ad.id]?? (Array.isArray(ad.likes)? ad.likes.length : ad.likeCount||0)} likes
+                    <span>{liked.has(ad.id)?"❤️":"🤍"}</span> {(likeCounts[ad.id]?? (Array.isArray(ad.likes)? ad.likes.length : (ad.likeCount || 0)))} likes
                   </button>
                   <button onClick={()=>setSelectedPostId(ad.id)} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-gray-200 text-[12px] font-black text-black active:opacity-60">
-                    💬 {commentCounts[ad.id]?? ad.commentsCount||0} comments
+                    💬 {(commentCounts[ad.id]?? (ad.commentsCount || 0))} comments
                   </button>
                 </div>
               </div>
@@ -238,4 +232,4 @@ export default function MyAdsPage(){
       }} />}
     </main>
   );
-}
+                                                }
