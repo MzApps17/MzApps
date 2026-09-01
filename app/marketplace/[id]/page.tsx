@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp, collection, query, where, getDocs, updateDoc, increment, arrayUnion, arrayRemove, limit } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase/config";
 import { onAuthStateChanged } from "firebase/auth";
+import Link from "next/link";
+import CommentPopup from "@/components/CommentPopup";
 
 export default function ProductDetail(){
   const {id}=useParams();
@@ -13,6 +15,12 @@ export default function ProductDetail(){
   const [seller,setSeller]=useState<any>(null);
   const [currentUser,setCurrentUser]=useState<any>(null);
   const [wished,setWished]=useState(false);
+  // ✅ THAR BELH
+  const [liked,setLiked]=useState(false);
+  const [likeCount,setLikeCount]=useState(0);
+  const [commentCount,setCommentCount]=useState(0);
+  const [showComment,setShowComment]=useState(false);
+  const [related,setRelated]=useState<any[]>([]);
 
   useEffect(()=>{
     const unsub=onAuthStateChanged(auth,(u)=>setCurrentUser(u));
@@ -37,10 +45,45 @@ export default function ProductDetail(){
         if(uid){
           const userSnap = await getDoc(doc(db,"users",uid));
           if(userSnap.exists()) setSeller(userSnap.data());
+          // ✅ RELATED POSTS
+          try{
+            const q = query(collection(db,"products"), where("userId","==",uid), limit(10));
+            let qs = await getDocs(q);
+            let rel = qs.docs.map(d=>({id:d.id,...d.data()})).filter((p:any)=>p.id!==id);
+            if(rel.length===0){
+              const q2 = query(collection(db,"products"), where("uid","==",uid), limit(10));
+              const qs2 = await getDocs(q2);
+              rel = qs2.docs.map(d=>({id:d.id,...d.data()})).filter((p:any)=>p.id!==id);
+            }
+            setRelated(rel.slice(0,6));
+          }catch{}
         }
         if(auth.currentUser){
           const wSnap=await getDoc(doc(db,"users",auth.currentUser.uid,"wishlist",id as string));
           if(wSnap.exists()) setWished(true);
+        }
+        // ✅ LIKE / COMMENT COUNT LOAD
+        let lc = 0;
+        if(typeof (data as any).likeCount==='number') lc=(data as any).likeCount;
+        else if(typeof (data as any).likesCount==='number') lc=(data as any).likesCount;
+        else if(Array.isArray((data as any).likes)) lc=(data as any).likes.length;
+        else if(Array.isArray((data as any).likedBy)) lc=(data as any).likedBy.length;
+        try{
+          const likeSnap = await getDocs(collection(db,"products",id as string,"likes"));
+          if(likeSnap.size>0) lc = likeSnap.size;
+          const u = auth.currentUser;
+          if(u && likeSnap.docs.find(d=>d.id===u.uid)) setLiked(true);
+        }catch{}
+        if(auth.currentUser){
+          if(Array.isArray((data as any).likes)&& (data as any).likes.includes(auth.currentUser.uid)) setLiked(true);
+          if(Array.isArray((data as any).likedBy)&& (data as any).likedBy.includes(auth.currentUser.uid)) setLiked(true);
+        }
+        setLikeCount(lc);
+        try{
+          const cs = await getDocs(collection(db,"products",id as string,"comments"));
+          setCommentCount(cs.size);
+        }catch{
+          setCommentCount((data as any).commentCount||(data as any).commentsCount||0);
         }
       }
     };
@@ -57,6 +100,60 @@ export default function ProductDetail(){
       await setDoc(wishRef,{productId:id, createdAt:serverTimestamp()});
       setWished(true);
     }
+  };
+
+  // ✅ THAR BELH - LIKE / NOTI / SHARE
+  const sendNoti = async(type:"like"|"comment", text?:string)=>{
+    try{
+      const u = auth.currentUser || currentUser;
+      if(!u ||!product) return;
+      const ownerId = (product as any).userId || (product as any).uid || (product as any).sellerId;
+      if(!ownerId || ownerId===u.uid) return;
+      const notiRef = doc(collection(db,"users",ownerId,"notifications"));
+      await setDoc(notiRef,{
+        type,
+        postId: id,
+        postType: "product",
+        fromUid: u.uid,
+        fromName: u.displayName || u.email?.split("@")[0] || "Someone",
+        fromPhoto: u.photoURL || "",
+        postTitle: product.title || "your post",
+        message: type==="like"? `${u.displayName||"Someone"} liked your post` : text || "commented on your post",
+        read:false,
+        createdAt: new Date()
+      });
+    }catch{}
+  };
+
+  const toggleLike = async()=>{
+    const u = auth.currentUser || currentUser;
+    if(!u){ router.push("/login"); return; }
+    const prodRef = doc(db,"products",id as string);
+    const likeRef = doc(db,"products",id as string,"likes",u.uid);
+    if(liked){
+      setLiked(false);
+      setLikeCount(c=>Math.max(0,c-1));
+      try{ await deleteDoc(likeRef); await updateDoc(prodRef,{likes:arrayRemove(u.uid),likedBy:arrayRemove(u.uid),likeCount:increment(-1),likesCount:increment(-1)}); }catch{}
+    }else{
+      setLiked(true);
+      setLikeCount(c=>c+1);
+      try{ await setDoc(likeRef,{userId:u.uid,createdAt:new Date()}); await updateDoc(prodRef,{likes:arrayUnion(u.uid),likedBy:arrayUnion(u.uid),likeCount:increment(1),likesCount:increment(1)}); }catch{
+        try{ await setDoc(prodRef,{likes:arrayUnion(u.uid),likeCount:increment(1)},{merge:true}); }catch{}
+      }
+      sendNoti("like");
+    }
+  };
+
+  const handleShare = async()=>{
+    const url = window.location.href;
+    try{
+      if(navigator.share){
+        await navigator.share({title: product?.title, text: product?.title, url});
+      }else{
+        await navigator.clipboard.writeText(url);
+        alert("Link copied!");
+      }
+    }catch{}
   };
 
   if(!product) return <div className="p-10 text-center font-black">Loading...</div>;
@@ -130,6 +227,19 @@ export default function ProductDetail(){
         <h2 className="font-bold text-[18px] mt-1">{product.title}</h2>
         <p className="text-[13px] text-gray-500 mt-1">{product.village}, {product.district} • {product.category} • {getPostTime()}</p>
 
+        {/* ✅ THAR BELH - PRICE ZAWN AH LIKE/COMMENT/SHARE */}
+        <div className="flex items-center gap-2.5 mt-4">
+          <button onClick={toggleLike} className={`flex items-center gap-2 px-5 py-2.5 rounded-full border-2 font-black text-[14px] active:scale-95 ${liked?"bg-black text-white border-black":"bg-white border-gray-200 text-black"}`}>
+            <span className="text-[18px]">{liked?"❤️":"🤍"}</span> {likeCount}
+          </button>
+          <button onClick={()=>setShowComment(true)} className="flex items-center gap-2 px-5 py-2.5 rounded-full border-2 bg-white border-gray-200 font-black text-[14px] active:scale-95 text-black">
+            <span className="text-[18px]">💬</span> {commentCount}
+          </button>
+          <button onClick={handleShare} className="flex items-center gap-2 px-5 py-2.5 rounded-full border-2 bg-white border-gray-200 font-black text-[14px] active:scale-95 text-black">
+            <span className="text-[18px]">↗️</span> Share
+          </button>
+        </div>
+
         <div className="bg-[#f8f9fa] rounded-2xl p-4 mt-5">
           <h3 className="font-black text-[15px] mb-2">Description</h3>
           <p className="text-[14px] whitespace-pre-wrap leading-6">{product.description}</p>
@@ -146,6 +256,24 @@ export default function ProductDetail(){
           </div>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="gray" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
         </div>
+
+        {/* ✅ THAR BELH - RELATED POSTS */}
+        {related.length>0 && (
+          <div className="mt-5">
+            <h3 className="font-black text-[15px] mb-3">Related Ads from {displayName}</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {related.map((p:any)=>(
+                <Link key={p.id} href={`/marketplace/${p.id}`} className="bg-[#f8f9fa] border border-gray-100 rounded-[18px] overflow-hidden">
+                  <img src={p.image||p.images?.[0]} className="w-full h-28 object-cover" alt=""/>
+                  <div className="p-2.5">
+                    <p className="font-bold text-[12px] line-clamp-2">{p.title}</p>
+                    <p className="font-black text-[14px] mt-1">₹{Number(p.price).toLocaleString("en-IN")}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="fixed bottom-[60px] left-0 right-0 bg-white border-t border-gray-200 p-3 flex gap-3 z-[100]">
@@ -157,6 +285,17 @@ export default function ProductDetail(){
           Call Seller
         </a>
       </div>
+
+      {showComment && (
+        <CommentPopup
+          postId={id as string}
+          onClose={()=>setShowComment(false)}
+          onCommentAdded={()=>{
+            setCommentCount(c=>c+1);
+            sendNoti("comment","commented on your post");
+          }}
+        />
+      )}
     </main>
   );
 }
