@@ -124,7 +124,6 @@ export default function Home(){
     }catch(e){ console.log("user fetch error", e); }
   };
 
-  // ✅ REAL COUNTS - LIKE/COMMENT SUBCOLLECTION ATANGA CHHIAR DIK - SELLER/MY-ADS NEN IN ANG
   useEffect(()=>{
     if(ads.length===0) return;
     const loadRealCounts = async()=>{
@@ -147,8 +146,7 @@ export default function Home(){
     };
     loadRealCounts();
   },[ads.map(a=>a.id).join(",")]);
-
-  const loadAds = useCallback(async (isNewCat=false)=>{
+    const loadAds = useCallback(async (isNewCat=false)=>{
     setLoading(isNewCat);
     try{
       let allAds:any[] = [];
@@ -328,4 +326,13 @@ export default function Home(){
       {showLoginAlert && (
         <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-6 backdrop-blur-sm">
           <div className="bg-white rounded-[20px] w-full max-w-[300px] p-6 shadow-2xl text-center">
-            <p className="font-bold text-[16px] text-[#002f34]">Login h
+            <p className="font-bold text-[16px] text-[#002f34]">Login hmasa phawt rawh</p>
+            <p className="text-[12px] text-gray-500 mt-1">Like, Comment, Wishlist ti tur chuan login a ngai</p>
+            <div className="flex gap-2 mt-5"><button onClick={()=> setShowLoginAlert(false)} className="flex-1 bg-gray-100 font-bold py-3 rounded-xl text-[14px]">Cancel</button><button onClick={()=> router.push("/login")} className="flex-1 bg-black text-white font-black py-3 rounded-xl text-[14px]">LOGIN</button></div>
+          </div>
+        </div>
+      )}
+      {selectedPostId && <CommentPopup postId={selectedPostId} onClose={()=>{ const pos = scrollPosRef.current; setSelectedPostId(null); setTimeout(()=> window.scrollTo(0, pos), 50); }} onCommentAdded={async (pid)=>{ try{ const ad = ads.find(a=>a.id===pid); const colName = ad?._type==="job"? "jobs":"products" : "products"; const cs = await getDocs(collection(db,colName,pid,"comments")); setCommentCounts(prev=>{ const c={...prev}; c[pid]=cs.size; return c; }); }catch{ setAds(prev=> prev.map(p=> p.id===pid? {...p, commentsCount: (p.commentsCount||0)+1, commentCount: (p.commentCount||0)+1} : p)); } }} />}
+    </main>
+  );
+              }
