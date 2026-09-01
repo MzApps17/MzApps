@@ -65,7 +65,7 @@ export default function Home(){
     if(ads.length > 0 &&!loading){
       const saved = sessionStorage.getItem("mzHomeScroll");
       if(saved){
-        setTimeout(()=>{ window.scrollTo({top: parseInt(saved), behavior: "auto"}); }, 300);
+        setTimeout(()=>{ window.scrollTo({top: parseInt(saved), behavior: "auto"}); }, 350);
       }
     }
   },[ads, loading]);
@@ -151,14 +151,17 @@ export default function Home(){
 
   const trackView = async (ad:any)=>{
     try{
-      const colName = ad._type==="job"? "jobs":"products";
-      const viewed = JSON.parse(localStorage.getItem("mz_viewed_ids")||"[]");
+      const uid = auth.currentUser?.uid || "guest";
+      const keyViewed = `mz_viewed_${uid}`;
+      const keyScore = `mz_score_${uid}`;
+      const viewed = JSON.parse(localStorage.getItem(keyViewed)||"[]");
       const updated = [ad.id,...viewed.filter((x:string)=>x!==ad.id)].slice(0,200);
-      localStorage.setItem("mz_viewed_ids", JSON.stringify(updated));
-      const scores = JSON.parse(localStorage.getItem("mz_cat_score")||"{}");
+      localStorage.setItem(keyViewed, JSON.stringify(updated));
+      const scores = JSON.parse(localStorage.getItem(keyScore)||"{}");
       const c = ad.category||"Others";
       scores[c]=(scores[c]||0)+1;
-      localStorage.setItem("mz_cat_score", JSON.stringify(scores));
+      localStorage.setItem(keyScore, JSON.stringify(scores));
+      const colName = ad._type==="job"? "jobs":"products";
       const postRef = doc(db,colName,ad.id);
       await updateDoc(postRef, { views: increment(1), viewsCount: increment(1) }).catch(async()=>{
         await setDoc(postRef, { views: 1, viewsCount: 1 }, {merge:true});
@@ -184,7 +187,7 @@ export default function Home(){
     try{
       let allAds:any[] = [];
       if(cat==="All"){
-        const q1=query(collection(db,"products"), orderBy("createdAt","desc"), limit(40));
+        const q1=query(collection(db,"products"), orderBy("createdAt","desc"), limit(60));
         const q2=query(collection(db,"jobs"), orderBy("createdAt","desc"), limit(20));
         const [snap1,snap2]=await Promise.all([getDocs(q1), getDocs(q2).catch(()=>({docs:[]} as any))]);
         const p1=snap1.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"}));
@@ -195,28 +198,46 @@ export default function Home(){
         const snap=await getDocs(q);
         allAds=snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"job"}));
       }else{
-        const q=query(collection(db,"products"), where("category","==",cat), orderBy("createdAt","desc"), limit(40));
+        const q=query(collection(db,"products"), where("category","==",cat), orderBy("createdAt","desc"), limit(60));
         const snap=await getDocs(q);
         allAds = snap.docs.map(d=>({id:d.id,...d.data() as any, _type:"product"}));
       }
       try{
-        const viewedSet = new Set<string>(JSON.parse(localStorage.getItem("mz_viewed_ids")||"[]"));
-        const catScores:Record<string,number> = JSON.parse(localStorage.getItem("mz_cat_score")||"{}");
+        const uid = auth.currentUser?.uid || "guest";
+        const viewedSet = new Set<string>(JSON.parse(localStorage.getItem(`mz_viewed_${uid}`)||"[]"));
+        const catScores:Record<string,number> = JSON.parse(localStorage.getItem(`mz_score_${uid}`)||"{}");
+        const topCats = Object.entries(catScores).sort((a,b)=> (b[1] as number)-(a[1] as number)).slice(0,3).map(x=>x[0]);
+
         const scored = allAds.map(ad=>{
           const isViewed = viewedSet.has(ad.id);
-          const catPoint = (catScores[ad.category||""]||0)*15;
-          const viewsPoint = (ad.views||ad.viewsCount||0)*0.6;
+          const catScore = (catScores[ad.category||""]||0);
+          const isTopCat = topCats.length>0? topCats.includes(ad.category) : false;
+          let catPoint = catScore * 25;
+          if(isTopCat) catPoint += 30;
           const t = ad.createdAt?.toMillis? ad.createdAt.toMillis() : new Date(ad.createdAt||0).getTime();
           const ageH = (Date.now()-t)/(1000*3600);
-          const fresh = Math.max(0,60-ageH*0.4);
-          let score = catPoint + viewsPoint + fresh;
-          if(isViewed) score -= 120;
-          return {...ad, _score: score, _viewed: isViewed};
+          const fresh = Math.max(0, 80 - ageH*0.8);
+          const randomJitter = Math.random()*40;
+          let score = catPoint + fresh + randomJitter;
+          if(isViewed) score -= 80;
+          if(ageH > 72) score -= 40;
+          return {...ad, _score: score, _viewed: isViewed, _isTopCat: isTopCat};
         });
-        scored.sort((a,b)=>b._score-a._score);
-        const unseen = scored.filter((a:any)=>!a._viewed);
-        const seen = scored.filter((a:any)=>a._viewed);
-        const finalAds = [...unseen,...seen].slice(0,30);
+
+        const topCatPosts = scored.filter((a:any)=>a._isTopCat &&!a._viewed).sort((a,b)=> b._score - a._score);
+        const otherUnseen = scored.filter((a:any)=>!a._isTopCat &&!a._viewed).sort((a,b)=> b._score - a._score);
+        const seen = scored.filter((a:any)=>a._viewed).sort((a,b)=> b._score - a._score);
+
+        const shuffledTop = topCatPosts.sort(()=>Math.random()-0.5);
+        const shuffledOther = otherUnseen.sort(()=>Math.random()-0.5);
+
+        let finalAds:any[] = [];
+        if(topCats.length>0){
+          finalAds = [...shuffledTop.slice(0,15),...shuffledOther.slice(0,10),...shuffledTop.slice(15,25),...seen.slice(0,5)].slice(0,30);
+        }else{
+          finalAds = [...scored].sort((a,b)=> b._score - a._score + (Math.random()-0.5)*20).slice(0,30);
+        }
+
         const map = new Map(); finalAds.forEach((ad:any)=> map.set(ad.id, ad));
         const uniqueFinal = Array.from(map.values());
         setAds(uniqueFinal); fetchUserProfiles(uniqueFinal);
@@ -227,7 +248,7 @@ export default function Home(){
       }
     }catch(e){ console.log(e); }
     setLoading(false);
-  },[cat]);
+  },[cat, user]);
 
   useEffect(()=>{ loadAds(true); },[loadAds]);
 
@@ -408,4 +429,4 @@ export default function Home(){
       )}
     </main>
   );
-                              }
+                               }
