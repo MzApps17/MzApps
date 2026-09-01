@@ -26,8 +26,6 @@ export default function ProductDetail(){
     return ()=>unsub();
   },[]);
 
-  // ❌ A DIK LO KHA KA PAIH - popstate kha a buaina a ni
-
   useEffect(()=>{
     const getProd=async()=>{
       const snap=await getDoc(doc(db,"products",id as string));
@@ -40,7 +38,6 @@ export default function ProductDetail(){
           if(userSnap.exists()) setSeller(userSnap.data());
         }
 
-        // ✅ FIXED: RELATED - CATEGORY IN ANG
         try{
           const cat = (data as any).category || "";
           if(cat){
@@ -150,19 +147,22 @@ export default function ProductDetail(){
   const sellerUid = product.userId || product.uid || product.userUid || product.sellerId;
 
   const handleBack = ()=>{
-    // ✅ FIX - Back dik tak
     sessionStorage.setItem("mz_is_back","1");
+    localStorage.setItem("mz_is_back","1");
     if(window.history.length > 1){
-      router.back();
+      window.history.back();
     } else {
       router.push("/");
     }
   };
 
   const goToSellerProfile = ()=>{
-    if(currentUser && sellerUid && currentUser.uid === sellerUid) router.push("/account");
-    else if(sellerUid){
+    if(currentUser && sellerUid && currentUser.uid === sellerUid){
       sessionStorage.setItem("mz_is_back","1");
+      router.push("/account");
+    } else if(sellerUid){
+      sessionStorage.setItem("mz_is_back","1");
+      localStorage.setItem("mz_is_back","1");
       router.push(`/seller/${sellerUid}`);
     }
   };
@@ -209,7 +209,7 @@ export default function ProductDetail(){
             <h3 className="font-black text-[15px] mb-3">Related Ads</h3>
             <div className="grid grid-cols-2 gap-3">
               {related.map((p:any)=>(
-                <Link key={p.id} href={`/marketplace/${p.id}`} className="bg-[#f8f9fa] border border-gray-100 rounded-[18px] overflow-hidden" onClick={()=>sessionStorage.setItem("mz_is_back","1")}>
+                <Link key={p.id} href={`/marketplace/${p.id}`} className="bg-[#f8f9fa] border border-gray-100 rounded-[18px] overflow-hidden" onClick={()=>{ sessionStorage.setItem("mz_is_back","1"); localStorage.setItem("mz_is_back","1"); }}>
                   <img src={p.image||p.images?.[0]} className="w-full h-28 object-cover" alt=""/>
                   <div className="p-2.5">
                     <p className="font-bold text-[12px] line-clamp-2">{p.title}</p>
