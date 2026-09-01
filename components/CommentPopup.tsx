@@ -30,7 +30,13 @@ export default function CommentPopup({ postId, onClose, onCommentAdded }: { post
   const goSeller = (uid:string) => {
     if(!uid) return;
     onClose();
-    setTimeout(()=> router.push(`/seller/${uid}`), 150);
+    setTimeout(()=> {
+      if(user && uid === user.uid){
+        router.push(`/account`);
+      }else{
+        router.push(`/seller/${uid}`);
+      }
+    }, 150);
   };
 
   useEffect(()=>{
