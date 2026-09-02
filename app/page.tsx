@@ -40,6 +40,40 @@ function getLikeCount(ad:any){
   return 0;
 }
 
+// === NEW: SWIPE SLIDER - THIL DANG KHAWIH LO ===
+function FeedImageSlider({ imgs, title, onTap }: { imgs: string[], title: string, onTap: ()=>void }){
+  const [idx,setIdx]=useState(0);
+  const startX=useRef(0);
+  const onTouchStart=(e:React.TouchEvent)=>{ startX.current=e.touches[0].clientX; }
+  const onTouchEnd=(e:React.TouchEvent)=>{
+    const diff=startX.current - e.changedTouches[0].clientX;
+    if(Math.abs(diff)>40){
+      if(diff>0 && idx < imgs.length-1) setIdx(idx+1);
+      if(diff<0 && idx>0) setIdx(idx-1);
+    }
+  }
+  if(!imgs || imgs.length===0) return null;
+  return (
+    <div className="relative w-full h-[340px] bg-gray-100 overflow-hidden" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      <div className="flex h-full w-full transition-transform duration-300 ease-out" style={{transform:`translateX(-${idx*100}%)`}}>
+        {imgs.map((src,i)=>(
+          <img key={i} src={src} alt={title} loading="lazy" className="w-full h-full object-cover flex-shrink-0" onClick={onTap}/>
+        ))}
+      </div>
+      {imgs.length>1 && (
+        <>
+          <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex gap-1.5 bg-black/40 px-2 py-1 rounded-full">
+            {imgs.map((_,i)=>(
+              <div key={i} className={`h-1.5 rounded-full transition-all ${i===idx?'w-3 bg-white':'w-1.5 bg-white/60'}`}/>
+            ))}
+          </div>
+          <div className="absolute top-2.5 right-2 bg-black/60 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{idx+1}/{imgs.length}</div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function Home(){
   const [ads,setAds]=useState<any[]>([]);
   const [search,setSearch]=useState("");
@@ -388,6 +422,8 @@ export default function Home(){
           const u = userMap[postUid || ""];
           const realName = getUserNameFromDoc(u) || ad.userName || ad.sellerName || ad.displayName || "Mizo User";
           const realPic = getUserPicFromDoc(u) || ad.userPhoto || ad.userPic || `https://ui-avatars.com/api/?name=${encodeURIComponent(realName)}&background=002f34&color=fff&bold=true`;
+          const allImages = ad.images && ad.images.length>0? ad.images : (ad.image? [ad.image] : []);
+          const phone = ad.phone || ad.mobile || ad.whatsapp || ad.contact || ad.sellerPhone || u?.phone || "";
           return (
             <div key={ad.id} className="bg-white mb-2 w-full cursor-pointer">
               <div className="flex items-center gap-3 p-3">
@@ -399,15 +435,34 @@ export default function Home(){
               </div>
               <div className="px-3 pb-1" onClick={()=>{ trackView(ad); saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><h2 className="font-bold text-[16px] text-[#002f34] line-clamp-1">{ad.title}</h2></div>
               <div className="px-3 pb-3" onClick={()=>{ trackView(ad); saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><p className="text-[16px] font-medium text-[#222] leading-[1.4] line-clamp-3">{ad.description || ad.desc || ""}</p></div>
-              <div className="relative w-full bg-gray-100" onClick={()=>{ trackView(ad); saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
-                <div className="w-full h-[340px] bg-gray-100 overflow-hidden flex items-center justify-center">
-                  {(ad._type==="job" &&!ad.image &&!ad.images?.[0])? (<div className="w-full h-full bg-[#f3f4f6] flex items-center justify-center p-3"><p className="text-[22px] font-black text-[#002f34] text-center leading-tight capitalize">{ad.title || "Job"}</p></div>) : (<img src={ad.image || ad.images?.[0] || "https://via.placeholder.com/300"} alt={ad.title} loading="lazy" className="w-full h-full object-cover"/>)}
-                </div>
+
+              {/* === IMAGE SWIPE HERE === */}
+              <div className="relative w-full bg-gray-100">
+                {(ad._type==="job" && allImages.length===0)? (
+                  <div onClick={()=>{ trackView(ad); saveScroll(); router.push(`/jobs/${ad.id}`); }} className="w-full h-[340px] bg-[#f3f4f6] flex items-center justify-center p-3"><p className="text-[22px] font-black text-[#002f34] text-center leading-tight capitalize">{ad.title || "Job"}</p></div>
+                ) : (
+                  <FeedImageSlider imgs={allImages} title={ad.title} onTap={()=>{ trackView(ad); saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }} />
+                )}
                 <button onClick={(e)=>toggleWish(e,ad.id)} className="absolute top-3 right-3 bg-white/90 backdrop-blur p-2.5 rounded-full shadow-md"><span className="text-[18px]">{wishIds.has(ad.id)? "❤️" : "🤍"}</span></button>
               </div>
-              <div className="px-3 pt-2.5" onClick={()=>{ trackView(ad); saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><p className="font-black text-[18px] text-[#002f34]">₹ {Number(ad.price || ad.salary || 0).toLocaleString("en-IN") || "0"}</p></div>
-              <div className="px-3 pt-1 flex items-center gap-1 text-gray-500" onClick={()=>{ trackView(ad); saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="text-[11px] font-bold uppercase">{ad.khua || ad.location || "AIZAWL"}, {ad.district || "MIZORAM"}</span></div>
-              <div className="flex items-center gap-7 px-3 py-3 mt-2 border-t border-gray-100">
+
+              {/* === PRICE + LOCATION + WHATSAPP/CALL - NEW === */}
+              <div className="px-3 pt-2.5 pb-1 flex items-center justify-between">
+                <div className="flex flex-col" onClick={()=>{ trackView(ad); saveScroll(); router.push(ad._type==="job"? `/jobs/${ad.id}` : `/marketplace/${ad.id}`); }}>
+                  <p className="font-black text-[18px] text-[#002f34]">₹ {Number(ad.price || ad.salary || 0).toLocaleString("en-IN") || "0"}</p>
+                  <div className="flex items-center gap-1 text-gray-500 mt-[2px]"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span className="text-[11px] font-bold uppercase">{ad.khua || ad.location || "AIZAWL"}, {ad.district || "MIZORAM"}</span></div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={(e)=>{ e.stopPropagation(); if(phone){ const num = phone.replace(/\D/g,'').slice(-10); window.open(`https://wa.me/91${num}?text=Hi, ka lo hmu che ${ad.title} chungchang ah`, '_blank'); } }} className="w-9 h-9 rounded-full bg-[#25D366] flex items-center justify-center shadow active:scale-90">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M19.05 4.9A9.82 9.82 0 0 0 12.04 2C6.51 2 2.04 6.48 2.04 12c0 1.76.46 3.47 1.33 4.98L2 22l5.15-1.34A9.82 9.82 0 0 0 12.04 22c5.53 0 10-4.47 10-10 0-2.67-1.04-5.18-2.99-7.1zM12.04 20a7.8 7.8 0 0 1-3.98-1.08l-.28-.17-3.06.8.82-2.98-.18-.3a7.9 7.9 0 0 1-1.22-4.27c0-4.37 3.56-7.93 7.93-7.93a7.88 7.88 0 0 1 5.62 2.33 7.86 7.86 0 0 1 2.31 5.59c0 4.38-3.56 7.94-7.94 7.94zm4.35-5.94c-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.92-1.18-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.02-.37.1-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.46-.39-.4-.54-.4h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2 0 1.18.86 2.32.98 2.48.12.16 1.69 2.58 4.1 3.62.57.25 1.02.4 1.37.51.58.18 1.1.16 1.51.1.46-.07 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28z"/></svg>
+                  </button>
+                  <button onClick={(e)=>{ e.stopPropagation(); if(phone){ window.location.href=`tel:${phone}`; } }} className="w-9 h-9 rounded-full bg-[#002f34] flex items-center justify-center shadow active:scale-90">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.68A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.05 12.05 0 0 0.7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.03 12.03 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-7 px-3 py-3 mt-1 border-t border-gray-100">
                 <button onClick={(e)=>toggleLike(e,ad)} className="flex items-center gap-2 text-[16px] font-bold">
                   <svg width="28" height="28" viewBox="0 0 24 24" fill={likeIds.has(ad.id)? "black" : "none"} stroke="black" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                   <span>{(likeCounts[ad.id]?? getLikeCount(ad))}</span>
@@ -470,4 +525,4 @@ export default function Home(){
       )}
     </main>
   );
-            }
+}
